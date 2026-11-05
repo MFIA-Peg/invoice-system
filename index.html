@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PO Entry</title>
+
+<style>
+
+body{
+    font-family: Arial, sans-serif;
+    background:#f4f6f8;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,.1);
+}
+
+h1{
+    text-align:center;
+    color:#2c3e50;
+}
+
+.section{
+    margin-bottom:20px;
+}
+
+label{
+    display:block;
+    margin-bottom:5px;
+    font-weight:bold;
+}
+
+input,
+textarea,
+select{
+    width:100%;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    box-sizing:border-box;
+}
+
+.row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+button{
+    background:#27ae60;
+    color:white;
+    padding:12px 20px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#219150;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Purchase Order Entry</h1>
+
+<div class="row">
+
+<div>
+<label>PO Number *</label>
+<input type="text">
+</div>
+
+<div>
+<label>Company *</label>
+<input type="text">
+</div>
+
+</div>
+
+<br>
+
+<div class="row">
+
+<div>
+<label>Department *</label>
+<input type="text">
+</div>
+
+<div>
+<label>Project Name</label>
+<input type="text">
+</div>
+
+</div>
+
+<br>
+
+<div class="row">
+
+<div>
+<label>PO Value Ex VAT *</label>
+<input type="number">
+</div>
+
+<div>
+<label>VAT</label>
+<select>
+<option>Yes</option>
+<option>No</option>
+</select>
+</div>
+
+</div>
+
+<br>
+
+<div class="row">
+
+<div>
+<label>PO Date</label>
+<input type="date">
+</div>
+
+<div>
+<label>Expiry Date</label>
+<input type="date">
+</div>
+
+</div>
+
+<br>
+
+<div class="section">
+
+<label>Notes</label>
+
+<textarea rows="5"></textarea>
+
+</div>
+
+<button>Save PO</button>
+
+</div>
+
+</body>
+</html>
