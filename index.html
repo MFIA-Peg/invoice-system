@@ -1,164 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PO Entry</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PO Entry</title>
 
-<style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-body{
-    font-family: Arial, sans-serif;
-    background:#f4f6f8;
-    margin:0;
-    padding:20px;
-}
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
 
-.container{
-    max-width:900px;
-    margin:auto;
-    background:white;
-    padding:20px;
-    border-radius:10px;
-    box-shadow:0 0 10px rgba(0,0,0,.1);
-}
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+        }
 
-h1{
-    text-align:center;
-    color:#2c3e50;
-}
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
 
-.section{
-    margin-bottom:20px;
-}
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
 
-label{
-    display:block;
-    margin-bottom:5px;
-    font-weight:bold;
-}
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
 
-input,
-textarea,
-select{
-    width:100%;
-    padding:10px;
-    border:1px solid #ccc;
-    border-radius:5px;
-    box-sizing:border-box;
-}
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
 
-.row{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:15px;
-}
+        button {
+            background: #27ae60;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
 
-button{
-    background:#27ae60;
-    color:white;
-    padding:12px 20px;
-    border:none;
-    border-radius:5px;
-    cursor:pointer;
-}
+        button:hover {
+            background: #219150;
+        }
 
-button:hover{
-    background:#219150;
-}
-
-</style>
-
+        .message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="container">
+    <div class="container">
 
-<h1>Purchase Order Entry</h1>
+        <h1>Purchase Order Entry</h1>
 
-<div class="row">
+        <div class="row">
+            <div>
+                <label>PO Number *</label>
+                <input id="po_no" type="text">
+            </div>
 
-<div>
-<label>PO Number *</label>
-<input type="text">
-</div>
+            <div>
+                <label>Company *</label>
+                <input id="company" type="text">
+            </div>
+        </div>
 
-<div>
-<label>Company *</label>
-<input type="text">
-</div>
+        <div class="row">
+            <div>
+                <label>Department *</label>
+                <input id="department" type="text">
+            </div>
 
-</div>
+            <div>
+                <label>Project Name</label>
+                <input id="project_name" type="text">
+            </div>
+        </div>
 
-<br>
+        <div class="row">
+            <div>
+                <label>PO Value Ex VAT *</label>
+                <input id="po_value_ex_vat" type="number">
+            </div>
 
-<div class="row">
+            <div>
+                <label>VAT</label>
+                <select id="vat">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+        </div>
 
-<div>
-<label>Department *</label>
-<input type="text">
-</div>
+        <div class="row">
+            <div>
+                <label>PO Date</label>
+                <input id="po_date" type="date">
+            </div>
 
-<div>
-<label>Project Name</label>
-<input type="text">
-</div>
+            <div>
+                <label>Expiry Date</label>
+                <input id="expiry_date" type="date">
+            </div>
+        </div>
 
-</div>
+        <label>Notes</label>
+        <textarea id="notes" rows="5"></textarea>
 
-<br>
+        <br><br>
 
-<div class="row">
+        <button id="saveBtn">Save PO</button>
 
-<div>
-<label>PO Value Ex VAT *</label>
-<input type="number">
-</div>
+        <div class="message" id="message"></div>
 
-<div>
-<label>VAT</label>
-<select>
-<option>Yes</option>
-<option>No</option>
-</select>
-</div>
+        <p style="color:red;">Version 2.0</p>
 
-</div>
-
-<br>
-
-<div class="row">
-
-<div>
-<label>PO Date</label>
-<input type="date">
-</div>
-
-<div>
-<label>Expiry Date</label>
-<input type="date">
-</div>
-
-</div>
-
-<br>
-
-<div class="section">
-
-<label>Notes</label>
-
-<textarea rows="5"></textarea>
-
-</div>
-
-<button>Save PO</button>
-
-<p style="color:red;">Version 1.1</p>
-
-</div>
+    </div>
 
 </body>
+
 </html>
-</body>
