@@ -208,12 +208,8 @@ function savePO() {
         return;
     }
 
-    alert(
-        "Validation Passed\n\n" +
-        "PO Number: " + poNo + "\n" +
-        "Company: " + company + "\n" +
-        "Department: " + department
-    );
+document.getElementById('message').innerHTML =
+    "Validation Passed Successfully";
 
 }
 
