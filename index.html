@@ -4,11 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>PO Entry</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+
         body {
             font-family: Arial, sans-serif;
             background: #f4f6f8;
@@ -22,7 +24,7 @@
             background: white;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+            box-shadow: 0 0 10px rgba(0,0,0,.1);
         }
 
         h1 {
@@ -69,88 +71,154 @@
         .message {
             margin-top: 15px;
             font-weight: bold;
+            color: blue;
         }
+
     </style>
+
 </head>
 
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <h1>Purchase Order Entry</h1>
+    <h1>Purchase Order Entry</h1>
 
-        <div class="row">
-            <div>
-                <label>PO Number *</label>
-                <input id="po_no" type="text">
-            </div>
+    <div class="row">
 
-            <div>
-                <label>Company *</label>
-                <input id="company" type="text">
-            </div>
+        <div>
+            <label>PO Number *</label>
+            <input id="po_no" type="text">
         </div>
 
-        <div class="row">
-            <div>
-                <label>Department *</label>
-                <input id="department" type="text">
-            </div>
-
-            <div>
-                <label>Project Name</label>
-                <input id="project_name" type="text">
-            </div>
+        <div>
+            <label>Company *</label>
+            <input id="company" type="text">
         </div>
-
-        <div class="row">
-            <div>
-                <label>PO Value Ex VAT *</label>
-                <input id="po_value_ex_vat" type="number">
-            </div>
-
-            <div>
-                <label>VAT</label>
-                <select id="vat">
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="row">
-            <div>
-                <label>PO Date</label>
-                <input id="po_date" type="date">
-            </div>
-
-            <div>
-                <label>Expiry Date</label>
-                <input id="expiry_date" type="date">
-            </div>
-        </div>
-
-        <label>Notes</label>
-        <textarea id="notes" rows="5"></textarea>
-
-        <br><br>
-<button id="saveBtn" onclick="savePO()">Save PO</button>
-
-        <div class="message" id="message"></div>
-
-        <p style="color:red;">Version 2.0</p>
 
     </div>
+
+    <div class="row">
+
+        <div>
+            <label>Department *</label>
+            <input id="department" type="text">
+        </div>
+
+        <div>
+            <label>Project Name</label>
+            <input id="project_name" type="text">
+        </div>
+
+    </div>
+
+    <div class="row">
+
+        <div>
+            <label>PO Value Ex VAT *</label>
+            <input id="po_value_ex_vat" type="number">
+        </div>
+
+        <div>
+            <label>VAT</label>
+            <select id="vat">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+            </select>
+        </div>
+
+    </div>
+
+    <div class="row">
+
+        <div>
+            <label>PO Date</label>
+            <input id="po_date" type="date">
+        </div>
+
+        <div>
+            <label>Expiry Date</label>
+            <input id="expiry_date" type="date">
+        </div>
+
+    </div>
+
+    <label>Notes</label>
+
+    <textarea id="notes" rows="5"></textarea>
+
+    <br><br>
+
+    <button id="saveBtn" onclick="savePO()">
+        Save PO
+    </button>
+
+    <div class="message" id="message"></div>
+
+    <p style="color:red;">
+        Version 3.0
+    </p>
+
+</div>
 
 <script>
 
 function savePO() {
 
-    alert("Save button clicked successfully");
+    const poNo =
+        document.getElementById('po_no').value;
+
+    const company =
+        document.getElementById('company').value;
+
+    const department =
+        document.getElementById('department').value;
+
+    const projectName =
+        document.getElementById('project_name').value;
+
+    const poValue =
+        document.getElementById('po_value_ex_vat').value;
+
+    if (!poNo) {
+
+        alert("PO Number is required");
+
+        return;
+    }
+
+    if (!company) {
+
+        alert("Company is required");
+
+        return;
+    }
+
+    if (!department) {
+
+        alert("Department is required");
+
+        return;
+    }
+
+    if (!poValue || Number(poValue) <= 0) {
+
+        alert("PO Value must be greater than zero");
+
+        return;
+    }
+
+    alert(
+        "Validation Passed\n\n" +
+        "PO Number: " + poNo + "\n" +
+        "Company: " + company + "\n" +
+        "Department: " + department
+    );
 
 }
 
 </script>
+
 </body>
 
 </html>
