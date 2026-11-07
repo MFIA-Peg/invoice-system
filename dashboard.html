@@ -2,19 +2,130 @@
 <html>
 <head>
 <title>Projects Dashboard V9.0</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+
+body{
+    font-family:Arial,sans-serif;
+    background:#f4f6f8;
+    padding:20px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    background:#1e293b;
+    color:white;
+    padding:10px;
+}
+
+td{
+    border:1px solid #ddd;
+    padding:10px;
+}
+
+button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#1d4ed8;
+}
+
+</style>
+
 </head>
 
 <body>
 
 <h1>Projects Dashboard V9.0</h1>
 
-<button>
-New Project
+<button onclick="loadProjects()">
+Refresh Projects
 </button>
 
 <hr>
 
-<p>Projects will be displayed here.</p>
+<div id="projectsList">
+Loading...
+</div>
+
+<script>
+
+const SUPABASE_URL =
+'https://hxhfjmtjibwkkbpakopt.supabase.co';
+
+const SUPABASE_KEY =
+'sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
+
+const supabaseClient =
+supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+async function loadProjects(){
+
+const { data, error } =
+await supabaseClient
+.from('projects')
+.select('*')
+.order('id');
+
+if(error){
+
+document.getElementById('projectsList').innerHTML =
+error.message;
+
+return;
+
+}
+
+let html =
+'<table>';
+
+html += `
+<tr>
+<th>ID</th>
+<th>Project Name</th>
+<th>Company</th>
+<th>Status</th>
+</tr>
+`;
+
+data.forEach(project => {
+
+html += `
+<tr>
+<td>${project.id}</td>
+<td>${project.project_name || ''}</td>
+<td>${project.company || ''}</td>
+<td>${project.status || ''}</td>
+</tr>
+`;
+
+});
+
+html += '</table>';
+
+document.getElementById('projectsList').innerHTML =
+html;
+
+}
+
+loadProjects();
+
+</script>
 
 </body>
 </html>
