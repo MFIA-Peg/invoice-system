@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Projects Dashboard V9.0</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects Dashboard V9.1</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -11,6 +13,19 @@ body{
     font-family:Arial,sans-serif;
     background:#f4f6f8;
     padding:20px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+    box-shadow:0 0 10px rgba(0,0,0,.1);
 }
 
 table{
@@ -33,7 +48,7 @@ button{
     background:#2563eb;
     color:white;
     border:none;
-    padding:8px 12px;
+    padding:10px 15px;
     border-radius:5px;
     cursor:pointer;
 }
@@ -42,22 +57,58 @@ button:hover{
     background:#1d4ed8;
 }
 
+input{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<h1>Projects Dashboard V9.0</h1>
+<div class="container">
+
+<div class="card">
+
+<h1>Projects Dashboard V9.1</h1>
+
+<input
+type="text"
+id="searchBox"
+placeholder="Search Project"
+onkeyup="filterProjects()">
 
 <button onclick="loadProjects()">
-Refresh Projects
+Refresh
 </button>
 
-<hr>
+</div>
+
+<div class="card">
+
+<h2>Projects</h2>
 
 <div id="projectsList">
 Loading...
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Project Details</h2>
+
+<div id="projectDetails">
+
+Select a project from the list
+
+</div>
+
+</div>
+
 </div>
 
 <script>
@@ -100,6 +151,7 @@ html += `
 <th>Project Name</th>
 <th>Company</th>
 <th>Status</th>
+<th>Open</th>
 </tr>
 `;
 
@@ -111,6 +163,11 @@ html += `
 <td>${project.project_name || ''}</td>
 <td>${project.company || ''}</td>
 <td>${project.status || ''}</td>
+<td>
+<button onclick="openProject(${project.id})">
+Open
+</button>
+</td>
 </tr>
 `;
 
@@ -118,8 +175,74 @@ html += `
 
 html += '</table>';
 
-document.getElementById('projectsList').innerHTML =
-html;
+document.getElementById('projectsList')
+.innerHTML = html;
+
+}
+
+async function openProject(projectId){
+
+const { data, error } =
+await supabaseClient
+.from('projects')
+.select('*')
+.eq('id', projectId)
+.single();
+
+if(error){
+
+alert(error.message);
+return;
+
+}
+
+document.getElementById('projectDetails').innerHTML = `
+
+<h3>${data.project_name}</h3>
+
+<p><b>Company:</b> ${data.company}</p>
+
+<p><b>Department:</b> ${data.department}</p>
+
+<p><b>Manager:</b> ${data.project_manager || ''}</p>
+
+<p><b>Status:</b> ${data.status}</p>
+
+<hr>
+
+<button onclick="alert('PO Module Coming Next')">
+Add PO
+</button>
+
+<button onclick="alert('Invoice Module Coming Next')">
+Add Invoice
+</button>
+
+`;
+
+}
+
+function filterProjects(){
+
+const search =
+document.getElementById('searchBox')
+.value
+.toLowerCase();
+
+const rows =
+document.querySelectorAll('table tr');
+
+rows.forEach((row,index)=>{
+
+if(index===0) return;
+
+row.style.display =
+row.innerText.toLowerCase()
+.includes(search)
+? ''
+: 'none';
+
+});
 
 }
 
