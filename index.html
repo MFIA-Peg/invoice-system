@@ -302,14 +302,19 @@ async function savePO() {
 
     data.forEach(project => {
 
-        html += `
-        <tr>
-            <td>${project.id}</td>
-            <td>${project.project_name || ''}</td>
-            <td>${project.company || ''}</td>
-            <td>${project.status || ''}</td>
-        </tr>
-        `;
+       html += `
+<tr>
+    <td>${project.id}</td>
+    <td>${project.project_name || ''}</td>
+    <td>${project.company || ''}</td>
+    <td>${project.status || ''}</td>
+    <td>
+        <button onclick="openProject(${project.id})">
+            Open
+        </button>
+    </td>
+</tr>
+`;
     });
 
     html += '</table>';
@@ -317,6 +322,13 @@ async function savePO() {
     document.getElementById('projectsList').innerHTML = html;
 }
 
+    function openProject(projectId){
+
+    alert(
+        "Project ID: " + projectId
+    );
+
+}
 loadProjects();
 </script>
 
