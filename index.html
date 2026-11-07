@@ -4,13 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>PO Entry</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-
         body {
             font-family: Arial, sans-serif;
             background: #f4f6f8;
@@ -73,149 +71,202 @@
             font-weight: bold;
             color: blue;
         }
-
     </style>
-
 </head>
 
 <body>
 
-<div class="container">
+    <div class="container">
 
-    <h1>Purchase Order Entry</h1>
+        <h1>Purchase Order Entry</h1>
 
-    <div class="row">
+        <div class="row">
 
-        <div>
-            <label>PO Number *</label>
-            <input id="po_no" type="text">
+            <div>
+                <label>PO Number *</label>
+                <input id="po_no" type="text">
+            </div>
+
+            <div>
+                <label>Company *</label>
+                <input id="company" type="text">
+            </div>
+
         </div>
 
-        <div>
-            <label>Company *</label>
-            <input id="company" type="text">
+        <div class="row">
+
+            <div>
+                <label>Department *</label>
+                <input id="department" type="text">
+            </div>
+
+            <div>
+                <label>Project Name</label>
+                <input id="project_name" type="text">
+            </div>
+
         </div>
+
+        <div class="row">
+
+            <div>
+                <label>PO Value Ex VAT *</label>
+                <input id="po_value_ex_vat" type="number">
+            </div>
+
+            <div>
+                <label>VAT</label>
+                <select id="vat">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div>
+                <label>PO Date</label>
+                <input id="po_date" type="date">
+            </div>
+
+            <div>
+                <label>Expiry Date</label>
+                <input id="expiry_date" type="date">
+            </div>
+
+        </div>
+
+        <label>Notes</label>
+        <textarea id="notes" rows="5"></textarea>
+
+        <br><br>
+
+        <button onclick="savePO()">
+            Save PO
+        </button>
+
+        <div class="message" id="message"></div>
+
+        <p style="color:red;">
+            Version 6.0
+        </p>
 
     </div>
-
-    <div class="row">
-
-        <div>
-            <label>Department *</label>
-            <input id="department" type="text">
-        </div>
-
-        <div>
-            <label>Project Name</label>
-            <input id="project_name" type="text">
-        </div>
-
-    </div>
-
-    <div class="row">
-
-        <div>
-            <label>PO Value Ex VAT *</label>
-            <input id="po_value_ex_vat" type="number">
-        </div>
-
-        <div>
-            <label>VAT</label>
-            <select id="vat">
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-            </select>
-        </div>
-
-    </div>
-
-    <div class="row">
-
-        <div>
-            <label>PO Date</label>
-            <input id="po_date" type="date">
-        </div>
-
-        <div>
-            <label>Expiry Date</label>
-            <input id="expiry_date" type="date">
-        </div>
-
-    </div>
-
-    <label>Notes</label>
-
-    <textarea id="notes" rows="5"></textarea>
-
-    <br><br>
-
-    <button id="saveBtn" onclick="savePO()">
-        Save PO
-    </button>
-
-    <div class="message" id="message"></div>
-
-    <p style="color:red;">
-        Version 5.0
-
-    </p>
-
-</div>
 
 <script>
 
-function savePO() {
+const SUPABASE_URL =
+'https://hxhfjmtjibwkkbpakopt.supabase.co';
+
+const SUPABASE_KEY =
+'sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
+
+const supabaseClient =
+supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+async function savePO() {
 
     const poNo =
-        document.getElementById('po_no').value;
+        document.getElementById('po_no').value.trim();
 
     const company =
-        document.getElementById('company').value;
+        document.getElementById('company').value.trim();
 
     const department =
-        document.getElementById('department').value;
+        document.getElementById('department').value.trim();
 
     const projectName =
-        document.getElementById('project_name').value;
+        document.getElementById('project_name').value.trim();
 
     const poValue =
         document.getElementById('po_value_ex_vat').value;
 
+    const vat =
+        document.getElementById('vat').value === 'true';
+
+    const poDate =
+        document.getElementById('po_date').value;
+
+    const expiryDate =
+        document.getElementById('expiry_date').value;
+
+    const notes =
+        document.getElementById('notes').value.trim();
+
     if (!poNo) {
-
-        alert("PO Number is required");
-
+        alert('PO Number is required');
         return;
     }
 
     if (!company) {
-
-        alert("Company is required");
-
+        alert('Company is required');
         return;
     }
 
     if (!department) {
-
-        alert("Department is required");
-
+        alert('Department is required');
         return;
     }
 
     if (!poValue || Number(poValue) <= 0) {
+        alert('PO Value must be greater than zero');
+        return;
+    }
 
-        alert("PO Value must be greater than zero");
+    document.getElementById('message').innerHTML =
+        'Saving...';
+
+    const { error } = await supabaseClient
+        .from('pos')
+        .insert([
+            {
+                po_no: poNo,
+                company: company,
+                department: department,
+                project_name: projectName,
+                po_value_ex_vat: Number(poValue),
+                vat: vat,
+                po_date: poDate || null,
+                expiry_date: expiryDate || null,
+                notes: notes,
+                archive: false
+            }
+        ]);
+
+    if (error) {
+
+        document.getElementById('message').style.color =
+            'red';
+
+        document.getElementById('message').innerHTML =
+            'Error: ' + error.message;
 
         return;
     }
 
-document.getElementById('message').innerHTML =
-    "Validation Passed Successfully";
+    document.getElementById('message').style.color =
+        'green';
 
+    document.getElementById('message').innerHTML =
+        'PO Saved Successfully';
+
+    document.getElementById('po_no').value = '';
+    document.getElementById('company').value = '';
+    document.getElementById('department').value = '';
+    document.getElementById('project_name').value = '';
+    document.getElementById('po_value_ex_vat').value = '';
+    document.getElementById('po_date').value = '';
+    document.getElementById('expiry_date').value = '';
+    document.getElementById('notes').value = '';
 }
 
 </script>
 
 </body>
-
 </html>
