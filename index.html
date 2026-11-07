@@ -351,9 +351,9 @@ async function savePO() {
 
         <p><b>Status:</b> ${data.status}</p>
 
-        <button onclick="alert('Add PO Coming Next')">
-            Add PO
-        </button>
+       <button onclick="showPOModal(${projectId})">
+    Add PO
+</button>
 
         <button onclick="alert('Add Invoice Coming Next')">
             Add Invoice
@@ -362,7 +362,14 @@ async function savePO() {
     `;
 
 }
-loadProjects();
+function showPOModal(projectId){
+
+    alert(
+        "Add PO For Project ID = " + projectId
+    );
+
+}
+    loadProjects();
 </script>
 
     <hr style="margin-top:40px;">
