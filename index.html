@@ -416,6 +416,39 @@ function showPOModal(projectId){
 
     `;
 }
+       async function saveProjectPO(projectId){
+
+    const poNo =
+    document.getElementById('new_po_no').value;
+
+    const poValue =
+    document.getElementById('new_po_value').value;
+
+    const notes =
+    document.getElementById('new_po_notes').value;
+
+    const { error } = await supabaseClient
+    .from('pos')
+    .insert([{
+
+        project_id: projectId,
+        po_no: poNo,
+        po_value_ex_vat: Number(poValue),
+        notes: notes,
+        archive: false
+
+    }]);
+
+    if(error){
+
+        alert(error.message);
+        return;
+
+    }
+
+    alert('PO Saved Successfully');
+
+}
        loadProjects();
 </script>
 
