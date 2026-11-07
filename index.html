@@ -1,172 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO Entry - Version 8.0</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Order Entry - Version 8.0</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            margin: 0;
-            padding: 20px;
-        }
+<style>
+body{
+    font-family:Arial,sans-serif;
+    background:#f4f6f8;
+    margin:0;
+    padding:20px;
+}
 
-        .container {
-            max-width: 900px;
-            margin: auto;
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,.1);
-        }
+.container{
+    max-width:900px;
+    margin:auto;
+    background:#fff;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,.1);
+}
 
-        h1 {
-            text-align: center;
-            color: #2c3e50;
-        }
+h1{
+    text-align:center;
+    color:#2c3e50;
+}
 
-        .row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
+.row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+    margin-bottom:15px;
+}
 
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
+label{
+    display:block;
+    margin-bottom:5px;
+    font-weight:bold;
+}
 
-        input,
-        textarea,
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #cccccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
+input,
+textarea,
+select{
+    width:100%;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    box-sizing:border-box;
+}
 
-        button {
-            background: #27ae60;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
+button{
+    background:#27ae60;
+    color:#fff;
+    padding:12px 20px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
 
-        button:hover {
-            background: #219150;
-        }
+button:hover{
+    background:#219150;
+}
 
-        .message {
-            margin-top: 15px;
-            font-weight: bold;
-        }
+.message{
+    margin-top:15px;
+    font-weight:bold;
+}
+</style>
 
-        .version {
-            color: red;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-    </style>
 </head>
-
 <body>
 
 <div class="container">
 
-    <h1>Purchase Order Entry</h1>
+<h1>Purchase Order Entry</h1>
 
-    <div class="row">
-
-        <div>
-            <label>PO Number *</label>
-            <input id="po_no" type="text">
-        </div>
-
-        <div>
-            <label>Company *</label>
-            <input id="company" type="text">
-        </div>
-
+<div class="row">
+    <div>
+        <label>PO Number *</label>
+        <input id="po_no" type="text">
     </div>
 
-    <div class="row">
+    <div>
+        <label>Company *</label>
+        <input id="company" type="text">
+    </div>
+</div>
 
-        <div>
-            <label>Department *</label>
-            <input id="department" type="text">
-        </div>
-
-        <div>
-            <label>Project Name</label>
-            <input id="project_name" type="text">
-        </div>
-
+<div class="row">
+    <div>
+        <label>Department *</label>
+        <input id="department" type="text">
     </div>
 
-    <div class="row">
+    <div>
+        <label>Project Name</label>
+        <input id="project_name" type="text">
+    </div>
+</div>
 
-        <div>
-            <label>PO Value Ex VAT *</label>
-            <input id="po_value_ex_vat" type="number">
-        </div>
-
-        <div>
-            <label>VAT</label>
-            <select id="vat">
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-            </select>
-        </div>
-
+<div class="row">
+    <div>
+        <label>PO Value Ex VAT *</label>
+        <input id="po_value_ex_vat" type="number">
     </div>
 
-    <div class="row">
+    <div>
+        <label>VAT</label>
+        <select id="vat">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+        </select>
+    </div>
+</div>
 
-        <div>
-            <label>PO Date</label>
-            <input id="po_date" type="date">
-        </div>
-
-        <div>
-            <label>Expiry Date</label>
-            <input id="expiry_date" type="date">
-        </div>
-
+<div class="row">
+    <div>
+        <label>PO Date</label>
+        <input id="po_date" type="date">
     </div>
 
-    <label>Notes</label>
-    <textarea id="notes" rows="5"></textarea>
-
-    <br><br>
-
-    <button onclick="savePO()">
-        Save PO
-    </button>
-
-    <div class="message" id="message"></div>
-
-    <div class="version">
-        Version 8.0
+    <div>
+        <label>Expiry Date</label>
+        <input id="expiry_date" type="date">
     </div>
+</div>
+
+<label>Notes</label>
+<textarea id="notes" rows="5"></textarea>
+
+<br><br>
+
+<button id="saveBtn">
+    Save PO
+</button>
+
+<div id="message" class="message"></div>
+
+<p style="color:red;font-weight:bold;">
+Version 8.0
+</p>
 
 </div>
 
 <script>
 
 const SUPABASE_URL =
-'https://hxhfjmtjibwkkbpakopt.supabase.co';
+"https://hxhfjmtjibwkkbpakopt.supabase.co";
 
 const SUPABASE_KEY =
-'sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
+"sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 
 const supabaseClient =
+supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+document
+.getElementById("saveBtn")
+.addEventListener("click", savePO);
+
+async function savePO() {
+
+    const message =
+    document.getElementById("message");
+
+    message.style.color = "blue";
+    message.innerText = "Saving...";
+
+    const poNo =
+    document.getElementById("po_no").value.trim();
+
+    const company =
+    document.getElementById("company").value.trim();
+
+    const department =
+    document.getElementById("department").value.trim();
+
+    const projectName =
+    document.getElementById("project_name").value.trim();
+
+    const poValue =
+    document.getElementById("po_value_ex_vat").value;
+
+    const vat =
+    document.getElementById("vat").value === "true";
+
+    const poDate =
+    document.getElementById("po_date").value;
+
+    const expiryDate =
+    document.getElementById("expiry_date").value;
+
+    const notes =
+    document.getElementById("notes").value.trim();
+
+    if(!poNo){
+        alert("PO Number is required");
+        return;
+    }
+
+    if(!company){
+        alert("Company is required");
+        return;
+    }
+
+    if(!department){
+        alert("Department is required");
+        return;
+    }
+
+    if(!poValue || Number(poValue) <= 0){
+        alert("PO Value must be greater than zero");
+        return;
+    }
+
+    try {
+
+        const { data, error } =
+        await supabaseClient
+        .from("pos")
+        .insert([
+            {
+                po_no: poNo,
+                company: company,
+                department: department,
+                project_name: projectName,
+                po_value_ex_vat: Number(poValue),
+                vat: vat,
+                po_date: poDate || null,
+                expiry_date: expiryDate || null,
+                notes: notes,
+                archive: false
+            }
+        ])
+        .select();
+
+        if(error){
+            message.style.color = "red";
+            message.innerText =
+            "Error: " + error.message;
+            console.error(error);
+            return;
+        }
+
+        console.log(data);
+
+        message.style.color = "green";
+        message.innerText =
+        "PO Saved Successfully - Version 8.0";
+
+        document.getElementById("po_no").value = "";
+        document.getElementById("company").value = "";
+        document.getElementById("department").value = "";
+        document.getElementById("project_name").value = "";
+        document.getElementById("po_value_ex_vat").value = "";
+        document.getElementById("po_date").value = "";
+        document.getElementById("expiry_date").value = "";
+        document.getElementById("notes").value = "";
+
+    }
+    catch(ex){
+
+        console.error(ex);
+
+        message.style.color = "red";
+        message.innerText =
+        "Unexpected Error: " + ex.message;
+    }
+}
+
+</script>
+
+</body>
+</html>
