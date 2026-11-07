@@ -361,15 +361,62 @@ async function savePO() {
 
     `;
 
-}
 function showPOModal(projectId){
 
-    alert(
-        "Add PO For Project ID = " + projectId
-    );
+    document.getElementById('projectDetails').innerHTML += `
 
+    <hr>
+
+    <h3>Add New PO</h3>
+
+    <input id="new_po_no"
+        placeholder="PO Number"
+        style="width:100%;padding:8px;margin:5px 0;">
+
+    <input id="new_po_value"
+        placeholder="PO Value"
+        type="number"
+        style="width:100%;padding:8px;margin:5px 0;">
+
+    <textarea id="new_po_notes"
+        placeholder="Notes"
+        style="width:100%;padding:8px;margin:5px 0;"></textarea>
+
+    <button onclick="saveProjectPO(${projectId})">
+        Save PO
+    </button>
+
+    `;
 }
-    loadProjects();
+    
+      function showPOModal(projectId){
+
+    document.getElementById('projectDetails').innerHTML += `
+
+    <hr>
+
+    <h3>Add New PO</h3>
+
+    <input id="new_po_no"
+        placeholder="PO Number"
+        style="width:100%;padding:8px;margin:5px 0;">
+
+    <input id="new_po_value"
+        placeholder="PO Value"
+        type="number"
+        style="width:100%;padding:8px;margin:5px 0;">
+
+    <textarea id="new_po_notes"
+        placeholder="Notes"
+        style="width:100%;padding:8px;margin:5px 0;"></textarea>
+
+    <button onclick="saveProjectPO(${projectId})">
+        Save PO
+    </button>
+
+    `;
+}
+       loadProjects();
 </script>
 
     <hr style="margin-top:40px;">
