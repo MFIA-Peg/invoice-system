@@ -322,11 +322,44 @@ async function savePO() {
     document.getElementById('projectsList').innerHTML = html;
 }
 
-    function openProject(projectId){
+   async function openProject(projectId){
 
-    alert(
-        "Project ID: " + projectId
-    );
+    const { data, error } = await supabaseClient
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .single();
+
+    if(error){
+
+        alert(error.message);
+        return;
+
+    }
+
+    document.getElementById('projectDetails').innerHTML = `
+
+        <hr>
+
+        <h2>Project Details</h2>
+
+        <p><b>Project:</b> ${data.project_name}</p>
+
+        <p><b>Company:</b> ${data.company}</p>
+
+        <p><b>Department:</b> ${data.department}</p>
+
+        <p><b>Status:</b> ${data.status}</p>
+
+        <button onclick="alert('Add PO Coming Next')">
+            Add PO
+        </button>
+
+        <button onclick="alert('Add Invoice Coming Next')">
+            Add Invoice
+        </button>
+
+    `;
 
 }
 loadProjects();
@@ -341,6 +374,9 @@ Refresh Projects
 </button>
 
 <div id="projectsList" style="margin-top:20px;">
+<div id="projectDetails"
+style="margin-top:20px;">
+</div>
 Loading projects...
 </div>
 
