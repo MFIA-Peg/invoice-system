@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Projects Dashboard V9.1</title>
+
+<title>Projects Dashboard V10</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -12,11 +14,12 @@
 body{
     font-family:Arial,sans-serif;
     background:#f4f6f8;
+    margin:0;
     padding:20px;
 }
 
 .container{
-    max-width:1200px;
+    max-width:1400px;
     margin:auto;
 }
 
@@ -26,6 +29,38 @@ body{
     border-radius:10px;
     margin-bottom:20px;
     box-shadow:0 0 10px rgba(0,0,0,.1);
+}
+
+h1,h2,h3{
+    margin-top:0;
+}
+
+button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    padding:10px 15px;
+    border-radius:5px;
+    cursor:pointer;
+    margin-right:5px;
+}
+
+button:hover{
+    background:#1d4ed8;
+}
+
+button.invoice{
+    background:#16a34a;
+}
+
+button.invoice:hover{
+    background:#15803d;
+}
+
+input{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
 }
 
 table{
@@ -44,23 +79,10 @@ td{
     padding:10px;
 }
 
-button{
-    background:#2563eb;
-    color:white;
-    border:none;
-    padding:10px 15px;
-    border-radius:5px;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#1d4ed8;
-}
-
-input{
-    padding:10px;
-    border:1px solid #ccc;
-    border-radius:5px;
+.current-project{
+    background:#dbeafe;
+    padding:15px;
+    border-radius:10px;
 }
 
 </style>
@@ -73,7 +95,15 @@ input{
 
 <div class="card">
 
-<h1>Projects Dashboard V9.1</h1>
+<h1>Projects Dashboard V10</h1>
+
+<button onclick="addPO()">
+Add PO
+</button>
+
+<button onclick="loadProjects()">
+Refresh
+</button>
 
 <input
 type="text"
@@ -81,15 +111,11 @@ id="searchBox"
 placeholder="Search Project"
 onkeyup="filterProjects()">
 
-<button onclick="loadProjects()">
-Refresh
-</button>
-
 </div>
 
 <div class="card">
 
-<h2>Projects</h2>
+<h2>Projects List</h2>
 
 <div id="projectsList">
 Loading...
@@ -99,11 +125,11 @@ Loading...
 
 <div class="card">
 
-<h2>Project Details</h2>
+<h2>Current Project</h2>
 
 <div id="projectDetails">
 
-Select a project from the list
+No project selected
 
 </div>
 
@@ -125,6 +151,9 @@ SUPABASE_URL,
 SUPABASE_KEY
 );
 
+let currentProjectId = null;
+let currentProjectName = null;
+
 async function loadProjects(){
 
 const { data, error } =
@@ -142,8 +171,7 @@ return;
 
 }
 
-let html =
-'<table>';
+let html = '<table>';
 
 html += `
 <tr>
@@ -152,6 +180,7 @@ html += `
 <th>Company</th>
 <th>Status</th>
 <th>Open</th>
+<th>Add Invoice</th>
 </tr>
 `;
 
@@ -159,15 +188,29 @@ data.forEach(project => {
 
 html += `
 <tr>
+
 <td>${project.id}</td>
+
 <td>${project.project_name || ''}</td>
+
 <td>${project.company || ''}</td>
+
 <td>${project.status || ''}</td>
+
 <td>
 <button onclick="openProject(${project.id})">
 Open
 </button>
 </td>
+
+<td>
+<button
+class="invoice"
+onclick="addInvoice(${project.id})">
+Add Invoice
+</button>
+</td>
+
 </tr>
 `;
 
@@ -175,8 +218,8 @@ Open
 
 html += '</table>';
 
-document.getElementById('projectsList')
-.innerHTML = html;
+document.getElementById('projectsList').innerHTML =
+html;
 
 }
 
@@ -196,29 +239,61 @@ return;
 
 }
 
-document.getElementById('projectDetails').innerHTML = `
+currentProjectId = projectId;
+currentProjectName = data.project_name;
+
+document.getElementById('projectDetails')
+.innerHTML = `
+
+<div class="current-project">
 
 <h3>${data.project_name}</h3>
 
-<p><b>Company:</b> ${data.company}</p>
+<p><b>Company:</b>
+${data.company || ''}</p>
 
-<p><b>Department:</b> ${data.department}</p>
+<p><b>Department:</b>
+${data.department || ''}</p>
 
-<p><b>Manager:</b> ${data.project_manager || ''}</p>
+<p><b>Project Manager:</b>
+${data.project_manager || ''}</p>
 
-<p><b>Status:</b> ${data.status}</p>
+<p><b>Status:</b>
+${data.status || ''}</p>
 
-<hr>
-
-<button onclick="alert('PO Module Coming Next')">
-Add PO
-</button>
-
-<button onclick="alert('Invoice Module Coming Next')">
-Add Invoice
-</button>
+</div>
 
 `;
+
+}
+
+function addPO(){
+
+if(!currentProjectId){
+
+alert(
+'Please open a project first'
+);
+
+return;
+
+}
+
+alert(
+'Add PO for:\n' +
+currentProjectName +
+'\nProject ID: ' +
+currentProjectId
+);
+
+}
+
+function addInvoice(projectId){
+
+alert(
+'Invoice Module\nProject ID: ' +
+projectId
+);
 
 }
 
