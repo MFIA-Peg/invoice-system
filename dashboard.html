@@ -180,6 +180,7 @@ html += `
 <th>Company</th>
 <th>Status</th>
 <th>Open</th>
+<th>Status</th>
 </tr>
 `;
 
@@ -202,6 +203,11 @@ Open
 </button>
 </td>
 
+<td>
+<button onclick="changeStatus(${project.id})">
+Status
+</button>
+</td>
 </tr>
 `;
 
@@ -486,10 +492,37 @@ alert('Project Saved Successfully');
 
 closeProjectModal();
 
+async function changeStatus(projectId){
+
+const newStatus =
+prompt(
+'Enter New Status\n\nActive\nClosed\nPending'
+);
+
+if(!newStatus) return;
+
+const { error } =
+await supabaseClient
+.from('projects')
+.update({
+status: newStatus
+})
+.eq('id', projectId);
+
+if(error){
+
+alert(error.message);
+return;
+
+}
+
+alert(
+'Project Status Updated'
+);
+
 loadProjects();
 
 }
-    loadProjects();
 
 </script>
 
