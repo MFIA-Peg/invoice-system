@@ -160,6 +160,13 @@ supabase.createClient(
     SUPABASE_KEY
 );
 loadProjects();
+    const params =
+new URLSearchParams(
+window.location.search
+);
+
+const projectIdFromUrl =
+params.get('project_id');
 document
 .getElementById("saveBtn")
 .addEventListener("click", savePO);
