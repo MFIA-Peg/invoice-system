@@ -290,7 +290,8 @@ const { data, error } =
 await supabaseClient
 .from('pos')
 .select('*')
-.eq('project_id', projectId);
+.eq('project_id', projectId)
+.order('id');
 if(error){
 
 document.getElementById('poList').innerHTML =
