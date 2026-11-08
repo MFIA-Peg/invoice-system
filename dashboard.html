@@ -269,13 +269,12 @@ loadPOs(data.id);
 }
 
 async function loadPOs(projectId){
-.eq('project_name', projectName);
 
+const { data, error } =
 await supabaseClient
 .from('pos')
 .select('*')
-.eq('project_name', projectName);
-
+.eq('project_id', projectId);
 if(error){
 
 document.getElementById('poList').innerHTML =
