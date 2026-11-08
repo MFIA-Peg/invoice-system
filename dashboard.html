@@ -378,7 +378,10 @@ return;
 }
 
 window.location.href =
-'index.html';
+'index.html?project_id=' +
+currentProjectId +
+'&project_name=' +
+encodeURIComponent(currentProjectName);
 
 }
 
