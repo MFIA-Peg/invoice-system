@@ -269,21 +269,28 @@ if(existingPO && existingPO.length > 0){
 
     return;
 }
-            {
-                po_no: poNo,
-                company: company,
-                department: department,
-                project_id: projectId,
-project_name: projectName,
-                po_value_ex_vat: Number(poValue),
-                vat: vat,
-                po_date: poDate || null,
-                expiry_date: expiryDate || null,
-                notes: notes,
-                archive: false
-            }
-        ])
-        .select();
+
+try {
+
+    const { data, error } =
+    await supabaseClient
+    .from("pos")
+    .insert([
+        {
+            po_no: poNo,
+            company: company,
+            department: department,
+            project_id: projectId,
+            project_name: projectName,
+            po_value_ex_vat: Number(poValue),
+            vat: vat,
+            po_date: poDate || null,
+            expiry_date: expiryDate || null,
+            notes: notes,
+            archive: false
+        }
+    ])
+    .select();
 
         if(error){
             message.style.color = "red";
