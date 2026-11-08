@@ -255,12 +255,20 @@ projectSelect.selectedIndex
         return;
     }
 
-    try {
+   const { data: existingPO } =
+await supabaseClient
+.from("pos")
+.select("id")
+.eq("po_no", poNo);
 
-        const { data, error } =
-        await supabaseClient
-        .from("pos")
-        .insert([
+if(existingPO && existingPO.length > 0){
+
+    alert(
+        "PO Number Already Exists"
+    );
+
+    return;
+}
             {
                 po_no: poNo,
                 company: company,
