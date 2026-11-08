@@ -256,6 +256,16 @@ ${data.status || ''}</p>
 
 <br>
 
+<div style="margin-top:15px;">
+
+<button onclick="addPO()">
+Add PO
+</button>
+
+</div>
+
+<br>
+
 <h3>Purchase Orders</h3>
 
 <div id="poList">
@@ -357,12 +367,8 @@ return;
 
 }
 
-alert(
-'Add PO for:\n' +
-currentProjectName +
-'\nProject ID: ' +
-currentProjectId
-);
+window.location.href =
+'index.html';
 
 }
 
