@@ -413,6 +413,82 @@ document.getElementById(
 ).style.display = 'block';
 
 }
+    function closeProjectModal(){
+
+document.getElementById(
+'projectModal'
+).style.display = 'none';
+
+}
+    function closeProjectModal(){
+
+document.getElementById(
+'projectModal'
+).style.display = 'none';
+
+}
+
+async function saveProject(){
+
+const projectName =
+document.getElementById(
+'new_project_name'
+).value.trim();
+
+const company =
+document.getElementById(
+'new_company'
+).value.trim();
+
+const department =
+document.getElementById(
+'new_department'
+).value.trim();
+
+const projectManager =
+document.getElementById(
+'new_project_manager'
+).value.trim();
+
+const status =
+document.getElementById(
+'new_status'
+).value;
+
+if(!projectName){
+
+alert('Project Name is required');
+return;
+
+}
+
+const { error } =
+await supabaseClient
+.from('projects')
+.insert([{
+
+project_name: projectName,
+company: company,
+department: department,
+project_manager: projectManager,
+status: status
+
+}]);
+
+if(error){
+
+alert(error.message);
+return;
+
+}
+
+alert('Project Saved Successfully');
+
+closeProjectModal();
+
+loadProjects();
+
+}
     loadProjects();
 
 </script>
