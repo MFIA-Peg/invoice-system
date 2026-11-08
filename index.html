@@ -197,7 +197,16 @@ async function loadProjects(){
         </option>
         `;
 
-    });
+   });
+
+if(projectIdFromUrl){
+
+projectSelect.value =
+projectIdFromUrl;
+
+projectSelect.disabled = true;
+
+}
 
 }
 async function savePO() {
