@@ -481,19 +481,6 @@ if(error){
 alert(error.message);
 return;
     
-const { data: existingPO } =
-await supabaseClient
-.from("pos")
-.select("id")
-.eq("po_no", poNo);
-
-if(existingPO && existingPO.length > 0){
-
-alert(
-"PO Number already exists"
-);
-
-return;
 
 }
 alert('Project Saved Successfully');
