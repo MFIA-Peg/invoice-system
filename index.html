@@ -170,12 +170,12 @@ params.get('project_id');
 document
 .getElementById("saveBtn")
 .addEventListener("click", savePO);
-async function loadProjects(){
+.select('id,project_name,company,department'){
 
     const { data, error } =
     await supabaseClient
     .from('projects')
-    .select('id,project_name')
+    .select('id,project_name,company,department')
     .order('project_name');
 
     if(error){
@@ -191,13 +191,16 @@ async function loadProjects(){
 
     data.forEach(project => {
 
-        projectSelect.innerHTML += `
-        <option value="${project.id}">
-            ${project.project_name}
-        </option>
-        `;
+    projectSelect.innerHTML += `
+    <option
+        value="${project.id}"
+        data-company="${project.company || ''}"
+        data-department="${project.department || ''}">
+        ${project.project_name}
+    </option>
+    `;
 
-   });
+});
 
 if(projectIdFromUrl){
 
