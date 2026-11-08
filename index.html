@@ -97,8 +97,8 @@ button:hover{
     </div>
 
     <div>
-        <label>Project Name</label>
-        <input id="project_name" type="text">
+       <label>Project *</label>
+<select id="project_id"></select>
     </div>
 </div>
 
@@ -159,11 +159,40 @@ supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
-
+loadProjects();
 document
 .getElementById("saveBtn")
 .addEventListener("click", savePO);
+async function loadProjects(){
 
+    const { data, error } =
+    await supabaseClient
+    .from('projects')
+    .select('id,project_name')
+    .order('project_name');
+
+    if(error){
+        console.error(error);
+        return;
+    }
+
+    const projectSelect =
+    document.getElementById('project_id');
+
+    projectSelect.innerHTML =
+    '<option value="">Select Project</option>';
+
+    data.forEach(project => {
+
+        projectSelect.innerHTML += `
+        <option value="${project.id}">
+            ${project.project_name}
+        </option>
+        `;
+
+    });
+
+}
 async function savePO() {
 
     const message =
@@ -181,9 +210,16 @@ async function savePO() {
     const department =
     document.getElementById("department").value.trim();
 
-    const projectName =
-    document.getElementById("project_name").value.trim();
+    const projectSelect =
+document.getElementById("project_id");
 
+const projectId =
+Number(projectSelect.value);
+
+const projectName =
+projectSelect.options[
+projectSelect.selectedIndex
+].text;
     const poValue =
     document.getElementById("po_value_ex_vat").value;
 
@@ -229,7 +265,8 @@ async function savePO() {
                 po_no: poNo,
                 company: company,
                 department: department,
-                project_name: projectName,
+                project_id: projectId,
+project_name: projectName,
                 po_value_ex_vat: Number(poValue),
                 vat: vat,
                 po_date: poDate || null,
@@ -257,7 +294,7 @@ async function savePO() {
         document.getElementById("po_no").value = "";
         document.getElementById("company").value = "";
         document.getElementById("department").value = "";
-        document.getElementById("project_name").value = "";
+       document.getElementById("project_id").selectedIndex = 0;
         document.getElementById("po_value_ex_vat").value = "";
         document.getElementById("po_date").value = "";
         document.getElementById("expiry_date").value = "";
