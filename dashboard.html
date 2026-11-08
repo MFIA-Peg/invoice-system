@@ -406,58 +406,78 @@ row.innerText.toLowerCase()
 
 }
 
-async function addProject(){
+function addProject(){
 
-const projectName =
-prompt("Project Name");
-
-if(!projectName) return;
-
-const company =
-prompt("Company");
-
-if(!company) return;
-
-const department =
-prompt("Department");
-
-const projectManager =
-prompt("Project Manager");
-
-const { error } =
-await supabaseClient
-.from('projects')
-.insert([{
-
-project_name: projectName,
-company: company,
-department: department,
-project_manager: projectManager,
-status: 'Active'
-
-}]);
-
-if(error){
-
-alert(
-'Error: ' +
-error.message
-);
-
-return;
-
-}
-
-alert(
-'Project Saved Successfully'
-);
-
-loadProjects();
+document.getElementById(
+'projectModal'
+).style.display = 'block';
 
 }
     loadProjects();
 
 </script>
 
+<div id="projectModal" style="
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.5);
+">
+
+<div style="
+background:white;
+width:500px;
+max-width:90%;
+margin:50px auto;
+padding:20px;
+border-radius:10px;
+">
+
+<h2>Add New Project</h2>
+
+<label>Project Name</label>
+<input id="new_project_name" type="text">
+
+<br><br>
+
+<label>Company</label>
+<input id="new_company" type="text">
+
+<br><br>
+
+<label>Department</label>
+<input id="new_department" type="text">
+
+<br><br>
+
+<label>Project Manager</label>
+<input id="new_project_manager" type="text">
+
+<br><br>
+
+<label>Status</label>
+<select id="new_status">
+<option value="Active">Active</option>
+<option value="Closed">Closed</option>
+</select>
+
+<br><br>
+
+<button onclick="saveProject()">
+Save Project
+</button>
+
+<button
+style="background:red;"
+onclick="closeProjectModal()">
+Cancel
+</button>
+
+</div>
+
+</div>
 </body>
 </html>
