@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Projects Dashboard V10</title>
+<title>Projects Dashboard V11</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -95,7 +95,7 @@ td{
 
 <div class="card">
 
-<h1>Projects Dashboard V10</h1>
+<h1>Projects Dashboard V11</h1>
 
 <button onclick="addPO()">
 Add PO
@@ -180,7 +180,6 @@ html += `
 <th>Company</th>
 <th>Status</th>
 <th>Open</th>
-<th>Add Invoice</th>
 </tr>
 `;
 
@@ -200,14 +199,6 @@ html += `
 <td>
 <button onclick="openProject(${project.id})">
 Open
-</button>
-</td>
-
-<td>
-<button
-class="invoice"
-onclick="addInvoice(${project.id})">
-Add Invoice
 </button>
 </td>
 
@@ -263,7 +254,95 @@ ${data.status || ''}</p>
 
 </div>
 
+<br>
+
+<h3>Purchase Orders</h3>
+
+<div id="poList">
+Loading PO List...
+</div>
+
 `;
+
+loadPOs(data.project_name);
+
+}
+
+async function loadPOs(projectName){
+
+const { data, error } =
+await supabaseClient
+.from('pos')
+.select('*')
+.eq('project_name', projectName);
+
+if(error){
+
+document.getElementById('poList').innerHTML =
+error.message;
+
+return;
+
+}
+
+if(!data || data.length === 0){
+
+document.getElementById('poList').innerHTML =
+'No Purchase Orders Found';
+
+return;
+
+}
+
+let html = `
+<table>
+
+<tr>
+<th>PO Number</th>
+<th>Company</th>
+<th>PO Value</th>
+<th>PO Date</th>
+<th>Invoice</th>
+</tr>
+`;
+
+data.forEach(po => {
+
+html += `
+
+<tr>
+
+<td>${po.po_no || ''}</td>
+
+<td>${po.company || ''}</td>
+
+<td>${po.po_value_ex_vat || 0}</td>
+
+<td>${po.po_date || ''}</td>
+
+<td>
+
+<button
+class="invoice"
+onclick="addInvoice(
+'${po.po_no}',
+${currentProjectId}
+)">
+Add Invoice
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+});
+
+html += '</table>';
+
+document.getElementById('poList').innerHTML =
+html;
 
 }
 
@@ -288,11 +367,12 @@ currentProjectId
 
 }
 
-function addInvoice(projectId){
+function addInvoice(poNo, projectId){
 
 alert(
-'Invoice Module\nProject ID: ' +
-projectId
+'Invoice Module\n\n' +
+'PO Number: ' + poNo +
+'\nProject ID: ' + projectId
 );
 
 }
