@@ -406,11 +406,53 @@ row.innerText.toLowerCase()
 
 }
 
-function addProject(){
+async function addProject(){
+
+const projectName =
+prompt("Project Name");
+
+if(!projectName) return;
+
+const company =
+prompt("Company");
+
+if(!company) return;
+
+const department =
+prompt("Department");
+
+const projectManager =
+prompt("Project Manager");
+
+const { error } =
+await supabaseClient
+.from('projects')
+.insert([{
+
+project_name: projectName,
+company: company,
+department: department,
+project_manager: projectManager,
+status: 'Active'
+
+}]);
+
+if(error){
 
 alert(
-'Add Project Module Coming Soon'
+'Error: ' +
+error.message
 );
+
+return;
+
+}
+
+alert(
+'Project Saved Successfully'
+);
+
+loadProjects();
 
 }
     loadProjects();
