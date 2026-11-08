@@ -264,13 +264,13 @@ Loading PO List...
 
 `;
 
-loadPOs(data.project_name);
+loadPOs(data.id);
 
 }
 
-async function loadPOs(projectName){
+async function loadPOs(projectId){
+.eq('project_name', projectName);
 
-const { data, error } =
 await supabaseClient
 .from('pos')
 .select('*')
