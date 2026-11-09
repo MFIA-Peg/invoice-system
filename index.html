@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Projects Dashboard V12</title>
+<title>Purchase Order Entry V9</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -19,70 +18,52 @@ body{
 }
 
 .container{
-    max-width:1400px;
+    max-width:900px;
     margin:auto;
-}
-
-.card{
     background:white;
     padding:20px;
     border-radius:10px;
-    margin-bottom:20px;
     box-shadow:0 0 10px rgba(0,0,0,.1);
 }
 
-h1,h2,h3{
-    margin-top:0;
+h1{
+    text-align:center;
 }
 
-button{
-    background:#2563eb;
-    color:white;
-    border:none;
-    padding:10px 15px;
-    border-radius:5px;
-    cursor:pointer;
-    margin-right:5px;
+.row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+    margin-bottom:15px;
 }
 
-button:hover{
-    background:#1d4ed8;
+label{
+    display:block;
+    font-weight:bold;
+    margin-bottom:5px;
 }
 
-button.invoice{
-    background:#16a34a;
-}
-
-button.invoice:hover{
-    background:#15803d;
-}
-
-input,select{
+input,
+select,
+textarea{
+    width:100%;
     padding:10px;
     border:1px solid #ccc;
     border-radius:5px;
+    box-sizing:border-box;
 }
 
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th{
-    background:#1e293b;
+button{
+    background:#16a34a;
     color:white;
-    padding:10px;
+    border:none;
+    padding:12px 20px;
+    border-radius:5px;
+    cursor:pointer;
 }
 
-td{
-    border:1px solid #ddd;
-    padding:10px;
-}
-
-.current-project{
-    background:#dbeafe;
-    padding:15px;
-    border-radius:10px;
+button:hover{
+    background:#15803d;
 }
 
 </style>
@@ -93,45 +74,80 @@ td{
 
 <div class="container">
 
-<div class="card">
+<h1>Purchase Order Entry</h1>
 
-<h1>Projects Dashboard V12</h1>
+<div class="row">
 
-<button onclick="addProject()">
-Add Project
+<div>
+<label>PO Number</label>
+<input id="po_no" type="text">
+</div>
+
+<div>
+<label>Company</label>
+<input id="company" type="text">
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>Department</label>
+<input id="department" type="text">
+</div>
+
+<div>
+<label>Project</label>
+<select id="project_id"></select>
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>PO Value Ex VAT</label>
+<input id="po_value_ex_vat" type="number">
+</div>
+
+<div>
+<label>VAT</label>
+
+<select id="vat">
+<option value="true">Yes</option>
+<option value="false">No</option>
+</select>
+
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>PO Date</label>
+<input id="po_date" type="date">
+</div>
+
+<div>
+<label>Expiry Date</label>
+<input id="expiry_date" type="date">
+</div>
+
+</div>
+
+<label>Notes</label>
+
+<textarea id="notes" rows="5"></textarea>
+
+<br><br>
+
+<button onclick="savePO()">
+Save PO
 </button>
 
-<button onclick="loadProjects()">
-Refresh
-</button>
-
-<input
-type="text"
-id="searchBox"
-placeholder="Search Project"
-onkeyup="filterProjects()">
-
-</div>
-
-<div class="card">
-
-<h2>Projects List</h2>
-
-<div id="projectsList">
-Loading Projects...
-</div>
-
-</div>
-
-<div class="card">
-
-<h2>Current Project</h2>
-
-<div id="projectDetails">
-No Project Selected
-</div>
-
-</div>
+<p id="message"></p>
 
 </div>
 
@@ -149,467 +165,186 @@ SUPABASE_URL,
 SUPABASE_KEY
 );
 
-let currentProjectId = null;
-let currentProjectName = null;
-
-async function loadProjects(){
-
-    const { data, error } =
-    await supabaseClient
-    .from("projects")
-    .select("*")
-    .order("id");
-
-    if(error){
-
-        document.getElementById(
-        "projectsList"
-        ).innerHTML =
-        error.message;
-
-        return;
-    }
-
-    let html = `
-    <table>
-    <tr>
-        <th>ID</th>
-        <th>Project Name</th>
-        <th>Company</th>
-        <th>Status</th>
-        <th>Open</th>
-        <th>Update Status</th>
-    </tr>
-    `;
-
-    data.forEach(project => {
-
-        html += `
-        <tr>
-            <td>${project.id}</td>
-            <td>${project.project_name || ""}</td>
-            <td>${project.company || ""}</td>
-            <td>${project.status || ""}</td>
-
-            <td>
-                <button onclick="openProject(${project.id})">
-                Open
-                </button>
-            </td>
-
-            <td>
-                <button onclick="changeStatus(${project.id})">
-                Status
-                </button>
-            </td>
-
-        </tr>
-        `;
-
-    });
-
-    html += "</table>";
-
-    document.getElementById(
-    "projectsList"
-    ).innerHTML =
-    html;
-
-}
-
-async function openProject(projectId){
-
-    const { data, error } =
-    await supabaseClient
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .single();
-
-    if(error){
-
-        alert(error.message);
-
-        return;
-    }
-
-    currentProjectId =
-    data.id;
-
-    currentProjectName =
-    data.project_name;
-
-    document.getElementById(
-    "projectDetails"
-    ).innerHTML = `
-
-        <div class="current-project">
-
-            <h3>${data.project_name}</h3>
-
-            <p>
-            <b>Company:</b>
-            ${data.company || ""}
-            </p>
-
-            <p>
-            <b>Department:</b>
-            ${data.department || ""}
-            </p>
-
-            <p>
-            <b>Project Manager:</b>
-            ${data.project_manager || ""}
-            </p>
-
-            <p>
-            <b>Status:</b>
-            ${data.status || ""}
-            </p>
-
-        </div>
-
-        <br>
-
-        <button onclick="addPO()">
-        Add PO
-        </button>
-
-        <br><br>
-
-        <h3>Purchase Orders</h3>
-
-        <div id="poList">
-        Loading Purchase Orders...
-        </div>
-
-    `;
-
-    loadPOs(projectId);
-
-}
-
-async function loadPOs(projectId){
-
-    const { data, error } =
-    await supabaseClient
-    .from("pos")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("id");
-
-    if(error){
-
-        document.getElementById(
-        "poList"
-        ).innerHTML =
-        error.message;
-
-        return;
-    }
-
-    if(!data || data.length === 0){
-
-        document.getElementById(
-        "poList"
-        ).innerHTML =
-        "No Purchase Orders Found";
-
-        return;
-    }
-
-    let html = `
-
-    <table>
-
-    <tr>
-        <th>PO Number</th>
-        <th>Company</th>
-        <th>PO Value</th>
-        <th>PO Date</th>
-        <th>Invoice</th>
-    </tr>
-
-    `;
-
-    data.forEach(po => {
-
-        html += `
-
-        <tr>
-
-            <td>${po.po_no || ""}</td>
-
-            <td>${po.company || ""}</td>
-
-            <td>${po.po_value_ex_vat || 0}</td>
-
-            <td>${po.po_date || ""}</td>
-
-            <td>
-                <button
-                class="invoice"
-                onclick="addInvoice('${po.po_no}',${projectId})">
-                Add Invoice
-                </button>
-            </td>
-
-        </tr>
-
-        `;
-
-    });
-
-    html += "</table>";
-
-    document.getElementById(
-    "poList"
-    ).innerHTML =
-    html;
-
-}
-
-function addPO(){
-
-    if(!currentProjectId){
-
-        alert(
-        "Please Open A Project First"
-        );
-
-        return;
-    }
-
-    window.location.href =
-    "index.html?project_id=" +
-    currentProjectId;
-
-}
-
-function addInvoice(poNo, projectId){
-
-    alert(
-        "Invoice Module\n\n" +
-        "PO Number : " + poNo +
-        "\nProject ID : " + projectId
-    );
-
-}
-
-function filterProjects(){
-
-    const search =
-    document.getElementById(
-    "searchBox"
-    )
-    .value
-    .toLowerCase();
-
-    const rows =
-    document.querySelectorAll(
-    "table tr"
-    );
-
-    rows.forEach((row,index)=>{
-
-        if(index===0)
-        return;
-
-        row.style.display =
-        row.innerText
-        .toLowerCase()
-        .includes(search)
-        ? ""
-        : "none";
-
-    });
-
-}
-
-function addProject(){
-
-    document.getElementById(
-    "projectModal"
-    ).style.display =
-    "block";
-
-}
-
-function closeProjectModal(){
-
-    document.getElementById(
-    "projectModal"
-    ).style.display =
-    "none";
-
-}
-
-async function saveProject(){
-
-    const projectName =
-    document.getElementById(
-    "new_project_name"
-    ).value.trim();
-
-    const company =
-    document.getElementById(
-    "new_company"
-    ).value.trim();
-
-    const department =
-    document.getElementById(
-    "new_department"
-    ).value.trim();
-
-    const manager =
-    document.getElementById(
-    "new_project_manager"
-    ).value.trim();
-
-    const status =
-    document.getElementById(
-    "new_status"
-    ).value;
-
-    if(!projectName){
-
-        alert(
-        "Project Name Required"
-        );
-
-        return;
-    }
-
-    const { error } =
-    await supabaseClient
-    .from("projects")
-    .insert([{
-        project_name: projectName,
-        company: company,
-        department: department,
-        project_manager: manager,
-        status: status
-    }]);
-
-    if(error){
-
-        alert(error.message);
-
-        return;
-    }
-
-    alert(
-    "Project Saved"
-    );
-
-    closeProjectModal();
-
-    loadProjects();
-
-}
-
-async function changeStatus(projectId){
-
-    const newStatus =
-    prompt(
-    "Enter New Status"
-    );
-
-    if(!newStatus)
-    return;
-
-    const { error } =
-    await supabaseClient
-    .from("projects")
-    .update({
-        status:newStatus
-    })
-    .eq("id",projectId);
-
-    if(error){
-
-        alert(error.message);
-
-        return;
-    }
-
-    alert(
-    "Status Updated"
-    );
-
-    loadProjects();
-
-}
+const params =
+new URLSearchParams(
+window.location.search
+);
+
+const projectIdFromUrl =
+params.get("project_id");
 
 loadProjects();
 
+async function loadProjects(){
+
+const { data,error } =
+await supabaseClient
+.from("projects")
+.select("*")
+.order("project_name");
+
+if(error){
+console.log(error);
+return;
+}
+
+const projectSelect =
+document.getElementById("project_id");
+
+projectSelect.innerHTML = "";
+
+data.forEach(project=>{
+
+projectSelect.innerHTML += `
+<option value="${project.id}">
+${project.project_name}
+</option>
+`;
+
+});
+
+if(projectIdFromUrl){
+
+projectSelect.value =
+projectIdFromUrl;
+
+projectSelect.disabled = true;
+
+fillProjectData(projectIdFromUrl);
+
+}
+
+}
+
+async function fillProjectData(projectId){
+
+const { data,error } =
+await supabaseClient
+.from("projects")
+.select("*")
+.eq("id",projectId)
+.single();
+
+if(error) return;
+
+document.getElementById(
+"company"
+).value =
+data.company || "";
+
+document.getElementById(
+"department"
+).value =
+data.department || "";
+
+}
+
+document
+.getElementById("project_id")
+.addEventListener(
+"change",
+function(){
+
+fillProjectData(
+this.value
+);
+
+}
+);
+
+async function savePO(){
+
+const po_no =
+document.getElementById(
+"po_no"
+).value;
+
+const company =
+document.getElementById(
+"company"
+).value;
+
+const department =
+document.getElementById(
+"department"
+).value;
+
+const project_id =
+document.getElementById(
+"project_id"
+).value;
+
+const project_name =
+document.getElementById(
+"project_id"
+).options[
+document.getElementById(
+"project_id"
+).selectedIndex
+].text;
+
+const po_value =
+document.getElementById(
+"po_value_ex_vat"
+).value;
+
+const vat =
+document.getElementById(
+"vat"
+).value === "true";
+
+const po_date =
+document.getElementById(
+"po_date"
+).value;
+
+const expiry_date =
+document.getElementById(
+"expiry_date"
+).value;
+
+const notes =
+document.getElementById(
+"notes"
+).value;
+
+const { error } =
+await supabaseClient
+.from("pos")
+.insert([{
+
+po_no:po_no,
+company:company,
+department:department,
+project_id:Number(project_id),
+project_name:project_name,
+po_value_ex_vat:Number(po_value),
+vat:vat,
+po_date:po_date,
+expiry_date:expiry_date,
+notes:notes
+
+}]);
+
+if(error){
+
+document.getElementById(
+"message"
+).innerHTML =
+error.message;
+
+return;
+
+}
+
+document.getElementById(
+"message"
+).innerHTML =
+"PO Saved Successfully";
+
+}
+
 </script>
-
-<div id="projectModal"
-style="
-display:none;
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.5);
-">
-
-<div style="
-background:white;
-width:500px;
-max-width:90%;
-margin:50px auto;
-padding:20px;
-border-radius:10px;
-">
-
-<h2>Add New Project</h2>
-
-<label>Project Name</label>
-<input id="new_project_name" type="text">
-
-<br><br>
-
-<label>Company</label>
-<input id="new_company" type="text">
-
-<br><br>
-
-<label>Department</label>
-<input id="new_department" type="text">
-
-<br><br>
-
-<label>Project Manager</label>
-<input id="new_project_manager" type="text">
-
-<br><br>
-
-<label>Status</label>
-
-<select id="new_status">
-<option value="Active">Active</option>
-<option value="Closed">Closed</option>
-<option value="Pending">Pending</option>
-</select>
-
-<br><br>
-
-<button onclick="saveProject()">
-Save Project
-</button>
-
-<button
-style="background:red;"
-onclick="closeProjectModal()">
-Cancel
-</button>
-
-</div>
-
-</div>
 
 </body>
 </html>
