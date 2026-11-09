@@ -143,6 +143,19 @@ button:hover{
 
 <br><br>
 
+    <button
+type="button"
+onclick="goBack()"
+style="
+background:#2563eb;
+margin-right:10px;
+">
+Back To Projects
+</button>
+
+<button onclick="savePO()">
+Save PO
+</button>
 <button onclick="savePO()">
 Save PO
 </button>
@@ -341,6 +354,13 @@ document.getElementById(
 "message"
 ).innerHTML =
 "PO Saved Successfully";
+
+setTimeout(function(){
+
+window.location.href =
+"dashboard.html";
+
+},1000);
 
 }
 
