@@ -204,6 +204,9 @@ new URLSearchParams(
 window.location.search
 );
 
+const projectId =
+params.get("project_id") || "";
+
 document.getElementById(
 "po_no"
 ).value =
@@ -212,10 +215,35 @@ params.get("po_no") || "";
 document.getElementById(
 "project_id"
 ).value =
-params.get("project_id") || "";
+projectId;
+  
+async function getProjectName(){
 
+const projectId =
+document.getElementById(
+"project_id"
+).value;
+
+const { data } =
+await supabaseClient
+.from("projects")
+.select("project_name")
+.eq("id",projectId)
+.single();
+
+if(data){
+
+return data.project_name;
+
+}
+
+return "";
+
+}
 async function saveInvoice(){
-
+const projectName =
+await getProjectName();
+  
 const { error } =
 await supabaseClient
 .from("invoices")
@@ -283,7 +311,10 @@ document.getElementById(
 "project_id"
 ).value
 )
+,
 
+project_name:
+projectName
 }]);
 
 const msg =
