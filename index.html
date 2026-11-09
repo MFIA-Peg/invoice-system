@@ -191,17 +191,15 @@ document
 
     data.forEach(project => {
 
-    projectSelect.innerHTML += `
-    <option
-        value="${project.id}"
-        data-company="${project.company || ''}"
-        data-department="${project.department || ''}">
-        ${project.project_name}
-    </option>
-    `;
+projectSelect.innerHTML += `
+<option
+value="${project.id}"
+data-company="${project.company || ''}">
+${project.project_name}
+</option>
+`;
 
 });
-
 if(projectIdFromUrl){
 
 projectSelect.value =
