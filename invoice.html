@@ -98,7 +98,9 @@ background:#2563eb;
 
 <div>
 <label>Status</label>
-<select id="status">
+<select
+id="status"
+onchange="toggleCompletedDate()">
 <option>Draft</option>
 <option>Submitted</option>
 <option>Approved</option>
@@ -138,11 +140,14 @@ id="start_date"
 type="date">
 </div>
 
-<div>
+<div id="completedDateContainer">
+
 <label>Completed Date</label>
+
 <input
 id="completed_date"
 type="date">
+
 </div>
 
 </div>
@@ -157,8 +162,31 @@ type="date">
 </div>
 
 <div>
-<label>Payment Term</label>
-<input id="payment_term">
+<label>Payment Terms (Days)</label>
+
+<select id="payment_term">
+
+<option value="30">
+30 Days
+</option>
+
+<option value="45">
+45 Days
+</option>
+
+<option value="60">
+60 Days
+</option>
+
+<option value="90">
+90 Days
+</option>
+
+<option value="120">
+120 Days
+</option>
+
+</select>
 </div>
 
 </div>
@@ -242,6 +270,36 @@ return data.project_name;
 return "";
 
 }
+function toggleCompletedDate(){
+
+const status =
+document.getElementById(
+"status"
+).value;
+
+const container =
+document.getElementById(
+"completedDateContainer"
+);
+
+if(status === "Paid"){
+
+container.style.display =
+"block";
+
+}else{
+
+container.style.display =
+"none";
+
+document.getElementById(
+"completed_date"
+).value =
+"";
+
+}
+
+}  
 async function saveInvoice(){
 const projectName =
 await getProjectName();
@@ -339,6 +397,7 @@ msg.innerHTML=
 "Invoice Saved Successfully";
 
 }
+toggleCompletedDate();
 
 </script>
 
