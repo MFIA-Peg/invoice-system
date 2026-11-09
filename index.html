@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Purchase Order Entry V9</title>
+<title>Purchase Order Entry V10</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -39,8 +39,8 @@ h1{
 
 label{
     display:block;
-    font-weight:bold;
     margin-bottom:5px;
+    font-weight:bold;
 }
 
 input,
@@ -54,7 +54,6 @@ textarea{
 }
 
 button{
-    background:#16a34a;
     color:white;
     border:none;
     padding:12px 20px;
@@ -62,12 +61,20 @@ button{
     cursor:pointer;
 }
 
-button:hover{
-    background:#15803d;
+.btn-back{
+    background:#2563eb;
+}
+
+.btn-save{
+    background:#16a34a;
+}
+
+.message{
+    margin-top:15px;
+    font-weight:bold;
 }
 
 </style>
-
 </head>
 
 <body>
@@ -79,12 +86,12 @@ button:hover{
 <div class="row">
 
 <div>
-<label>PO Number</label>
+<label>PO Number *</label>
 <input id="po_no" type="text">
 </div>
 
 <div>
-<label>Company</label>
+<label>Company *</label>
 <input id="company" type="text">
 </div>
 
@@ -93,12 +100,12 @@ button:hover{
 <div class="row">
 
 <div>
-<label>Department</label>
+<label>Department *</label>
 <input id="department" type="text">
 </div>
 
 <div>
-<label>Project</label>
+<label>Project *</label>
 <select id="project_id"></select>
 </div>
 
@@ -107,7 +114,7 @@ button:hover{
 <div class="row">
 
 <div>
-<label>PO Value Ex VAT</label>
+<label>PO Value Ex VAT *</label>
 <input id="po_value_ex_vat" type="number">
 </div>
 
@@ -139,28 +146,27 @@ button:hover{
 
 <label>Notes</label>
 
-<textarea id="notes" rows="5"></textarea>
+<textarea
+id="notes"
+rows="5"></textarea>
 
 <br><br>
 
-    <button
+<button
+class="btn-back"
 type="button"
-onclick="goBack()"
-style="
-background:#2563eb;
-margin-right:10px;
-">
+onclick="window.location.href='dashboard.html'">
 Back To Projects
 </button>
 
-<button onclick="savePO()">
-Save PO
-</button>
-<button onclick="savePO()">
+<button
+class="btn-save"
+type="button"
+onclick="savePO()">
 Save PO
 </button>
 
-<p id="message"></p>
+<div id="message" class="message"></div>
 
 </div>
 
@@ -190,14 +196,14 @@ loadProjects();
 
 async function loadProjects(){
 
-const { data,error } =
+const { data, error } =
 await supabaseClient
 .from("projects")
 .select("*")
 .order("project_name");
 
 if(error){
-console.log(error);
+console.error(error);
 return;
 }
 
@@ -223,7 +229,9 @@ projectIdFromUrl;
 
 projectSelect.disabled = true;
 
-fillProjectData(projectIdFromUrl);
+fillProjectData(
+projectIdFromUrl
+);
 
 }
 
@@ -231,7 +239,7 @@ fillProjectData(projectIdFromUrl);
 
 async function fillProjectData(projectId){
 
-const { data,error } =
+const { data, error } =
 await supabaseClient
 .from("projects")
 .select("*")
@@ -267,100 +275,125 @@ this.value
 
 async function savePO(){
 
-const po_no =
+const poNo =
 document.getElementById(
 "po_no"
-).value;
+).value.trim();
 
 const company =
 document.getElementById(
 "company"
-).value;
+).value.trim();
 
 const department =
 document.getElementById(
 "department"
-).value;
+).value.trim();
 
-const project_id =
-document.getElementById(
-"project_id"
-).value;
-
-const project_name =
-document.getElementById(
-"project_id"
-).options[
-document.getElementById(
-"project_id"
-).selectedIndex
-].text;
-
-const po_value =
+const poValue =
 document.getElementById(
 "po_value_ex_vat"
 ).value;
 
-const vat =
-document.getElementById(
-"vat"
-).value === "true";
+if(!poNo){
 
-const po_date =
-document.getElementById(
-"po_date"
-).value;
+alert(
+"PO Number Required"
+);
 
-const expiry_date =
-document.getElementById(
-"expiry_date"
-).value;
+return;
 
-const notes =
+}
+
+if(!poValue){
+
+alert(
+"PO Value Required"
+);
+
+return;
+
+}
+
+const projectSelect =
 document.getElementById(
-"notes"
-).value;
+"project_id"
+);
+
+const projectId =
+Number(
+projectSelect.value
+);
+
+const projectName =
+projectSelect.options[
+projectSelect.selectedIndex
+].text;
 
 const { error } =
 await supabaseClient
 .from("pos")
 .insert([{
 
-po_no:po_no,
-company:company,
-department:department,
-project_id:Number(project_id),
-project_name:project_name,
-po_value_ex_vat:Number(po_value),
-vat:vat,
-po_date:po_date,
-expiry_date:expiry_date,
-notes:notes
+po_no: poNo,
+
+company: company,
+
+department: department,
+
+project_id: projectId,
+
+project_name: projectName,
+
+po_value_ex_vat:
+Number(poValue),
+
+vat:
+document
+.getElementById("vat")
+.value === "true",
+
+po_date:
+document
+.getElementById("po_date")
+.value || null,
+
+expiry_date:
+document
+.getElementById("expiry_date")
+.value || null,
+
+notes:
+document
+.getElementById("notes")
+.value || "",
+
+archive:false
 
 }]);
 
-if(error){
-
+const msg =
 document.getElementById(
 "message"
-).innerHTML =
+);
+
+if(error){
+
+msg.style.color =
+"red";
+
+msg.innerHTML =
 error.message;
 
 return;
 
 }
 
-document.getElementById(
-"message"
-).innerHTML =
+msg.style.color =
+"green";
+
+msg.innerHTML =
 "PO Saved Successfully";
-
-setTimeout(function(){
-
-window.location.href =
-"dashboard.html";
-
-},1000);
 
 }
 
