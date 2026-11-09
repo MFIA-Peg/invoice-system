@@ -243,6 +243,8 @@ return "";
 async function saveInvoice(){
 const projectName =
 await getProjectName();
+
+  alert(projectName);
   
 const { error } =
 await supabaseClient
