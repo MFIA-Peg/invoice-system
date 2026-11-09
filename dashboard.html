@@ -231,17 +231,11 @@ projectId,
 projectName
 ){
 
-alert(
-"Project ID = " + projectId
-);
-
-function directAddPO(projectId){
-
-alert(
-window.location.href
-);
-
-}
+window.location.href =
+"index.html?project_id=" +
+projectId +
+"&project_name=" +
+encodeURIComponent(projectName);
 
 }
 
