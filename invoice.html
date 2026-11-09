@@ -301,20 +301,32 @@ document.getElementById(
 
 }  
 async function saveInvoice(){
+
 const projectName =
 await getProjectName();
 
-  alert(projectName);
-  
+const invoiceNo =
+document.getElementById(
+"invoice_no"
+).value.trim();
+
+if(!invoiceNo){
+
+alert(
+"Invoice Number Required"
+);
+
+return;
+
+}
+
 const { error } =
 await supabaseClient
 .from("invoices")
 .insert([{
 
 invoice_no:
-document.getElementById(
-"invoice_no"
-).value,
+invoiceNo,
 
 status:
 document.getElementById(
@@ -361,9 +373,11 @@ document.getElementById(
 ).value || null,
 
 payment_terms:
+Number(
 document.getElementById(
 "payment_term"
-).value,
+).value
+),
 
 erp:false,
 
@@ -372,11 +386,11 @@ Number(
 document.getElementById(
 "project_id"
 ).value
-)
-,
+),
 
 project_name:
 projectName
+
 }]);
 
 const msg =
@@ -386,14 +400,20 @@ document.getElementById(
 
 if(error){
 
-msg.style.color="red";
-msg.innerHTML=error.message;
+msg.style.color =
+"red";
+
+msg.innerHTML =
+error.message;
+
 return;
 
 }
 
-msg.style.color="green";
-msg.innerHTML=
+msg.style.color =
+"green";
+
+msg.innerHTML =
 "Invoice Saved Successfully";
 
 }
