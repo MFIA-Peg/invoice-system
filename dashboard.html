@@ -335,6 +335,8 @@ let html = `
 <th>Company</th>
 <th>Value</th>
 <th>Date</th>
+<th>Invoices</th>
+<th>Add Invoice</th>
 </tr>
 `;
 
@@ -350,6 +352,21 @@ html += `
 <td>${po.po_value_ex_vat || 0}</td>
 
 <td>${po.po_date || ""}</td>
+
+<td>
+<button
+onclick="openInvoices('${po.po_no}')">
+Open
+</button>
+</td>
+
+<td>
+<button
+class="btn-po"
+onclick="addInvoice('${po.po_no}',${projectId})">
+Add Invoice
+</button>
+</td>
 
 </tr>
 `;
@@ -501,6 +518,110 @@ loadProjects();
 
 }
 
+    async function changeStatus(projectId){
+
+const status =
+prompt(
+"Enter New Status"
+);
+
+if(!status) return;
+
+const { error } =
+await supabaseClient
+.from("projects")
+.update({
+status:status
+})
+.eq("id",projectId);
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+loadProjects();
+
+}
+
+/* ضع الكود الجديد هنا */
+
+function addInvoice(
+poNo,
+projectId
+){
+
+window.location.href =
+"invoice.html?po_no=" +
+encodeURIComponent(poNo) +
+"&project_id=" +
+projectId;
+
+}
+
+async function openInvoices(poNo){
+
+const { data , error } =
+await supabaseClient
+.from("invoices")
+.select("*")
+.eq("po_no", poNo);
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+if(!data || data.length===0){
+
+alert(
+"No Invoices Found For " + poNo
+);
+
+return;
+
+}
+
+let html = `
+<h3>Invoices For ${poNo}</h3>
+
+<table>
+<tr>
+<th>Invoice No</th>
+<th>Status</th>
+<th>Amount</th>
+<th>Paid</th>
+</tr>
+`;
+
+data.forEach(inv=>{
+
+html += `
+<tr>
+<td>${inv.invoice_no || ""}</td>
+<td>${inv.status || ""}</td>
+<td>${inv.invoice_amount || 0}</td>
+<td>${inv.paid_amount || 0}</td>
+</tr>
+`;
+
+});
+
+html += "</table>";
+
+document.getElementById(
+"poList"
+).innerHTML = html;
+
+}
+
+loadProjects();
 loadProjects();
 
 </script>
