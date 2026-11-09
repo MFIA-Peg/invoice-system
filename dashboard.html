@@ -589,26 +589,72 @@ return;
 }
 
 let html = `
+
 <h3>Invoices For ${poNo}</h3>
 
 <table>
+
 <tr>
+
+<th>Edit</th>
+
 <th>Invoice No</th>
-<th>Status</th>
+
+<th>Invoice Date</th>
+
+<th>Approval Date</th>
+
+<th>Payment Terms</th>
+
+<th>Due Date</th>
+
 <th>Amount</th>
+
 <th>Paid</th>
+
+<th>Balance</th>
+
+<th>Status</th>
+
 </tr>
+
 `;
 
 data.forEach(inv=>{
 
 html += `
+
 <tr>
+
+<td>
+
+<button
+onclick="editInvoice(${inv.id})">
+Edit
+</button>
+
+</td>
+
 <td>${inv.invoice_no || ""}</td>
+
+<td>${inv.start_date || ""}</td>
+
+<td>${inv.approval_date || ""}</td>
+
+<td>${inv.payment_terms || ""}</td>
+
+<td>${inv.due_date || ""}</td>
+
+<td>${Number(inv.invoice_amount || 0).toFixed(2)}</td>
+
+<td>${Number(inv.paid_amount || 0).toFixed(2)}</td>
+
+<td>${Number(inv.open_balance || 0).toFixed(2)}</td>
+
 <td>${inv.status || ""}</td>
-<td>${inv.invoice_amount || 0}</td>
-<td>${inv.paid_amount || 0}</td>
+
 </tr>
+
 `;
 
 });
