@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Projects Dashboard V11</title>
+<title>Projects Dashboard V12</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -31,10 +30,6 @@ body{
     box-shadow:0 0 10px rgba(0,0,0,.1);
 }
 
-h1,h2,h3{
-    margin-top:0;
-}
-
 button{
     background:#2563eb;
     color:white;
@@ -49,11 +44,11 @@ button:hover{
     background:#1d4ed8;
 }
 
-button.invoice{
+.btn-po{
     background:#16a34a;
 }
 
-button.invoice:hover{
+.btn-po:hover{
     background:#15803d;
 }
 
@@ -86,7 +81,6 @@ td{
 }
 
 </style>
-
 </head>
 
 <body>
@@ -95,7 +89,7 @@ td{
 
 <div class="card">
 
-<h1>Projects Dashboard V11</h1>
+<h1>Projects Dashboard V12</h1>
 
 <button onclick="addProject()">
 Add Project
@@ -115,10 +109,10 @@ onkeyup="filterProjects()">
 
 <div class="card">
 
-<h2>Projects List</h2>
+<h2>Projects</h2>
 
 <div id="projectsList">
-Loading...
+Loading Projects...
 </div>
 
 </div>
@@ -128,9 +122,7 @@ Loading...
 <h2>Current Project</h2>
 
 <div id="projectDetails">
-
-No project selected
-
+No Project Selected
 </div>
 
 </div>
@@ -140,10 +132,10 @@ No project selected
 <script>
 
 const SUPABASE_URL =
-'https://hxhfjmtjibwkkbpakopt.supabase.co';
+"https://hxhfjmtjibwkkbpakopt.supabase.co";
 
 const SUPABASE_KEY =
-'sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
+"sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 
 const supabaseClient =
 supabase.createClient(
@@ -151,72 +143,99 @@ SUPABASE_URL,
 SUPABASE_KEY
 );
 
-let currentProjectId = null;
-let currentProjectName = null;
-
 async function loadProjects(){
 
-const { data, error } =
-await supabaseClient
-.from('projects')
-.select('*')
-.order('id');
+    const { data, error } =
+    await supabaseClient
+    .from("projects")
+    .select("*")
+    .order("id");
 
-if(error){
+    if(error){
 
-document.getElementById('projectsList').innerHTML =
-error.message;
+        document.getElementById(
+        "projectsList"
+        ).innerHTML =
+        error.message;
 
-return;
+        return;
+    }
+
+    let html = `
+    <table>
+
+    <tr>
+        <th>ID</th>
+        <th>Project Name</th>
+        <th>Company</th>
+        <th>Status</th>
+        <th>Open</th>
+        <th>Add PO</th>
+        <th>Status Update</th>
+    </tr>
+    `;
+
+    data.forEach(project => {
+
+        html += `
+        <tr>
+
+        <td>${project.id}</td>
+
+        <td>${project.project_name || ""}</td>
+
+        <td>${project.company || ""}</td>
+
+        <td>${project.status || ""}</td>
+
+        <td>
+        <button
+        onclick="openProject(${project.id})">
+        Open
+        </button>
+        </td>
+
+        <td>
+        <button
+        class="btn-po"
+        onclick="directAddPO(
+        ${project.id},
+        '${project.project_name || ""}'
+        )">
+        Add PO
+        </button>
+        </td>
+
+        <td>
+        <button
+        onclick="changeStatus(${project.id})">
+        Status
+        </button>
+        </td>
+
+        </tr>
+        `;
+
+    });
+
+    html += "</table>";
+
+    document.getElementById(
+    "projectsList"
+    ).innerHTML = html;
 
 }
 
-let html = '<table>';
+function directAddPO(
+projectId,
+projectName
+){
 
-html += `
-<tr>
-<th>ID</th>
-<th>Project Name</th>
-<th>Company</th>
-<th>Status</th>
-<th>Open</th>
-<th>Status</th>
-</tr>
-`;
-
-data.forEach(project => {
-
-html += `
-<tr>
-
-<td>${project.id}</td>
-
-<td>${project.project_name || ''}</td>
-
-<td>${project.company || ''}</td>
-
-<td>${project.status || ''}</td>
-
-<td>
-<button onclick="openProject(${project.id})">
-Open
-</button>
-</td>
-
-<td>
-<button onclick="changeStatus(${project.id})">
-Status
-</button>
-</td>
-</tr>
-`;
-
-});
-
-html += '</table>';
-
-document.getElementById('projectsList').innerHTML =
-html;
+window.location.href =
+"index.html?project_id="
++ projectId +
+"&project_name=" +
+encodeURIComponent(projectName);
 
 }
 
@@ -224,49 +243,43 @@ async function openProject(projectId){
 
 const { data, error } =
 await supabaseClient
-.from('projects')
-.select('*')
-.eq('id', projectId)
+.from("projects")
+.select("*")
+.eq("id", projectId)
 .single();
 
 if(error){
-
-alert(error.message);
-return;
-
+    alert(error.message);
+    return;
 }
 
-currentProjectId = projectId;
-currentProjectName = data.project_name;
-
-document.getElementById('projectDetails')
-.innerHTML = `
+document.getElementById(
+"projectDetails"
+).innerHTML = `
 
 <div class="current-project">
 
 <h3>${data.project_name}</h3>
 
-<p><b>Company:</b>
-${data.company || ''}</p>
+<p>
+<b>Company:</b>
+${data.company || ""}
+</p>
 
-<p><b>Department:</b>
-${data.department || ''}</p>
+<p>
+<b>Department:</b>
+${data.department || ""}
+</p>
 
-<p><b>Project Manager:</b>
-${data.project_manager || ''}</p>
+<p>
+<b>Project Manager:</b>
+${data.project_manager || ""}
+</p>
 
-<p><b>Status:</b>
-${data.status || ''}</p>
-
-</div>
-
-<br>
-
-<div style="margin-top:15px;">
-
-<button onclick="addPO()">
-Add PO
-</button>
+<p>
+<b>Status:</b>
+${data.status || ""}
+</p>
 
 </div>
 
@@ -275,12 +288,11 @@ Add PO
 <h3>Purchase Orders</h3>
 
 <div id="poList">
-Loading PO List...
+Loading...
 </div>
-
 `;
 
-loadPOs(data.id);
+loadPOs(projectId);
 
 }
 
@@ -288,25 +300,28 @@ async function loadPOs(projectId){
 
 const { data, error } =
 await supabaseClient
-.from('pos')
-.select('*')
-.eq('project_id', projectId)
-.order('id');
+.from("pos")
+.select("*")
+.eq("project_id", projectId)
+.order("id");
+
 if(error){
 
-document.getElementById('poList').innerHTML =
+document.getElementById(
+"poList"
+).innerHTML =
 error.message;
 
 return;
 
 }
 
-console.log(data);
+if(!data || data.length===0){
 
-if(!data || data.length === 0){
-
-document.getElementById('poList').innerHTML =
-'No Purchase Orders Found';
+document.getElementById(
+"poList"
+).innerHTML =
+"No Purchase Orders";
 
 return;
 
@@ -318,102 +333,59 @@ let html = `
 <tr>
 <th>PO Number</th>
 <th>Company</th>
-<th>PO Value</th>
-<th>PO Date</th>
-<th>Invoice</th>
+<th>Value</th>
+<th>Date</th>
 </tr>
 `;
 
-console.log(data);
-    data.forEach(po => {
+data.forEach(po=>{
 
 html += `
-
 <tr>
 
-<td>${po.po_no || ''}</td>
+<td>${po.po_no || ""}</td>
 
-<td>${po.company || ''}</td>
+<td>${po.company || ""}</td>
 
 <td>${po.po_value_ex_vat || 0}</td>
 
-<td>${po.po_date || ''}</td>
-
-<td>
-
-<button
-class="invoice"
-onclick="addInvoice(
-'${po.po_no}',
-${currentProjectId}
-)">
-Add Invoice
-</button>
-
-</td>
+<td>${po.po_date || ""}</td>
 
 </tr>
-
 `;
 
 });
 
-html += '</table>';
+html += "</table>";
 
-document.getElementById('poList').innerHTML =
-html;
-
-}
-
-function addPO(){
-
-if(!currentProjectId){
-
-alert(
-'Please open a project first'
-);
-
-return;
-
-}
-
-window.location.href =
-'index.html?project_id=' +
-currentProjectId +
-'&project_name=' +
-encodeURIComponent(currentProjectName);
-
-}
-
-function addInvoice(poNo, projectId){
-
-alert(
-'Invoice Module\n\n' +
-'PO Number: ' + poNo +
-'\nProject ID: ' + projectId
-);
+document.getElementById(
+"poList"
+).innerHTML = html;
 
 }
 
 function filterProjects(){
 
 const search =
-document.getElementById('searchBox')
-.value
-.toLowerCase();
+document.getElementById(
+"searchBox"
+).value.toLowerCase();
 
 const rows =
-document.querySelectorAll('table tr');
+document.querySelectorAll(
+"#projectsList table tr"
+);
 
 rows.forEach((row,index)=>{
 
 if(index===0) return;
 
 row.style.display =
-row.innerText.toLowerCase()
+row.innerText
+.toLowerCase()
 .includes(search)
-? ''
-: 'none';
+? ""
+: "none";
 
 });
 
@@ -422,15 +394,18 @@ row.innerText.toLowerCase()
 function addProject(){
 
 document.getElementById(
-'projectModal'
-).style.display = 'block';
+"projectModal"
+).style.display =
+"block";
 
 }
-    function closeProjectModal(){
+
+function closeProjectModal(){
 
 document.getElementById(
-'projectModal'
-).style.display = 'none';
+"projectModal"
+).style.display =
+"none";
 
 }
 
@@ -438,79 +413,47 @@ async function saveProject(){
 
 const projectName =
 document.getElementById(
-'new_project_name'
+"new_project_name"
 ).value.trim();
-
-const company =
-document.getElementById(
-'new_company'
-).value.trim();
-
-const department =
-document.getElementById(
-'new_department'
-).value.trim();
-
-const projectManager =
-document.getElementById(
-'new_project_manager'
-).value.trim();
-
-const status =
-document.getElementById(
-'new_status'
-).value;
 
 if(!projectName){
 
-alert('Project Name is required');
-return;
-
-}
-
-const { error } =
-await supabaseClient
-.from('projects')
-.insert([{
-
-project_name: projectName,
-company: company,
-department: department,
-project_manager: projectManager,
-status: status
-
-}]);
-
-if(error){
-
-alert(error.message);
-return;
-    
-
-}
-alert('Project Saved Successfully');
-
-closeProjectModal();
-
-loadProjects();
-
-}
-    async function changeStatus(projectId){
-
-const newStatus =
-prompt(
-'Enter New Status\n\nActive\nClosed\nPending'
+alert(
+"Project Name Required"
 );
 
-if(!newStatus) return;
+return;
+
+}
 
 const { error } =
 await supabaseClient
-.from('projects')
-.update({
-status: newStatus
-})
-.eq('id', projectId);
+.from("projects")
+.insert([{
+project_name:
+projectName,
+
+company:
+document.getElementById(
+"new_company"
+).value,
+
+department:
+document.getElementById(
+"new_department"
+).value,
+
+project_manager:
+document.getElementById(
+"new_project_manager"
+).value,
+
+status:
+document.getElementById(
+"new_status"
+).value
+
+}]);
 
 if(error){
 
@@ -520,8 +463,39 @@ return;
 }
 
 alert(
-'Project Status Updated'
+"Project Saved"
 );
+
+closeProjectModal();
+
+loadProjects();
+
+}
+
+async function changeStatus(projectId){
+
+const status =
+prompt(
+"Enter New Status"
+);
+
+if(!status) return;
+
+const { error } =
+await supabaseClient
+.from("projects")
+.update({
+status:status
+})
+.eq("id",projectId);
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
 
 loadProjects();
 
@@ -531,17 +505,19 @@ loadProjects();
 
 </script>
 
-<div id="projectModal" style="
+<div id="projectModal"
+style="
 display:none;
 position:fixed;
 top:0;
 left:0;
 width:100%;
 height:100%;
-background:rgba(0,0,0,0.5);
+background:rgba(0,0,0,.5);
 ">
 
-<div style="
+<div
+style="
 background:white;
 width:500px;
 max-width:90%;
@@ -550,42 +526,50 @@ padding:20px;
 border-radius:10px;
 ">
 
-<h2>Add New Project</h2>
+<h2>Add Project</h2>
 
-<label>Project Name</label>
-<input id="new_project_name" type="text">
-
-<br><br>
-
-<label>Company</label>
-<input id="new_company" type="text">
+<input
+id="new_project_name"
+type="text"
+placeholder="Project Name">
 
 <br><br>
 
-<label>Department</label>
-<input id="new_department" type="text">
+<input
+id="new_company"
+type="text"
+placeholder="Company">
 
 <br><br>
 
-<label>Project Manager</label>
-<input id="new_project_manager" type="text">
+<input
+id="new_department"
+type="text"
+placeholder="Department">
 
 <br><br>
 
-<label>Status</label>
+<input
+id="new_project_manager"
+type="text"
+placeholder="Project Manager">
+
+<br><br>
+
 <select id="new_status">
 <option value="Active">Active</option>
+<option value="Pending">Pending</option>
 <option value="Closed">Closed</option>
 </select>
 
 <br><br>
 
 <button onclick="saveProject()">
-Save Project
+Save
 </button>
 
 <button
-style="background:red;"
+style="background:red"
 onclick="closeProjectModal()">
 Cancel
 </button>
@@ -593,5 +577,6 @@ Cancel
 </div>
 
 </div>
+
 </body>
 </html>
