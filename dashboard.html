@@ -337,13 +337,32 @@ return;
 
 }
 
+// Sum invoice amounts before VAT for each purchase order.
+const poNumbers = data.map(po => po.po_no).filter(Boolean);
+const { data: invoiceRows, error: invoiceError } = await supabaseClient
+  .from("invoice_details")
+  .select("po_no, invoice_amount")
+  .in("po_no", poNumbers);
+
+if(invoiceError){
+  document.getElementById("poList").innerHTML = invoiceError.message;
+  return;
+}
+
+const invoicedByPO = {};
+(invoiceRows || []).forEach(inv => {
+  const key = inv.po_no;
+  invoicedByPO[key] = (invoicedByPO[key] || 0) + Number(inv.invoice_amount || 0);
+});
+
 let html = `
 <table>
-
 <tr>
 <th>PO Number</th>
 <th>Company</th>
-<th>Value</th>
+<th>PO Value (Excl. VAT)</th>
+<th>Invoices Issued (Excl. VAT)</th>
+<th>PO Balance (Excl. VAT)</th>
 <th>Date</th>
 <th>Invoices</th>
 <th>Add Invoice</th>
@@ -351,17 +370,18 @@ let html = `
 `;
 
 data.forEach(po=>{
+  const poValue = Number(po.po_value_ex_vat || 0);
+  const invoicedAmount = Number(invoicedByPO[po.po_no] || 0);
+  const poBalance = poValue - invoicedAmount;
 
 html += `
 <tr>
-
-<td>${po.po_no || ""}</td>
-
-<td>${po.company || ""}</td>
-
-<td>${po.po_value_ex_vat || 0}</td>
-
-<td>${po.po_date || ""}</td>
+<td>${escapeHtml(po.po_no || "")}</td>
+<td>${escapeHtml(po.company || "")}</td>
+<td>${poValue.toFixed(2)}</td>
+<td>${invoicedAmount.toFixed(2)}</td>
+<td>${poBalance.toFixed(2)}</td>
+<td>${escapeHtml(po.po_date || "")}</td>
 
 <td>
 <button
