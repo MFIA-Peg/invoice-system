@@ -1,436 +1,615 @@
-<!DOCTYPE html**<html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta cha**et="UTF-8">
-<meta**ame="viewport" content="width=dev**e-width, initial-scale=1.0">
-<tit**>Purchase Order Entry - Version 9**</title>
 
-<script src="https://**n.jsdelivr.net/npm/@supabase/supa**se**s@2"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Projects Dashboard V12</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 
 body{
-  **font-family:Arial,sans-serif;
-   **ackground:#f**6f8;
+    font-family:Arial,sans-serif;
+    background:#f4f6f8;
     margin:0;
-   **adding:20px;
+    padding:20px;
 }
 
 .container{
-    m****idth:900px;
+    max-width:1400px;
     margin:auto;
-   **ackground:#fff;
-    padding:20px;**   border-radius:10px;
-    box-sh**ow** 0 10px rgba(0**,0,.1);
 }
 
-h1**    text-align:center;
-    color:****e50;
+.card{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+    box-shadow:0 0 10px rgba(0,0,0,.1);
 }
 
-.row{
-    display**rid;
-    grid-template-columns:1f****r;
-    gap:15px;
-   **argin-bottom:15px;
-}
-
-label{
-   **isplay:block;
-    margin-bottom:5**;
-**  font-weight:bold;
-}
-
-input,
-tex**rea,
-select{
-    width:100%;
-    **dding:**px;
-    border:1px solid #**c;
-    border-radius:5px;
-   **ox-sizing:border-box;
+h1,h2,h3{
+    margin-top:0;
 }
 
 button{
-**  background**27ae60;
+    background:#2563eb;
     color:white;
-   **adding:12px 20px;
-    border**one;
+    border:none;
+    padding:10px 15px;
     border-radius:5px;
-   **ursor:pointer;
+    cursor:pointer;
+    margin-right:5px;
 }
 
 button:hover{
- ** background:#**9150;
+    background:#1d4ed8;
 }
 
-.message{
-    margin-top**5px;
-    font-weight:bold;
+button.invoice{
+    background:#16a34a;
 }
 
-</**yle>
+button.invoice:hover{
+    background:#15803d;
+}
+
+input,select{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    background:#1e293b;
+    color:white;
+    padding:10px;
+}
+
+td{
+    border:1px solid #ddd;
+    padding:10px;
+}
+
+.current-project{
+    background:#dbeafe;
+    padding:15px;
+    border-radius:10px;
+}
+
+</style>
+
 </head>
 
 <body>
 
-<div class=***ntainer">
+<div class="container">
 
-<h1>Purchase Order Ent**</h1>
+<div class="card">
 
-<div class="row">
+<h1>Projects Dashboard V12</h1>
 
-<div>
-<**bel**O Number *</label>
-<input id="po**o" type="text">
-</div>
-
-<div**<label>Company *</label>
-<input i**"company" type**text">
-</div>
-
-</div**
-<div class="row">
-
-<div>
-<label>**partment *</label>
-<input id="dep**tment" type="text">
-**div>
-
-<div>
-<label>Project *</lab**>
-<select id="project_id"></selec**
-</div>
-
-</div>
-
-<div**lass="row">
-
-<div>
-<label>PO Valu***x VAT *</label>
-<input id="po_val**_ex_vat" type="number">
-</div**
-<div>
-<label>VAT</label>
-<select**d="vat">
-<option value="true">Yes**option>
-<option value="false">No<***tion>
-</select>
-</div>
-
-</div**
-<div class="row">
-
-<div>
-<label>** Date</label>
-<input id="po_date**type="date">
-</div>
-
-<div>
-**abel>Expiry Date</label>
-<input i**"**piry_date" type="date">
-</div>
-
-**div>
-
-<label>Notes</label>
-<texta**a**d="notes" rows="5"></textarea>
-
-**r><br>
-
-<button id="saveBtn">
-**ve PO
+<button onclick="addProject()">
+Add Project
 </button>
 
-<div id="message**class="message"></div>
+<button onclick="loadProjects()">
+Refresh
+</button>
 
-** style="color:red;font-weight:bol**">
-Version **0
-</p>
+<input
+type="text"
+id="searchBox"
+placeholder="Search Project"
+onkeyup="filterProjects()">
 
 </div>
 
-**cript>
+<div class="card">
+
+<h2>Projects List</h2>
+
+<div id="projectsList">
+Loading Projects...
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Current Project</h2>
+
+<div id="projectDetails">
+No Project Selected
+</div>
+
+</div>
+
+</div>
+
+<script>
 
 const SUPABASE_URL =
-"htt**://**hfjmtjibwkkbpak**t.supabase.co";
+"https://hxhfjmtjibwkkbpakopt.supabase.co";
 
-const SUPABASE_K****
-"sb_publishable_xdtW1wLuLjRUTs**4MZEQA_H8hTE**9";
+const SUPABASE_KEY =
+"sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 
 const supabaseClient =
-supab**e**reateClient(
+supabase.createClient(
 SUPABASE_URL,
-SUPAB**E_KEY
+SUPABASE_KEY
 );
 
-const params =
-new URLS**rchParams(
-**ndow.location.search
-);
+let currentProjectId = null;
+let currentProjectName = null;
 
-const pr**ectIdFromUrl =
-params.get('projec**id');
-
-document
-.getElementById("**veBtn")
-.addEventListener(
-**lick",
-savePO
-);
-
-loadProjects**;
-
-async function loadProjects(){**    const** data, error } =
-    await sup**aseClient
-    .from('projects')
- ** .select('id,project_name,company**epartment')
-    .order('project_n**e');
-
-    if(error**
-        console.error(error);
-  **    return;
-    }
-
-    const proj**tSelect =
-    document.getElement**Id('project_id');
-
-    projectSel**t.innerHTML =
-    '<option value=**>Select Project</option>';
-
-    d**a.forEach(project => {
-
-        p**jectSelect.innerHTML += `
-       **option
-        value="${project.i**">
-        ${project.project_name**        </option>
-        `;
-
-   **);
-
-    if(projectIdFromUrl){
-
-  **    projectSelect.value =
-       **rojectIdFromUrl;
-
-        project**lect.disabled = true;
-
-        fi**ProjectData(
-**      projectIdFromUrl
-        );**    }
-
-}
-
-document
-.getElementByI**"project_id")
-.addEventListener(
-**hange",
-function(){
-
-    fillProj**tData(
-    this.value
-    );
-
-});**async function fillProjectData(pr**ectId){
-
-    if(!projectId) retur**
+async function loadProjects(){
 
     const { data, error } =
-   **wait supabaseClient
-    .from('pr**ects')
-    .select('*')
-    .eq('**', projectId)
-    .single();
+    await supabaseClient
+    .from("projects")
+    .select("*")
+    .order("id");
 
-   **f(error){
-        console.error(e**or);
+    if(error){
+
+        document.getElementById(
+        "projectsList"
+        ).innerHTML =
+        error.message;
+
         return;
     }
 
-    d**ument.getElementById(
-    "compan**
-    ).value =
-    data.company |**"";
+    let html = `
+    <table>
+    <tr>
+        <th>ID</th>
+        <th>Project Name</th>
+        <th>Company</th>
+        <th>Status</th>
+        <th>Open</th>
+        <th>Update Status</th>
+    </tr>
+    `;
 
-    document.getElementById(**   "department"
-    ).value =
-   **ata.department || "";
+    data.forEach(project => {
+
+        html += `
+        <tr>
+            <td>${project.id}</td>
+            <td>${project.project_name || ""}</td>
+            <td>${project.company || ""}</td>
+            <td>${project.status || ""}</td>
+
+            <td>
+                <button onclick="openProject(${project.id})">
+                Open
+                </button>
+            </td>
+
+            <td>
+                <button onclick="changeStatus(${project.id})">
+                Status
+                </button>
+            </td>
+
+        </tr>
+        `;
+
+    });
+
+    html += "</table>";
+
+    document.getElementById(
+    "projectsList"
+    ).innerHTML =
+    html;
 
 }
 
-async f**ction savePO(){
+async function openProject(projectId){
 
-    const messag**=
-    document.getElementById(
-  **"message"
-    );
-
-    message.sty**.color =
-    "blue";
-
-    message**nnerText =
-    "Saving...";
-
-    **nst poNo =
-    document.getElemen**yId(
-    "po_no"
-    ).value.trim**;
-
-    const company =
-    docume**.getElementById(
-    "company"
-  **).value.trim();
-
-    const depart**nt =
-    document.getElementById(**   "department"
-    ).value.trim(**
-
-    const projectSelect =
-    d**ument.getElementById(
-    "projec**id"
-    );
-
-    const projectId =**   Number(
-    projectSelect.valu**    );
-
-    const projectName =
- ** projectSelect.options[
-    proje**Select.selectedIndex
-    ].text;
-**   const poValue =
-    document.g**ElementById(
-    "po_value_ex_vat**    ).value;
-
-    const vat =
-   **ocument.getElementById(
-    "vat"**   ).value === "true";
-
-    const**oDate =
-    document.getElementBy**(
-    "po_date"
-    ).value;
-
-   **onst expiryDate =
-    document.ge**lementById(
-    "expiry_date"
-   **.value;
-
-    const notes =
-    do**ment.getElementById(
-    "notes"
-**  ).value.trim();
-
-    if(!poNo){**       alert(
-        "PO Number ** required"
-        );
-        ret**n;
-    }
-
-    if(!company){
-     ** alert(
-        "Company is requi**d"
-        );
-        return;
-   **
-
-    if(!department){
-        al**t(
-        "Department is require**
-        );
-        return;
-    }**    if(
-    !poValue ||
-    Numbe**poValue) <= 0
-    ){
-        aler**
-        "PO Value must be greate**than zero"
-        );
-        ret**n;
-    }
-
-    const { data: exist**gPO } =
+    const { data, error } =
     await supabaseClient
-**  .from("pos")
-    .select("id")
-**  .eq("po_no", poNo);
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .single();
 
-    if(
-  **existingPO &&
-    existingPO.leng** > 0
-    ){
-        alert(
-      **"PO Number Already Exists"
-      **);
+    if(error){
+
+        alert(error.message);
+
         return;
     }
+
+    currentProjectId =
+    data.id;
+
+    currentProjectName =
+    data.project_name;
+
+    document.getElementById(
+    "projectDetails"
+    ).innerHTML = `
+
+        <div class="current-project">
+
+            <h3>${data.project_name}</h3>
+
+            <p>
+            <b>Company:</b>
+            ${data.company || ""}
+            </p>
+
+            <p>
+            <b>Department:</b>
+            ${data.department || ""}
+            </p>
+
+            <p>
+            <b>Project Manager:</b>
+            ${data.project_manager || ""}
+            </p>
+
+            <p>
+            <b>Status:</b>
+            ${data.status || ""}
+            </p>
+
+        </div>
+
+        <br>
+
+        <button onclick="addPO()">
+        Add PO
+        </button>
+
+        <br><br>
+
+        <h3>Purchase Orders</h3>
+
+        <div id="poList">
+        Loading Purchase Orders...
+        </div>
+
+    `;
+
+    loadPOs(projectId);
+
+}
+
+async function loadPOs(projectId){
 
     const { data, error } =
     await supabaseClient
     .from("pos")
-    .insert([
-    {
-        po_no: poNo,
-        company: company,
-        department: department,
-        project_id: projectId,
-        project_name: projectName,
-        po_value_ex_vat:
-        Number(poValue),
-        vat: vat,
-        po_date:
-        poDate || null,
-        expiry_date:
-        expiryDate || null,
-        notes: notes,
-        archive: false
-    }
-    ])
-    .select();
+    .select("*")
+    .eq("project_id", projectId)
+    .order("id");
 
     if(error){
 
-        message.style.color =
-        "red";
-
-        message.innerText =
-        "Error: " +
+        document.getElementById(
+        "poList"
+        ).innerHTML =
         error.message;
-
-        console.error(error);
 
         return;
     }
 
-    console.log(data);
+    if(!data || data.length === 0){
 
-    message.style.color =
-    "green";
+        document.getElementById(
+        "poList"
+        ).innerHTML =
+        "No Purchase Orders Found";
 
-    message.innerText =
-    "PO Saved Successfully";
+        return;
+    }
+
+    let html = `
+
+    <table>
+
+    <tr>
+        <th>PO Number</th>
+        <th>Company</th>
+        <th>PO Value</th>
+        <th>PO Date</th>
+        <th>Invoice</th>
+    </tr>
+
+    `;
+
+    data.forEach(po => {
+
+        html += `
+
+        <tr>
+
+            <td>${po.po_no || ""}</td>
+
+            <td>${po.company || ""}</td>
+
+            <td>${po.po_value_ex_vat || 0}</td>
+
+            <td>${po.po_date || ""}</td>
+
+            <td>
+                <button
+                class="invoice"
+                onclick="addInvoice('${po.po_no}',${projectId})">
+                Add Invoice
+                </button>
+            </td>
+
+        </tr>
+
+        `;
+
+    });
+
+    html += "</table>";
 
     document.getElementById(
-    "po_no"
-    ).value = "";
-
-    document.getElementById(
-    "po_value_ex_vat"
-    ).value = "";
-
-    document.getElementById(
-    "po_date"
-    ).value = "";
-
-    document.getElementById(
-    "expiry_date"
-    ).value = "";
-
-    document.getElementById(
-    "notes"
-    ).value = "";
+    "poList"
+    ).innerHTML =
+    html;
 
 }
 
+function addPO(){
+
+    if(!currentProjectId){
+
+        alert(
+        "Please Open A Project First"
+        );
+
+        return;
+    }
+
+    window.location.href =
+    "index.html?project_id=" +
+    currentProjectId;
+
+}
+
+function addInvoice(poNo, projectId){
+
+    alert(
+        "Invoice Module\n\n" +
+        "PO Number : " + poNo +
+        "\nProject ID : " + projectId
+    );
+
+}
+
+function filterProjects(){
+
+    const search =
+    document.getElementById(
+    "searchBox"
+    )
+    .value
+    .toLowerCase();
+
+    const rows =
+    document.querySelectorAll(
+    "table tr"
+    );
+
+    rows.forEach((row,index)=>{
+
+        if(index===0)
+        return;
+
+        row.style.display =
+        row.innerText
+        .toLowerCase()
+        .includes(search)
+        ? ""
+        : "none";
+
+    });
+
+}
+
+function addProject(){
+
+    document.getElementById(
+    "projectModal"
+    ).style.display =
+    "block";
+
+}
+
+function closeProjectModal(){
+
+    document.getElementById(
+    "projectModal"
+    ).style.display =
+    "none";
+
+}
+
+async function saveProject(){
+
+    const projectName =
+    document.getElementById(
+    "new_project_name"
+    ).value.trim();
+
+    const company =
+    document.getElementById(
+    "new_company"
+    ).value.trim();
+
+    const department =
+    document.getElementById(
+    "new_department"
+    ).value.trim();
+
+    const manager =
+    document.getElementById(
+    "new_project_manager"
+    ).value.trim();
+
+    const status =
+    document.getElementById(
+    "new_status"
+    ).value;
+
+    if(!projectName){
+
+        alert(
+        "Project Name Required"
+        );
+
+        return;
+    }
+
+    const { error } =
+    await supabaseClient
+    .from("projects")
+    .insert([{
+        project_name: projectName,
+        company: company,
+        department: department,
+        project_manager: manager,
+        status: status
+    }]);
+
+    if(error){
+
+        alert(error.message);
+
+        return;
+    }
+
+    alert(
+    "Project Saved"
+    );
+
+    closeProjectModal();
+
+    loadProjects();
+
+}
+
+async function changeStatus(projectId){
+
+    const newStatus =
+    prompt(
+    "Enter New Status"
+    );
+
+    if(!newStatus)
+    return;
+
+    const { error } =
+    await supabaseClient
+    .from("projects")
+    .update({
+        status:newStatus
+    })
+    .eq("id",projectId);
+
+    if(error){
+
+        alert(error.message);
+
+        return;
+    }
+
+    alert(
+    "Status Updated"
+    );
+
+    loadProjects();
+
+}
+
+loadProjects();
+
 </script>
+
+<div id="projectModal"
+style="
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.5);
+">
+
+<div style="
+background:white;
+width:500px;
+max-width:90%;
+margin:50px auto;
+padding:20px;
+border-radius:10px;
+">
+
+<h2>Add New Project</h2>
+
+<label>Project Name</label>
+<input id="new_project_name" type="text">
+
+<br><br>
+
+<label>Company</label>
+<input id="new_company" type="text">
+
+<br><br>
+
+<label>Department</label>
+<input id="new_department" type="text">
+
+<br><br>
+
+<label>Project Manager</label>
+<input id="new_project_manager" type="text">
+
+<br><br>
+
+<label>Status</label>
+
+<select id="new_status">
+<option value="Active">Active</option>
+<option value="Closed">Closed</option>
+<option value="Pending">Pending</option>
+</select>
+
+<br><br>
+
+<button onclick="saveProject()">
+Save Project
+</button>
+
+<button
+style="background:red;"
+onclick="closeProjectModal()">
+Cancel
+</button>
+
+</div>
+
+</div>
 
 </body>
 </html>
