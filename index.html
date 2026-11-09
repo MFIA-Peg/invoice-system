@@ -160,6 +160,48 @@ supabase.createClient(
     SUPABASE_KEY
 );
 loadProjects();
+    async function loadProjects(){
+
+    const { data, error } =
+    await supabaseClient
+    .from('projects')
+    .select('id,project_name,company,department')
+    .order('project_name');
+
+    if(error){
+        console.error(error);
+        return;
+    }
+
+    const projectSelect =
+    document.getElementById('project_id');
+
+    projectSelect.innerHTML =
+    '<option value="">Select Project</option>';
+
+    data.forEach(project => {
+
+        projectSelect.innerHTML += `
+        <option
+        value="${project.id}"
+        data-company="${project.company || ''}">
+        ${project.project_name}
+        </option>
+        `;
+
+    });
+
+    if(projectIdFromUrl){
+
+        projectSelect.value =
+        projectIdFromUrl;
+
+        projectSelect.disabled =
+        true;
+
+    }
+
+}
     const params =
 new URLSearchParams(
 window.location.search
@@ -170,7 +212,7 @@ params.get('project_id');
 document
 .getElementById("saveBtn")
 .addEventListener("click", savePO);
-.select('id,project_name,company,department'){
+
 
     const { data, error } =
     await supabaseClient
