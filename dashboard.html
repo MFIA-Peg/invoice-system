@@ -566,7 +566,7 @@ async function openInvoices(poNo){
 
 const { data , error } =
 await supabaseClient
-.from("invoices")
+.from("invoice_details")
 .select("*")
 .eq("po_no", poNo);
 
