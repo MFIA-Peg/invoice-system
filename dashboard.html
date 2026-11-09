@@ -561,8 +561,10 @@ async function addInvoice(poNo, projectId){
       <div class="invoice-field"><label>Invoice Total (Incl. VAT)</label><input id="new_inv_total" value="0.00" readonly></div>
       <div class="invoice-field"><label>Remaining Balance</label><input id="new_inv_balance" value="0.00" readonly></div>
       <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date"></div>
-      <div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date"></div>
-      <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60"></div>
+      <div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" oninput="updateNewInvoiceTotals()"></div>
+      <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div>
+      <div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" value="" readonly></div>
+      <div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div>
       <div class="invoice-field"><label>Description</label><textarea id="new_inv_description" rows="2"></textarea></div>
     </div>
     <p id="newInvoiceMessage"></p>
@@ -583,6 +585,21 @@ function updateNewInvoiceTotals(){
   document.getElementById("new_inv_vat").value = vat.toFixed(2);
   document.getElementById("new_inv_total").value = total.toFixed(2);
   document.getElementById("new_inv_balance").value = (total - paid).toFixed(2);
+  document.getElementById("new_inv_due_date").value = calculateDueDate(
+    document.getElementById("new_inv_approval_date").value,
+    document.getElementById("new_inv_terms").value
+  );
+}
+
+function calculateDueDate(approvalDate, paymentTerms){
+  if(!approvalDate || paymentTerms === "" || paymentTerms === null || paymentTerms === undefined) return "";
+  const date = new Date(approvalDate + "T12:00:00");
+  if(Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() + Number(paymentTerms || 0));
+  const year = date.getFullYear();
+  const month = String(date.getMonth()+1).padStart(2,"0");
+  const day = String(date.getDate()).padStart(2,"0");
+  return `${year}-${month}-${day}`;
 }
 
 async function saveNewInvoice(){
@@ -607,6 +624,7 @@ async function saveNewInvoice(){
     paid_amount: paid,
     start_date: document.getElementById("new_inv_start_date").value || null,
     approval_date: document.getElementById("new_inv_approval_date").value || null,
+    completed_date: document.getElementById("new_inv_completed_date").value || null,
     payment_terms: terms,
     description: document.getElementById("new_inv_description").value.trim(),
     erp: false
@@ -693,6 +711,8 @@ async function showInvoiceDetails(invoiceId){
     ["start_date", "Invoice Date", toDateInput(data.start_date), "date"],
     ["approval_date", "Approval Date", toDateInput(data.approval_date), "date"],
     ["payment_terms", "Payment Terms (Days)", data.payment_terms ?? "", "number"],
+    ["due_date", "Due Date", toDateInput(data.due_date), "calculated"],
+    ["completed_date", "Completed Date", toDateInput(data.completed_date), "date"],
     ["invoice_amount", "Invoice Amount (Excl. VAT)", data.invoice_amount ?? 0, "number"],
     ["paid_amount", "Paid Amount (Incl. VAT)", data.paid_amount ?? 0, "number"],
     ["vat_amount", "VAT Amount", Number(data.vat_amount || 0).toFixed(2), "calculated"],
@@ -728,6 +748,29 @@ async function showInvoiceDetails(invoiceId){
 
   document.getElementById("invoiceModalContent").innerHTML = formHtml;
   document.getElementById("invoiceModal").style.display = "block";
+  updateExistingInvoiceTotals();
+  ["inv_approval_date", "inv_payment_terms", "inv_invoice_amount", "inv_paid_amount"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", updateExistingInvoiceTotals);
+    document.getElementById(id)?.addEventListener("change", updateExistingInvoiceTotals);
+  });
+}
+
+function updateExistingInvoiceTotals(){
+  const amount = Number(document.getElementById("inv_invoice_amount")?.value || 0);
+  const paid = Number(document.getElementById("inv_paid_amount")?.value || 0);
+  const vat = currentInvoiceVat ? amount * 0.15 : 0;
+  const total = amount + vat;
+  const balance = total - paid;
+  const vatEl = document.getElementById("inv_vat_amount");
+  const totalEl = document.getElementById("inv_invoice_total");
+  const balanceEl = document.getElementById("inv_open_balance");
+  const statusEl = document.getElementById("inv_payment_status");
+  const dueEl = document.getElementById("inv_due_date");
+  if(vatEl) vatEl.value = vat.toFixed(2);
+  if(totalEl) totalEl.value = total.toFixed(2);
+  if(balanceEl) balanceEl.value = balance.toFixed(2);
+  if(statusEl) statusEl.value = paid <= 0 ? "Unpaid" : balance <= 0 ? "Paid" : "Partially Paid";
+  if(dueEl) dueEl.value = calculateDueDate(document.getElementById("inv_approval_date")?.value, document.getElementById("inv_payment_terms")?.value);
 }
 
 function enableInvoiceEdit(){
