@@ -564,6 +564,7 @@ async function addInvoice(poNo, projectId){
       <div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" value="" readonly></div>
+      <div class="invoice-field"><label>Overdue Status</label><input id="new_inv_overdue_status" value="Not Due" readonly></div>
       <div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div>
       <div class="invoice-field"><label>Description</label><textarea id="new_inv_description" rows="2"></textarea></div>
     </div>
@@ -584,11 +585,14 @@ function updateNewInvoiceTotals(){
   const total = amount + vat;
   document.getElementById("new_inv_vat").value = vat.toFixed(2);
   document.getElementById("new_inv_total").value = total.toFixed(2);
-  document.getElementById("new_inv_balance").value = (total - paid).toFixed(2);
-  document.getElementById("new_inv_due_date").value = calculateDueDate(
+  const balance = total - paid;
+  document.getElementById("new_inv_balance").value = balance.toFixed(2);
+  const dueDate = calculateDueDate(
     document.getElementById("new_inv_approval_date").value,
     document.getElementById("new_inv_terms").value
   );
+  document.getElementById("new_inv_due_date").value = dueDate;
+  document.getElementById("new_inv_overdue_status").value = getOverdueStatus(dueDate, balance);
 }
 
 function calculateDueDate(approvalDate, paymentTerms){
@@ -656,7 +660,7 @@ let html = `
 <tr>
 <th>Open</th><th>Invoice No</th><th>Invoice Date</th>
 <th>Approval Date</th><th>Payment Terms</th><th>Due Date</th>
-<th>Amount Excl. VAT</th><th>VAT</th><th>Invoice Total</th><th>Paid</th><th>Balance</th><th>Payment Status</th><th>Invoice Status</th>
+<th>Amount Excl. VAT</th><th>VAT</th><th>Invoice Total</th><th>Paid</th><th>Balance</th><th>Payment Status</th><th>Overdue Status</th><th>Invoice Status</th>
 </tr>`;
 
 data.forEach(inv=>{
@@ -674,6 +678,7 @@ data.forEach(inv=>{
     <td>${Number(inv.paid_amount || 0).toFixed(2)}</td>
     <td>${Number(inv.open_balance || 0).toFixed(2)}</td>
     <td>${escapeHtml(inv.payment_status || "")}</td>
+    <td>${escapeHtml(getOverdueStatus(inv.due_date, Number(inv.open_balance || 0)))}</td>
     <td>${escapeHtml(inv.status || "")}</td>
   </tr>`;
 });
@@ -719,6 +724,7 @@ async function showInvoiceDetails(invoiceId){
     ["invoice_total", "Invoice Total", Number(data.invoice_total || 0).toFixed(2), "calculated"],
     ["open_balance", "Remaining Balance", Number(data.open_balance || 0).toFixed(2), "calculated"],
     ["payment_status", "Payment Status", data.payment_status || "", "calculated"],
+    ["overdue_status", "Overdue Status", getOverdueStatus(data.due_date, Number(data.open_balance || 0)), "calculated"],
     ["erp", "ERP", data.erp ? "true" : "false", "checkbox"],
     ["description", "Description", data.description || "", "textarea"]
   ];
@@ -766,11 +772,21 @@ function updateExistingInvoiceTotals(){
   const balanceEl = document.getElementById("inv_open_balance");
   const statusEl = document.getElementById("inv_payment_status");
   const dueEl = document.getElementById("inv_due_date");
+  const overdueEl = document.getElementById("inv_overdue_status");
   if(vatEl) vatEl.value = vat.toFixed(2);
   if(totalEl) totalEl.value = total.toFixed(2);
   if(balanceEl) balanceEl.value = balance.toFixed(2);
   if(statusEl) statusEl.value = paid <= 0 ? "Unpaid" : balance <= 0 ? "Paid" : "Partially Paid";
   if(dueEl) dueEl.value = calculateDueDate(document.getElementById("inv_approval_date")?.value, document.getElementById("inv_payment_terms")?.value);
+  if(overdueEl) overdueEl.value = getOverdueStatus(dueEl?.value, balance);
+}
+
+function getOverdueStatus(dueDate, balance){
+  if(Number(balance) <= 0.005) return "Paid";
+  if(!dueDate) return "Due Date Not Set";
+  const today = new Date();
+  const todayText = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  return String(dueDate).slice(0,10) < todayText ? "Overdue" : "Not Overdue";
 }
 
 function enableInvoiceEdit(){
