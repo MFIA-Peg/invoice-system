@@ -80,6 +80,16 @@ td{
     border-radius:10px;
 }
 
+
+#invoiceModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;overflow:auto;padding:25px;box-sizing:border-box;}
+#invoiceModalContent{background:#fff;max-width:950px;margin:25px auto;padding:25px;border-radius:10px;box-shadow:0 5px 25px rgba(0,0,0,.25);}
+.invoice-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;}
+.invoice-field label{display:block;font-weight:bold;margin-bottom:6px;}
+.invoice-field input,.invoice-field select,.invoice-field textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:5px;}
+.invoice-field input[type=checkbox]{width:auto;}
+.modal-actions{display:flex;gap:8px;margin-top:20px;}
+@media(max-width:650px){.invoice-fields{grid-template-columns:1fr;}#invoiceModal{padding:8px;}#invoiceModalContent{padding:15px;}}
+
 </style>
 </head>
 
@@ -518,34 +528,6 @@ loadProjects();
 
 }
 
-    async function changeStatus(projectId){
-
-const status =
-prompt(
-"Enter New Status"
-);
-
-if(!status) return;
-
-const { error } =
-await supabaseClient
-.from("projects")
-.update({
-status:status
-})
-.eq("id",projectId);
-
-if(error){
-
-alert(error.message);
-
-return;
-
-}
-
-loadProjects();
-
-}
 
 /* ضع الكود الجديد هنا */
 
@@ -564,110 +546,153 @@ projectId;
 
 async function openInvoices(poNo){
 
-const { data , error } =
-await supabaseClient
-.from("invoice_details")
-.select("*")
-.eq("po_no", poNo);
+const { data, error } = await supabaseClient
+  .from("invoice_details")
+  .select("*")
+  .eq("po_no", poNo);
 
-if(error){
-
-alert(error.message);
-
-return;
-
-}
-
-if(!data || data.length===0){
-
-alert(
-"No Invoices Found For " + poNo
-);
-
-return;
-
-}
+if(error){ alert(error.message); return; }
+if(!data || data.length===0){ alert("No Invoices Found For " + poNo); return; }
 
 let html = `
-
-<h3>Invoices For ${poNo}</h3>
-
+<h3>Invoices For ${escapeHtml(poNo)}</h3>
 <table>
-
 <tr>
-
-<th>Edit</th>
-
-<th>Invoice No</th>
-
-<th>Invoice Date</th>
-
-<th>Approval Date</th>
-
-<th>Payment Terms</th>
-
-<th>Due Date</th>
-
-<th>Amount</th>
-
-<th>Paid</th>
-
-<th>Balance</th>
-
-<th>Status</th>
-
-</tr>
-
-`;
+<th>Open</th><th>Invoice No</th><th>Invoice Date</th>
+<th>Approval Date</th><th>Payment Terms</th><th>Due Date</th>
+<th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th>
+</tr>`;
 
 data.forEach(inv=>{
-
-html += `
-
-<tr>
-
-<td>
-
-<button
-onclick="editInvoice(${inv.id})">
-Edit
-</button>
-
-</td>
-
-<td>${inv.invoice_no || ""}</td>
-
-<td>${inv.start_date || ""}</td>
-
-<td>${inv.approval_date || ""}</td>
-
-<td>${inv.payment_terms || ""}</td>
-
-<td>${inv.due_date || ""}</td>
-
-<td>${Number(inv.invoice_amount || 0).toFixed(2)}</td>
-
-<td>${Number(inv.paid_amount || 0).toFixed(2)}</td>
-
-<td>${Number(inv.open_balance || 0).toFixed(2)}</td>
-
-<td>${inv.status || ""}</td>
-
-</tr>
-
-`;
-
+  html += `
+  <tr>
+    <td><button onclick="showInvoiceDetails(${Number(inv.id)})">Open</button></td>
+    <td>${escapeHtml(inv.invoice_no || "")}</td>
+    <td>${escapeHtml(inv.start_date || "")}</td>
+    <td>${escapeHtml(inv.approval_date || "")}</td>
+    <td>${escapeHtml(inv.payment_terms ?? "")}</td>
+    <td>${escapeHtml(inv.due_date || "")}</td>
+    <td>${Number(inv.invoice_amount || 0).toFixed(2)}</td>
+    <td>${Number(inv.paid_amount || 0).toFixed(2)}</td>
+    <td>${Number(inv.open_balance || 0).toFixed(2)}</td>
+    <td>${escapeHtml(inv.status || "")}</td>
+  </tr>`;
 });
 
 html += "</table>";
-
-document.getElementById(
-"poList"
-).innerHTML = html;
-
+document.getElementById("poList").innerHTML = html;
 }
 
-loadProjects();
+function escapeHtml(value){
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
+}
+
+let currentInvoiceId = null;
+
+function toDateInput(value){
+  return value ? String(value).slice(0,10) : "";
+}
+
+async function showInvoiceDetails(invoiceId){
+  const { data, error } = await supabaseClient
+    .from("invoices").select("*").eq("id", invoiceId).single();
+  if(error){ alert("Could not load invoice: " + error.message); return; }
+
+  currentInvoiceId = invoiceId;
+  const fields = [
+    ["invoice_no", "Invoice Number", data.invoice_no || "", "text"],
+    ["status", "Status", data.status || "Draft", "select"],
+    ["po_no", "PO Number", data.po_no || "", "readonly"],
+    ["project_id", "Project ID", data.project_id ?? "", "readonly"],
+    ["project_name", "Project Name", data.project_name || "", "readonly"],
+    ["start_date", "Invoice Date / Start Date", toDateInput(data.start_date), "date"],
+    ["completed_date", "Completed Date", toDateInput(data.completed_date), "date"],
+    ["approval_date", "Approval Date", toDateInput(data.approval_date), "date"],
+    ["payment_terms", "Payment Terms (Days)", data.payment_terms ?? "", "number"],
+    ["invoice_amount", "Invoice Amount", data.invoice_amount ?? 0, "number"],
+    ["paid_amount", "Paid Amount", data.paid_amount ?? 0, "number"],
+    ["erp", "ERP", data.erp ? "true" : "false", "checkbox"],
+    ["description", "Description", data.description || "", "textarea"]
+  ];
+
+  let formHtml = `<h2>Invoice Details</h2><div class="invoice-fields">`;
+  for(const [key,label,value,type] of fields){
+    formHtml += `<div class="invoice-field"><label for="inv_${key}">${label}</label>`;
+    if(type === "select"){
+      const statuses = ["Draft","Submitted","Approved","Partially Paid","Paid","Cancelled"];
+      formHtml += `<select id="inv_${key}" disabled>${statuses.map(st => `<option ${st===value?'selected':''}>${st}</option>`).join("")}</select>`;
+    } else if(type === "textarea"){
+      formHtml += `<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;
+    } else if(type === "checkbox"){
+      formHtml += `<input id="inv_${key}" type="checkbox" ${value==="true"?"checked":""} disabled>`;
+    } else {
+      formHtml += `<input id="inv_${key}" type="${type==='readonly'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'?'readonly':''} disabled>`;
+    }
+    formHtml += `</div>`;
+  }
+  formHtml += `</div>
+    <p id="invoiceEditMessage"></p>
+    <div class="modal-actions">
+      <button id="invoiceEditButton" onclick="enableInvoiceEdit()">Edit</button>
+      <button id="invoiceSaveButton" class="btn-po" style="display:none" onclick="saveInvoiceChanges()">Save Changes</button>
+      <button onclick="closeInvoiceModal()" style="background:#64748b">Close</button>
+    </div>`;
+
+  document.getElementById("invoiceModalContent").innerHTML = formHtml;
+  document.getElementById("invoiceModal").style.display = "block";
+}
+
+function enableInvoiceEdit(){
+  document.querySelectorAll("#invoiceModalContent input:not([readonly]), #invoiceModalContent select, #invoiceModalContent textarea")
+    .forEach(el => el.disabled = false);
+  document.getElementById("invoiceEditButton").style.display = "none";
+  document.getElementById("invoiceSaveButton").style.display = "inline-block";
+}
+
+function closeInvoiceModal(){
+  document.getElementById("invoiceModal").style.display = "none";
+  currentInvoiceId = null;
+}
+
+async function saveInvoiceChanges(){
+  if(!currentInvoiceId) return;
+  const amount = Number(document.getElementById("inv_invoice_amount").value || 0);
+  const paid = Number(document.getElementById("inv_paid_amount").value || 0);
+  const terms = Number(document.getElementById("inv_payment_terms").value || 0);
+  if(amount < 0 || paid < 0 || terms < 0){
+    alert("Amounts and payment terms cannot be negative."); return;
+  }
+
+  const updates = {
+    invoice_no: document.getElementById("inv_invoice_no").value.trim(),
+    status: document.getElementById("inv_status").value,
+    start_date: document.getElementById("inv_start_date").value || null,
+    completed_date: document.getElementById("inv_completed_date").value || null,
+    approval_date: document.getElementById("inv_approval_date").value || null,
+    payment_terms: terms,
+    invoice_amount: amount,
+    paid_amount: paid,
+    erp: document.getElementById("inv_erp").checked,
+    description: document.getElementById("inv_description").value
+  };
+
+  const { error } = await supabaseClient
+    .from("invoices").update(updates).eq("id", currentInvoiceId);
+  if(error){
+    document.getElementById("invoiceEditMessage").textContent = "Save failed: " + error.message;
+    document.getElementById("invoiceEditMessage").style.color = "red";
+    return;
+  }
+
+  document.getElementById("invoiceEditMessage").textContent = "Invoice updated successfully.";
+  document.getElementById("invoiceEditMessage").style.color = "green";
+  const poNo = document.getElementById("inv_po_no").value;
+  await openInvoices(poNo);
+  closeInvoiceModal();
+}
+
 loadProjects();
 
 </script>
@@ -743,6 +768,11 @@ Cancel
 
 </div>
 
+</div>
+
+
+<div id="invoiceModal" onclick="if(event.target===this) closeInvoiceModal()">
+  <div id="invoiceModalContent"></div>
 </div>
 
 </body>
