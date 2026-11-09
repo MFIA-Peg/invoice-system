@@ -1,388 +1,433 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html**<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Purchase Order Entry - Version 8.0</title>
+<meta cha**et="UTF-8">
+<meta**ame="viewport" content="width=dev**e-width, initial-scale=1.0">
+<tit**>Purchase Order Entry - Version 9**</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://**n.jsdelivr.net/npm/@supabase/supa**se**s@2"></script>
 
 <style>
+
 body{
-    font-family:Arial,sans-serif;
-    background:#f4f6f8;
+  **font-family:Arial,sans-serif;
+   **ackground:#f**6f8;
     margin:0;
-    padding:20px;
+   **adding:20px;
 }
 
 .container{
-    max-width:900px;
+    m****idth:900px;
     margin:auto;
-    background:#fff;
-    padding:20px;
-    border-radius:10px;
-    box-shadow:0 0 10px rgba(0,0,0,.1);
+   **ackground:#fff;
+    padding:20px;**   border-radius:10px;
+    box-sh**ow** 0 10px rgba(0**,0,.1);
 }
 
-h1{
-    text-align:center;
-    color:#2c3e50;
+h1**    text-align:center;
+    color:****e50;
 }
 
 .row{
-    display:grid;
-    grid-template-columns:1fr 1fr;
+    display**rid;
+    grid-template-columns:1f****r;
     gap:15px;
-    margin-bottom:15px;
+   **argin-bottom:15px;
 }
 
 label{
-    display:block;
-    margin-bottom:5px;
-    font-weight:bold;
+   **isplay:block;
+    margin-bottom:5**;
+**  font-weight:bold;
 }
 
 input,
-textarea,
+tex**rea,
 select{
     width:100%;
-    padding:10px;
-    border:1px solid #ccc;
+    **dding:**px;
+    border:1px solid #**c;
     border-radius:5px;
-    box-sizing:border-box;
+   **ox-sizing:border-box;
 }
 
 button{
-    background:#27ae60;
-    color:#fff;
-    padding:12px 20px;
-    border:none;
+**  background**27ae60;
+    color:white;
+   **adding:12px 20px;
+    border**one;
     border-radius:5px;
-    cursor:pointer;
+   **ursor:pointer;
 }
 
 button:hover{
-    background:#219150;
+ ** background:#**9150;
 }
 
 .message{
-    margin-top:15px;
+    margin-top**5px;
     font-weight:bold;
 }
-</style>
 
+</**yle>
 </head>
+
 <body>
 
-<div class="container">
+<div class=***ntainer">
 
-<h1>Purchase Order Entry</h1>
-
-<div class="row">
-    <div>
-        <label>PO Number *</label>
-        <input id="po_no" type="text">
-    </div>
-
-    <div>
-        <label>Company *</label>
-        <input id="company" type="text">
-    </div>
-</div>
+<h1>Purchase Order Ent**</h1>
 
 <div class="row">
-    <div>
-        <label>Department *</label>
-        <input id="department" type="text">
-    </div>
 
-    <div>
-       <label>Project *</label>
-<select id="project_id"></select>
-    </div>
+<div>
+<**bel**O Number *</label>
+<input id="po**o" type="text">
 </div>
 
+<div**<label>Company *</label>
+<input i**"company" type**text">
+</div>
+
+</div**
 <div class="row">
-    <div>
-        <label>PO Value Ex VAT *</label>
-        <input id="po_value_ex_vat" type="number">
-    </div>
 
-    <div>
-        <label>VAT</label>
-        <select id="vat">
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-        </select>
-    </div>
+<div>
+<label>**partment *</label>
+<input id="dep**tment" type="text">
+**div>
+
+<div>
+<label>Project *</lab**>
+<select id="project_id"></selec**
 </div>
 
+</div>
+
+<div**lass="row">
+
+<div>
+<label>PO Valu***x VAT *</label>
+<input id="po_val**_ex_vat" type="number">
+</div**
+<div>
+<label>VAT</label>
+<select**d="vat">
+<option value="true">Yes**option>
+<option value="false">No<***tion>
+</select>
+</div>
+
+</div**
 <div class="row">
-    <div>
-        <label>PO Date</label>
-        <input id="po_date" type="date">
-    </div>
 
-    <div>
-        <label>Expiry Date</label>
-        <input id="expiry_date" type="date">
-    </div>
+<div>
+<label>** Date</label>
+<input id="po_date**type="date">
 </div>
+
+<div>
+**abel>Expiry Date</label>
+<input i**"**piry_date" type="date">
+</div>
+
+**div>
 
 <label>Notes</label>
-<textarea id="notes" rows="5"></textarea>
+<texta**a**d="notes" rows="5"></textarea>
 
-<br><br>
+**r><br>
 
 <button id="saveBtn">
-    Save PO
+**ve PO
 </button>
 
-<div id="message" class="message"></div>
+<div id="message**class="message"></div>
 
-<p style="color:red;font-weight:bold;">
-Version 8.0
+** style="color:red;font-weight:bol**">
+Version **0
 </p>
 
 </div>
 
-<script>
+**cript>
 
 const SUPABASE_URL =
-"https://hxhfjmtjibwkkbpakopt.supabase.co";
+"htt**://**hfjmtjibwkkbpak**t.supabase.co";
 
-const SUPABASE_KEY =
-"sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
+const SUPABASE_K****
+"sb_publishable_xdtW1wLuLjRUTs**4MZEQA_H8hTE**9";
 
 const supabaseClient =
-supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
+supab**e**reateClient(
+SUPABASE_URL,
+SUPAB**E_KEY
 );
-loadProjects();
-    async function loadProjects(){
 
-    const { data, error } =
-    await supabaseClient
+const params =
+new URLS**rchParams(
+**ndow.location.search
+);
+
+const pr**ectIdFromUrl =
+params.get('projec**id');
+
+document
+.getElementById("**veBtn")
+.addEventListener(
+**lick",
+savePO
+);
+
+loadProjects**;
+
+async function loadProjects(){**    const** data, error } =
+    await sup**aseClient
     .from('projects')
-    .select('id,project_name,company,department')
-    .order('project_name');
+ ** .select('id,project_name,company**epartment')
+    .order('project_n**e');
 
-    if(error){
+    if(error**
         console.error(error);
-        return;
+  **    return;
     }
 
-    const projectSelect =
-    document.getElementById('project_id');
+    const proj**tSelect =
+    document.getElement**Id('project_id');
 
-    projectSelect.innerHTML =
-    '<option value="">Select Project</option>';
+    projectSel**t.innerHTML =
+    '<option value=**>Select Project</option>';
 
-    data.forEach(project => {
+    d**a.forEach(project => {
 
-        projectSelect.innerHTML += `
-        <option
-        value="${project.id}"
-        data-company="${project.company || ''}">
-        ${project.project_name}
-        </option>
+        p**jectSelect.innerHTML += `
+       **option
+        value="${project.i**">
+        ${project.project_name**        </option>
         `;
 
-    });
+   **);
 
     if(projectIdFromUrl){
 
-        projectSelect.value =
-        projectIdFromUrl;
+  **    projectSelect.value =
+       **rojectIdFromUrl;
 
-        projectSelect.disabled =
-        true;
+        project**lect.disabled = true;
 
-    }
+        fi**ProjectData(
+**      projectIdFromUrl
+        );**    }
 
 }
-    const params =
-new URLSearchParams(
-window.location.search
-);
 
-const projectIdFromUrl =
-params.get('project_id');
 document
-.getElementById("saveBtn")
-.addEventListener("click", savePO);
+.getElementByI**"project_id")
+.addEventListener(
+**hange",
+function(){
 
+    fillProj**tData(
+    this.value
+    );
+
+});**async function fillProjectData(pr**ectId){
+
+    if(!projectId) retur**
 
     const { data, error } =
-    await supabaseClient
-    .from('projects')
-    .select('id,project_name,company,department')
-    .order('project_name');
+   **wait supabaseClient
+    .from('pr**ects')
+    .select('*')
+    .eq('**', projectId)
+    .single();
 
-    if(error){
-        console.error(error);
+   **f(error){
+        console.error(e**or);
         return;
     }
 
-    const projectSelect =
-    document.getElementById('project_id');
+    d**ument.getElementById(
+    "compan**
+    ).value =
+    data.company |**"";
 
-    projectSelect.innerHTML =
-    '<option value="">Select Project</option>';
-
-    data.forEach(project => {
-
-projectSelect.innerHTML += `
-<option
-value="${project.id}"
-data-company="${project.company || ''}">
-${project.project_name}
-</option>
-`;
-
-});
-if(projectIdFromUrl){
-
-projectSelect.value =
-projectIdFromUrl;
-
-projectSelect.disabled = true;
+    document.getElementById(**   "department"
+    ).value =
+   **ata.department || "";
 
 }
 
-}
-async function savePO() {
+async f**ction savePO(){
 
-    const message =
-    document.getElementById("message");
+    const messag**=
+    document.getElementById(
+  **"message"
+    );
 
-    message.style.color = "blue";
-    message.innerText = "Saving...";
+    message.sty**.color =
+    "blue";
 
-    const poNo =
-    document.getElementById("po_no").value.trim();
+    message**nnerText =
+    "Saving...";
+
+    **nst poNo =
+    document.getElemen**yId(
+    "po_no"
+    ).value.trim**;
 
     const company =
-    document.getElementById("company").value.trim();
+    docume**.getElementById(
+    "company"
+  **).value.trim();
 
-    const department =
-    document.getElementById("department").value.trim();
+    const depart**nt =
+    document.getElementById(**   "department"
+    ).value.trim(**
 
     const projectSelect =
-document.getElementById("project_id");
+    d**ument.getElementById(
+    "projec**id"
+    );
 
-const projectId =
-Number(projectSelect.value);
+    const projectId =**   Number(
+    projectSelect.valu**    );
 
-const projectName =
-projectSelect.options[
-projectSelect.selectedIndex
-].text;
-    const poValue =
-    document.getElementById("po_value_ex_vat").value;
+    const projectName =
+ ** projectSelect.options[
+    proje**Select.selectedIndex
+    ].text;
+**   const poValue =
+    document.g**ElementById(
+    "po_value_ex_vat**    ).value;
 
     const vat =
-    document.getElementById("vat").value === "true";
+   **ocument.getElementById(
+    "vat"**   ).value === "true";
 
-    const poDate =
-    document.getElementById("po_date").value;
+    const**oDate =
+    document.getElementBy**(
+    "po_date"
+    ).value;
 
-    const expiryDate =
-    document.getElementById("expiry_date").value;
+   **onst expiryDate =
+    document.ge**lementById(
+    "expiry_date"
+   **.value;
 
     const notes =
-    document.getElementById("notes").value.trim();
+    do**ment.getElementById(
+    "notes"
+**  ).value.trim();
 
-    if(!poNo){
-        alert("PO Number is required");
-        return;
+    if(!poNo){**       alert(
+        "PO Number ** required"
+        );
+        ret**n;
     }
 
     if(!company){
-        alert("Company is required");
+     ** alert(
+        "Company is requi**d"
+        );
         return;
-    }
+   **
 
     if(!department){
-        alert("Department is required");
+        al**t(
+        "Department is require**
+        );
         return;
+    }**    if(
+    !poValue ||
+    Numbe**poValue) <= 0
+    ){
+        aler**
+        "PO Value must be greate**than zero"
+        );
+        ret**n;
     }
 
-    if(!poValue || Number(poValue) <= 0){
-        alert("PO Value must be greater than zero");
+    const { data: exist**gPO } =
+    await supabaseClient
+**  .from("pos")
+    .select("id")
+**  .eq("po_no", poNo);
+
+    if(
+  **existingPO &&
+    existingPO.leng** > 0
+    ){
+        alert(
+      **"PO Number Already Exists"
+      **);
         return;
     }
-
-   const { data: existingPO } =
-await supabaseClient
-.from("pos")
-.select("id")
-.eq("po_no", poNo);
-
-if(existingPO && existingPO.length > 0){
-
-    alert(
-        "PO Number Already Exists"
-    );
-
-    return;
-}
-
-try {
 
     const { data, error } =
     await supabaseClient
     .from("pos")
     .insert([
-        {
-            po_no: poNo,
-            company: company,
-            department: department,
-            project_id: projectId,
-            project_name: projectName,
-            po_value_ex_vat: Number(poValue),
-            vat: vat,
-            po_date: poDate || null,
-            expiry_date: expiryDate || null,
-            notes: notes,
-            archive: false
-        }
+    {
+        po_no: poNo,
+        company: company,
+        department: department,
+        project_id: projectId,
+        project_name: projectName,
+        po_value_ex_vat:
+        Number(poValue),
+        vat: vat,
+        po_date:
+        poDate || null,
+        expiry_date:
+        expiryDate || null,
+        notes: notes,
+        archive: false
+    }
     ])
     .select();
 
-        if(error){
-            message.style.color = "red";
-            message.innerText =
-            "Error: " + error.message;
-            console.error(error);
-            return;
-        }
+    if(error){
 
-        console.log(data);
+        message.style.color =
+        "red";
 
-        message.style.color = "green";
         message.innerText =
-        "PO Saved Successfully - Version 8.0";
+        "Error: " +
+        error.message;
 
-        document.getElementById("po_no").value = "";
-        document.getElementById("company").value = "";
-        document.getElementById("department").value = "";
-       document.getElementById("project_id").selectedIndex = 0;
-        document.getElementById("po_value_ex_vat").value = "";
-        document.getElementById("po_date").value = "";
-        document.getElementById("expiry_date").value = "";
-        document.getElementById("notes").value = "";
+        console.error(error);
 
+        return;
     }
-    catch(ex){
 
-        console.error(ex);
+    console.log(data);
 
-        message.style.color = "red";
-        message.innerText =
-        "Unexpected Error: " + ex.message;
-    }
+    message.style.color =
+    "green";
+
+    message.innerText =
+    "PO Saved Successfully";
+
+    document.getElementById(
+    "po_no"
+    ).value = "";
+
+    document.getElementById(
+    "po_value_ex_vat"
+    ).value = "";
+
+    document.getElementById(
+    "po_date"
+    ).value = "";
+
+    document.getElementById(
+    "expiry_date"
+    ).value = "";
+
+    document.getElementById(
+    "notes"
+    ).value = "";
+
 }
 
 </script>
