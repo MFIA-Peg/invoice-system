@@ -596,49 +596,132 @@ function toDateInput(value){
 }
 
 async function showInvoiceDetails(invoiceId){
+
   const { data, error } = await supabaseClient
-    .from("invoices").select("*").eq("id", invoiceId).single();
-  if(error){ alert("Could not load invoice: " + error.message); return; }
+    .from("invoice_details")
+    .select("*")
+    .eq("id", invoiceId)
+    .single();
+
+  if(error){
+    alert("Could not load invoice: " + error.message);
+    return;
+  }
 
   currentInvoiceId = invoiceId;
+
+  const money = value =>
+    Number(value || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
   const fields = [
     ["invoice_no", "Invoice Number", data.invoice_no || "", "text"],
-    ["status", "Status", data.status || "Draft", "select"],
+    ["status", "Invoice Status", data.status || "Draft", "select"],
     ["po_no", "PO Number", data.po_no || "", "readonly"],
     ["project_id", "Project ID", data.project_id ?? "", "readonly"],
     ["project_name", "Project Name", data.project_name || "", "readonly"],
-    ["start_date", "Invoice Date / Start Date", toDateInput(data.start_date), "date"],
+    ["company", "Customer", data.company || "", "readonly"],
+    ["start_date", "Invoice Date", toDateInput(data.start_date), "date"],
     ["completed_date", "Completed Date", toDateInput(data.completed_date), "date"],
     ["approval_date", "Approval Date", toDateInput(data.approval_date), "date"],
     ["payment_terms", "Payment Terms (Days)", data.payment_terms ?? "", "number"],
-    ["invoice_amount", "Invoice Amount", data.invoice_amount ?? 0, "number"],
-    ["paid_amount", "Paid Amount", data.paid_amount ?? 0, "number"],
+
+    ["invoice_amount", "Invoice Amount (Excl. VAT)", money(data.invoice_amount), "number"],
+    ["vat_applicable", "VAT Applicable", data.vat_applicable ? "Yes" : "No", "readonly"],
+    ["vat_amount", "VAT Amount (15%)", money(data.vat_amount), "readonly"],
+    ["invoice_total", "Invoice Total (Incl. VAT)", money(data.invoice_total), "readonly"],
+    ["paid_amount", "Paid Amount", money(data.paid_amount), "number"],
+    ["open_balance", "Remaining Balance", money(data.open_balance), "readonly"],
+    ["payment_status", "Payment Status", data.payment_status || "", "readonly"],
+
     ["erp", "ERP", data.erp ? "true" : "false", "checkbox"],
     ["description", "Description", data.description || "", "textarea"]
   ];
 
-  let formHtml = `<h2>Invoice Details</h2><div class="invoice-fields">`;
+  let formHtml = `
+    <h2>Invoice Details</h2>
+    <div class="invoice-fields">
+  `;
+
   for(const [key,label,value,type] of fields){
-    formHtml += `<div class="invoice-field"><label for="inv_${key}">${label}</label>`;
+
+    formHtml += `
+      <div class="invoice-field">
+        <label for="inv_${key}">${label}</label>
+    `;
+
     if(type === "select"){
-      const statuses = ["Draft","Submitted","Approved","Partially Paid","Paid","Cancelled"];
-      formHtml += `<select id="inv_${key}" disabled>${statuses.map(st => `<option ${st===value?'selected':''}>${st}</option>`).join("")}</select>`;
+
+      const statuses = [
+        "Draft",
+        "Submitted",
+        "Approved",
+        "Partially Paid",
+        "Paid",
+        "Cancelled"
+      ];
+
+      formHtml += `
+        <select id="inv_${key}" disabled>
+          ${statuses.map(st =>
+            `<option ${st===value?'selected':''}>${st}</option>`
+          ).join("")}
+        </select>
+      `;
+
     } else if(type === "textarea"){
-      formHtml += `<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;
+
+      formHtml += `
+        <textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>
+      `;
+
     } else if(type === "checkbox"){
-      formHtml += `<input id="inv_${key}" type="checkbox" ${value==="true"?"checked":""} disabled>`;
+
+      formHtml += `
+        <input id="inv_${key}" type="checkbox"
+          ${value==="true"?"checked":""} disabled>
+      `;
+
     } else {
-      formHtml += `<input id="inv_${key}" type="${type==='readonly'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'?'readonly':''} disabled>`;
+
+      formHtml += `
+        <input
+          id="inv_${key}"
+          type="${type==='readonly'?'text':type}"
+          value="${escapeHtml(value)}"
+          ${type==='readonly'?'readonly':''}
+          disabled
+        >
+      `;
     }
+
     formHtml += `</div>`;
   }
-  formHtml += `</div>
+
+  formHtml += `
+    </div>
+
     <p id="invoiceEditMessage"></p>
+
     <div class="modal-actions">
-      <button id="invoiceEditButton" onclick="enableInvoiceEdit()">Edit</button>
-      <button id="invoiceSaveButton" class="btn-po" style="display:none" onclick="saveInvoiceChanges()">Save Changes</button>
-      <button onclick="closeInvoiceModal()" style="background:#64748b">Close</button>
-    </div>`;
+      <button id="invoiceEditButton" onclick="enableInvoiceEdit()">
+        Edit
+      </button>
+
+      <button id="invoiceSaveButton"
+        class="btn-po"
+        style="display:none"
+        onclick="saveInvoiceChanges()">
+        Save Changes
+      </button>
+
+      <button onclick="closeInvoiceModal()" style="background:#64748b">
+        Close
+      </button>
+    </div>
+  `;
 
   document.getElementById("invoiceModalContent").innerHTML = formHtml;
   document.getElementById("invoiceModal").style.display = "block";
