@@ -1,1 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Invoice Entry</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+background:#f4f6f8;
+padding:20px;
+margin:0;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,.1);
+}
+
+.row{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:15px;
+margin-bottom:15px;
+}
+
+label{
+display:block;
+font-weight:bold;
+margin-bottom:5px;
+}
+
+input,
+select,
+textarea{
+width:100%;
+padding:10px;
+border:1px solid #ccc;
+border-radius:5px;
+box-sizing:border-box;
+}
+
+button{
+padding:12px 20px;
+border:none;
+border-radius:5px;
+cursor:pointer;
+color:white;
+}
+
+.save-btn{
+background:#16a34a;
+}
+
+.back-btn{
+background:#2563eb;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Add Invoice</h1>
+
+<div class="row">
+
+<div>
+<label>PO Number</label>
+<input id="po_no" readonly>
+</div>
+
+<div>
+<label>Project ID</label>
+<input id="project_id" readonly>
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>Invoice Number</label>
+<input id="invoice_no">
+</div>
+
+<div>
+<label>Status</label>
+<select id="status">
+<option>Pending</option>
+<option>Submitted</option>
+<option>Approved</option>
+<option>Paid</option>
+</select>
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>Invoice Amount</label>
+<input
+id="invoice_amount"
+type="number">
+</div>
+
+<div>
+<label>Paid Amount</label>
+<input
+id="paid_amount"
+type="number"
+value="0">
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>Start Date</label>
+<input
+id="start_date"
+type="date">
+</div>
+
+<div>
+<label>Completed Date</label>
+<input
+id="completed_date"
+type="date">
+</div>
+
+</div>
+
+<div class="row">
+
+<div>
+<label>Approval Date</label>
+<input
+id="approval_date"
+type="date">
+</div>
+
+<div>
+<label>Payment Term</label>
+<input id="payment_term">
+</div>
+
+</div>
+
+<label>Description</label>
+
+<textarea
+id="description"
+rows="4"></textarea>
+
+<br><br>
+
+<button
+class="back-btn"
+onclick="window.history.back()">
+Back
+</button>
+
+<button
+class="save-btn"
+onclick="saveInvoice()">
+Save Invoice
+</button>
+
+<p id="message"></p>
+
+</div>
+
+<script>
+
+const SUPABASE_URL =
+"https://hxhfjmtjibwkkbpakopt.supabase.co";
+
+const SUPABASE_KEY =
+"sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
+
+const supabaseClient =
+supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+const params =
+new URLSearchParams(
+window.location.search
+);
+
+document.getElementById(
+"po_no"
+).value =
+params.get("po_no") || "";
+
+document.getElementById(
+"project_id"
+).value =
+params.get("project_id") || "";
+
+async function saveInvoice(){
+
+const { error } =
+await supabaseClient
+.from("invoices")
+.insert([{
+
+invoice_no:
+document.getElementById(
+"invoice_no"
+).value,
+
+status:
+document.getElementById(
+"status"
+).value,
+
+po_no:
+document.getElementById(
+"po_no"
+).value,
+
+description:
+document.getElementById(
+"description"
+).value,
+
+start_date:
+document.getElementById(
+"start_date"
+).value || null,
+
+completed_date:
+document.getElementById(
+"completed_date"
+).value || null,
+
+invoice_amount:
+Number(
+document.getElementById(
+"invoice_amount"
+).value || 0
+),
+
+paid_amount:
+Number(
+document.getElementById(
+"paid_amount"
+).value || 0
+),
+
+approval_date:
+document.getElementById(
+"approval_date"
+).value || null,
+
+payment_term:
+document.getElementById(
+"payment_term"
+).value,
+
+erp:false,
+
+project_id:
+Number(
+document.getElementById(
+"project_id"
+).value
+)
+
+}]);
+
+const msg =
+document.getElementById(
+"message"
+);
+
+if(error){
+
+msg.style.color="red";
+msg.innerHTML=error.message;
+return;
+
+}
+
+msg.style.color="green";
+msg.innerHTML=
+"Invoice Saved Successfully";
+
+}
+
+</script>
+
+</body>
+</html>
