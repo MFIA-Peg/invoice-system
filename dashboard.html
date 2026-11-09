@@ -231,11 +231,13 @@ projectId,
 projectName
 ){
 
+alert(
+"Project ID = " + projectId
+);
+
 window.location.href =
-"index.html?project_id="
-+ projectId +
-"&project_name=" +
-encodeURIComponent(projectName);
+"index.html?project_id=" +
+projectId;
 
 }
 
