@@ -131,6 +131,12 @@ button{
 </div>
 
 <div class="row">
+<div><label>Subject to Retention</label><select id="retention_applicable"><option value="false">No</option><option value="true">Yes</option></select></div>
+<div><label>Retention Percentage (%)</label><input id="retention_percentage" type="number" min="0" max="100" step="0.01" value="0"></div>
+</div>
+<div class="row"><div><label>Retention Period (Days)</label><input id="retention_period_days" type="number" min="0" value="0"></div><div></div></div>
+
+<div class="row">
 
 <div>
 <label>PO Date</label>
@@ -315,6 +321,10 @@ return;
 
 }
 
+const retentionPct=Number(document.getElementById("retention_percentage").value||0);
+const retentionDays=Number(document.getElementById("retention_period_days").value||0);
+if(retentionPct<0||retentionPct>100||retentionDays<0){alert("Invalid retention percentage or period.");return;}
+
 const projectSelect =
 document.getElementById(
 "project_id"
@@ -368,7 +378,10 @@ document
 .getElementById("notes")
 .value || "",
 
-archive:false
+archive:false,
+retention_applicable:document.getElementById("retention_applicable").value === "true",
+retention_percentage:document.getElementById("retention_applicable").value === "true" ? Number(document.getElementById("retention_percentage").value || 0) : 0,
+retention_period_days:document.getElementById("retention_applicable").value === "true" ? Number(document.getElementById("retention_period_days").value || 0) : 0
 
 }]);
 
