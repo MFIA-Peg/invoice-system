@@ -10,20 +10,28 @@
 
 <style>
 
+html, body{
+    width:100%;
+    min-height:100%;
+    margin:0;
+    box-sizing:border-box;
+}
+
 body{
     font-family:Arial,sans-serif;
     background:#f4f6f8;
-    margin:0;
-    padding:12px;
-    width:100%;
+    padding:0;
     min-height:100vh;
-    box-sizing:border-box;
+    overflow-x:hidden;
 }
 
 .container{
     width:100%;
     max-width:none;
+    min-height:100vh;
     margin:0;
+    padding:10px;
+    box-sizing:border-box;
 }
 
 .card{
@@ -67,6 +75,13 @@ table{
     border-collapse:collapse;
 }
 
+/* Use the full available browser viewport for dashboard content. */
+.card{
+    width:100%;
+    max-width:none;
+    box-sizing:border-box;
+}
+
 th{
     background:#1e293b;
     color:white;
@@ -85,14 +100,14 @@ td{
 }
 
 
-#invoiceModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;overflow:auto;padding:25px;box-sizing:border-box;}
-#invoiceModalContent{background:#fff;width:min(96vw,1800px);max-width:none;margin:12px auto;padding:25px;border-radius:10px;box-shadow:0 5px 25px rgba(0,0,0,.25);}
+#invoiceModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;overflow:auto;padding:10px;box-sizing:border-box;}
+#invoiceModalContent{background:#fff;width:100%;max-width:none;min-height:calc(100vh - 20px);margin:0 auto;padding:25px;border-radius:8px;box-shadow:0 5px 25px rgba(0,0,0,.25);box-sizing:border-box;}
 .invoice-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;}
 .invoice-field label{display:block;font-weight:bold;margin-bottom:6px;}
 .invoice-field input,.invoice-field select,.invoice-field textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:5px;}
 .invoice-field input[type=checkbox]{width:auto;}
 .modal-actions{display:flex;gap:8px;margin-top:20px;}
-@media(max-width:650px){body{padding:6px}.invoice-fields{grid-template-columns:1fr;}#invoiceModal{padding:8px;}#invoiceModalContent{width:100%;padding:15px;}}
+@media(max-width:650px){.container{padding:6px}.invoice-fields{grid-template-columns:1fr;}#invoiceModal{padding:4px;}#invoiceModalContent{width:100%;min-height:calc(100vh - 8px);padding:15px;}}
 
 
 .retention-panel{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:8px;margin-top:12px}
@@ -777,10 +792,13 @@ async function showInvoiceDetails(invoiceId){
 
   currentInvoiceId = invoiceId;
   currentInvoicePoNo = data.po_no;
-  currentInvoiceVat = data.vat_applicable === true;
-  const {data: invoicePO, error: invoicePOError} = await supabaseClient.from("pos").select("*").eq("po_no", data.po_no).single();
+  const {data: invoicePO, error: invoicePOError} = await supabaseClient
+    .from("pos").select("*").eq("po_no", data.po_no).single();
   if(invoicePOError){ alert("Could not load Purchase Order retention settings: " + invoicePOError.message); return; }
   window.currentPOForInvoice = invoicePO || {};
+  // VAT and retention rules must come from the linked PO, not from a possibly
+  // stale/missing calculated field in the invoice view.
+  currentInvoiceVat = invoicePO?.vat === true;
   const fields = [
     ["invoice_no", "Invoice Number", data.invoice_no || "", "text"],
     ["status", "Status", data.status || "Draft", "select"],
@@ -899,19 +917,30 @@ async function saveInvoiceChanges(){
     alert("Amounts and payment terms cannot be negative."); return;
   }
 
+  // Recalculate retention at save time as well. This prevents stale form values
+  // from being saved if the amount, approval date, or linked PO settings changed.
+  const po = window.currentPOForInvoice || {};
+  const retentionApplies = po.retention_applicable === true;
+  const retentionPct = retentionApplies ? Number(po.retention_percentage || 0) / 100 : 0;
+  const retentionAmount = amount * retentionPct;
+  const retentionVat = currentInvoiceVat ? retentionAmount * 0.15 : 0;
+  const approvalDate = document.getElementById("inv_approval_date").value || null;
+  const retentionDueDate = approvalDate && retentionApplies
+    ? calculateDueDate(approvalDate, Number(po.retention_period_days || 0)) : null;
+
   const updates = {
     invoice_no: document.getElementById("inv_invoice_no").value.trim(),
     status: document.getElementById("inv_status").value,
     start_date: document.getElementById("inv_start_date").value || null,
     completed_date: document.getElementById("inv_completed_date").value || null,
-    approval_date: document.getElementById("inv_approval_date").value || null,
+    approval_date: approvalDate,
     payment_terms: terms,
     invoice_amount: amount,
     paid_amount: paid,
     retention_released_amount: Number(document.getElementById("inv_retention_released_amount")?.value || 0),
-    retention_amount: Number(document.getElementById("inv_retention_amount")?.value || 0),
-    retention_vat: Number(document.getElementById("inv_retention_vat")?.value || 0),
-    retention_due_date: document.getElementById("inv_retention_due_date")?.value || null,
+    retention_amount: Number(retentionAmount.toFixed(2)),
+    retention_vat: Number(retentionVat.toFixed(2)),
+    retention_due_date: retentionDueDate,
     erp: document.getElementById("inv_erp").checked,
     description: document.getElementById("inv_description").value
   };
