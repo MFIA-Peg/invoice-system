@@ -122,7 +122,7 @@ td{
 
 <div class="container">
 
-<div class="card">
+<div class="card" id="dashboardHeaderCard">
 
 <h1>Projects Dashboard V18</h1>
 
@@ -146,7 +146,7 @@ onkeyup="filterProjects()">
 
 </div>
 
-<div class="card">
+<div class="card" id="projectsCard">
 
 <h2>Projects</h2>
 
@@ -156,7 +156,7 @@ Loading Projects...
 
 </div>
 
-<div class="card">
+<div class="card" id="projectDetailsCard">
 
 <h2>Current Project</h2>
 
@@ -184,6 +184,31 @@ SUPABASE_KEY
 const attachmentClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { storageKey: "pe-attachment-auth", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
 });
+
+/* Focus mode: show only the record currently opened by the user. */
+function setDashboardFocus(mode){
+  const header=document.getElementById('dashboardHeaderCard');
+  const projects=document.getElementById('projectsCard');
+  const details=document.getElementById('projectDetailsCard');
+  if(header) header.style.display = mode==='all' ? '' : 'none';
+  if(projects) projects.style.display = mode==='all' ? '' : 'none';
+  if(details) details.style.display = mode==='all' ? 'none' : '';
+  const summary=document.getElementById('projectSummary');
+  if(summary) summary.style.display = mode==='po' ? 'none' : '';
+  const section=document.getElementById('purchaseOrdersSection');
+  if(section) section.style.display = mode==='all' ? 'none' : '';
+}
+function showAllDashboard(){
+  setDashboardFocus('all');
+  currentProjectId=null;
+  currentInvoicePoNo=null;
+  const details=document.getElementById('projectDetails');
+  if(details) details.textContent='No Project Selected';
+}
+function backToProject(){
+  if(currentProjectId!==null && currentProjectId!==undefined) openProject(currentProjectId);
+}
+
 
 async function loadProjects(){
 
@@ -983,7 +1008,8 @@ async function openProject(projectId){
  let invs=[]; if(poNos.length){const r=await supabaseClient.from('invoice_details_with_retention').select('*').in('po_no',poNos); if(!r.error) invs=r.data||[];}
  const totalInv=invs.reduce((a,x)=>a+Number(x.invoice_amount||0),0);
  const retained=invs.reduce((a,x)=>a+Number(x.retention_total||0),0);
- document.getElementById('projectDetails').innerHTML=`<div class="current-project"><h3>${escapeHtml(pr.project_name)}</h3><p><b>Company:</b> ${escapeHtml(pr.company)}</p><p><b>Department:</b> ${escapeHtml(pr.department)}</p><p><b>Project Manager:</b> ${escapeHtml(pr.project_manager)}</p><p><b>Status:</b> ${escapeHtml(pr.status)}</p><p><b>Invoices Excl. VAT:</b> ${totalInv.toFixed(2)} | <b>Retention:</b> ${retained.toFixed(2)}</p><button onclick="editProject(${pr.id})">Edit Project</button></div><h3>Open Purchase Orders</h3><div id="poList">Loading...</div>`;
+ document.getElementById('projectDetails').innerHTML=`<div id="projectSummary" class="current-project"><div class="modal-actions"><button style="background:#64748b" onclick="showAllDashboard()">Back to Projects</button></div><h3>${escapeHtml(pr.project_name)}</h3><p><b>Company:</b> ${escapeHtml(pr.company)}</p><p><b>Department:</b> ${escapeHtml(pr.department)}</p><p><b>Project Manager:</b> ${escapeHtml(pr.project_manager)}</p><p><b>Status:</b> ${escapeHtml(pr.status)}</p><p><b>Invoices Excl. VAT:</b> ${totalInv.toFixed(2)} | <b>Retention:</b> ${retained.toFixed(2)}</p><button onclick="editProject(${pr.id})">Edit Project</button></div><div id="purchaseOrdersSection"><h3>Purchase Orders</h3><div id="poList">Loading...</div></div>`;
+ setDashboardFocus('project');
  await loadPOs(projectId);
 }
 
@@ -1063,10 +1089,11 @@ async function saveNewInvoice(){
 async function openInvoices(poNo){
  currentInvoicePoNo=poNo;const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*').eq('po_no',poNo);if(error){alert(error.message);return;}const {data:po}=await supabaseClient.from('pos').select('*').eq('po_no',poNo).single();
  const open=(data||[]).filter(x=>x.status!=='Completed' && (Number(x.paid_amount||0)<Number(x.net_payable||x.invoice_total||0)-0.005 || Number(x.retention_balance||0)>0.005));const pending=(data||[]).filter(x=>!/(approved|completed|cancelled)/i.test(x.status||''));
- let html=`<h3>Open Invoices For ${escapeHtml(poNo)}</h3>`;if(pending.length)html+=`<div class="warning-panel"><b>Approval Required – ${pending.length} invoice(s) have not reached approval:</b><ul>${pending.map(x=>`<li>${escapeHtml(x.invoice_no)} | ${escapeHtml(x.project_name)} | ${escapeHtml(x.status)}</li>`).join('')}</ul></div>`;
+ let html=`<div class="modal-actions"><button style="background:#64748b" onclick="backToProject()">Back to Project</button></div><h3>Purchase Order: ${escapeHtml(poNo)}</h3>`;if(pending.length)html+=`<div class="warning-panel"><b>Approval Required – ${pending.length} invoice(s) have not reached approval:</b><ul>${pending.map(x=>`<li>${escapeHtml(x.invoice_no)} | ${escapeHtml(x.project_name)} | ${escapeHtml(x.status)}</li>`).join('')}</ul></div>`;
  html+='<table><tr><th>Open</th><th>Invoice No</th><th>Invoice Date</th><th>Approval Date</th><th>Amount Excl VAT</th><th>VAT</th><th>Total</th><th>Paid</th><th>Balance</th><th>Retention</th><th>Retention VAT</th><th>Total Retention</th><th>Retention Released</th><th>Retention Balance</th><th>Retention Due</th><th>Net Payable</th><th>Status</th></tr>';
  for(const x of open){const rb=Number(x.retention_amount||0),rv=Number(x.retention_vat||0),rt=rb+rv;html+=`<tr><td><button onclick="showInvoiceDetails(${x.id})">Open</button></td><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.start_date)}</td><td>${escapeHtml(x.approval_date)}</td><td>${Number(x.invoice_amount||0).toFixed(2)}</td><td>${Number(x.vat_amount||0).toFixed(2)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.open_balance||0).toFixed(2)}</td><td>${rb.toFixed(2)}</td><td>${rv.toFixed(2)}</td><td>${rt.toFixed(2)}</td><td>${Number(x.retention_released_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||Math.max(0,rt-Number(x.retention_released_amount||0))).toFixed(2)}</td><td>${escapeHtml(x.retention_due_date||'')}</td><td>${(Number(x.invoice_total||0)-rt).toFixed(2)}</td><td>${escapeHtml(x.status)}</td></tr>`;}
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open invoices.</p>');
+ setDashboardFocus('po');
 }
 
 // Open a closed record from its archive list. The detail/edit screen includes a return button.
