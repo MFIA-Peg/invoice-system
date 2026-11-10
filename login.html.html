@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Energy | Login</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.login-box {
+    background: white;
+    width: 360px;
+    padding: 35px;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,.1);
+}
+h2 {
+    color: #10243a;
+    margin-bottom: 8px;
+}
+p {
+    color: #667085;
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+label {
+    display: block;
+    margin: 15px 0 7px;
+    font-weight: bold;
+    font-size: 13px;
+}
+input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+button {
+    width: 100%;
+    padding: 13px;
+    margin-top: 22px;
+    background: #1769aa;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+button:disabled {
+    opacity: .6;
+}
+#message {
+    margin-top: 15px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.footer {
+    margin-top: 25px;
+    text-align: center;
+    font-size: 11px;
+    color: #999;
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-box">
+
+<h2>Power Energy</h2>
+<p>Invoice Management System<br>Sign in to continue</p>
+
+<form id="loginForm">
+
+<label>Email Address</label>
+<input type="email" id="email" required>
+
+<label>Password</label>
+<input type="password" id="password" required>
+
+<button type="submit" id="loginButton">Sign In</button>
+
+<div id="message"></div>
+
+</form>
+
+<div class="footer">Power Energy Invoice System</div>
+
+</div>
+
+<script>
+
+const SUPABASE_URL = "https://hxhfjmtjibwkkbpakopt.supabase.co";
+
+const SUPABASE_KEY = "sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+const form = document.getElementById("loginForm");
+const button = document.getElementById("loginButton");
+const message = document.getElementById("message");
+
+async function checkProfile(user) {
+
+    const { data: profile, error } = await supabaseClient
+        .from("users_profile")
+        .select("username, full_name, role, active")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+    if (error) {
+        throw new Error("Unable to verify user profile.");
+    }
+
+    if (!profile) {
+        throw new Error("User profile not found.");
+    }
+
+    if (profile.active !== true) {
+        throw new Error("Your account is inactive.");
+    }
+
+    sessionStorage.setItem("pe_user_role", profile.role);
+    sessionStorage.setItem("pe_username", profile.username);
+    sessionStorage.setItem("pe_full_name", profile.full_name || "");
+
+    return profile;
+}
+
+form.addEventListener("submit", async function(event) {
+
+    event.preventDefault();
+
+    button.disabled = true;
+    button.textContent = "Signing in...";
+    message.textContent = "";
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+
+        if (error) {
+            throw new Error("Invalid email or password.");
+        }
+
+        await checkProfile(data.user);
+
+        message.style.color = "green";
+        message.textContent = "Login successful. Opening dashboard...";
+
+        window.location.replace("dashboard.html");
+
+    } catch (error) {
+
+        await supabaseClient.auth.signOut();
+
+        message.style.color = "red";
+        message.textContent = error.message;
+
+        button.disabled = false;
+        button.textContent = "Sign In";
+    }
+
+});
+
+async function checkExistingSession() {
+
+    const { data } = await supabaseClient.auth.getSession();
+
+    if (data.session) {
+
+        try {
+            await checkProfile(data.session.user);
+            window.location.replace("dashboard.html");
+
+        } catch (error) {
+            await supabaseClient.auth.signOut();
+        }
+    }
+}
+
+checkExistingSession();
+
+</script>
+
+</body>
+</html>
