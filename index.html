@@ -14,12 +14,13 @@ body{
     font-family:Arial,sans-serif;
     background:#f4f6f8;
     margin:0;
-    padding:20px;
+    padding:12px;
 }
 
 .container{
-    max-width:900px;
-    margin:auto;
+    width:100%;
+    max-width:none;
+    margin:0;
     background:white;
     padding:20px;
     border-radius:10px;
@@ -131,12 +132,6 @@ button{
 </div>
 
 <div class="row">
-<div><label>Subject to Retention</label><select id="retention_applicable"><option value="false">No</option><option value="true">Yes</option></select></div>
-<div><label>Retention Percentage (%)</label><input id="retention_percentage" type="number" min="0" max="100" step="0.01" value="0"></div>
-</div>
-<div class="row"><div><label>Retention Period (Days)</label><input id="retention_period_days" type="number" min="0" value="0"></div><div></div></div>
-
-<div class="row">
 
 <div>
 <label>PO Date</label>
@@ -198,6 +193,9 @@ window.location.search
 const projectIdFromUrl =
 params.get("project_id");
 
+function localToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+document.getElementById("po_date").value=localToday();
+document.getElementById("expiry_date").value=localToday();
 loadProjects();
 
 async function loadProjects(){
@@ -321,10 +319,6 @@ return;
 
 }
 
-const retentionPct=Number(document.getElementById("retention_percentage").value||0);
-const retentionDays=Number(document.getElementById("retention_period_days").value||0);
-if(retentionPct<0||retentionPct>100||retentionDays<0){alert("Invalid retention percentage or period.");return;}
-
 const projectSelect =
 document.getElementById(
 "project_id"
@@ -378,10 +372,7 @@ document
 .getElementById("notes")
 .value || "",
 
-archive:false,
-retention_applicable:document.getElementById("retention_applicable").value === "true",
-retention_percentage:document.getElementById("retention_applicable").value === "true" ? Number(document.getElementById("retention_percentage").value || 0) : 0,
-retention_period_days:document.getElementById("retention_applicable").value === "true" ? Number(document.getElementById("retention_period_days").value || 0) : 0
+archive:false
 
 }]);
 

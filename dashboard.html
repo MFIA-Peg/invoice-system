@@ -14,12 +14,16 @@ body{
     font-family:Arial,sans-serif;
     background:#f4f6f8;
     margin:0;
-    padding:20px;
+    padding:12px;
+    width:100%;
+    min-height:100vh;
+    box-sizing:border-box;
 }
 
 .container{
-    max-width:1400px;
-    margin:auto;
+    width:100%;
+    max-width:none;
+    margin:0;
 }
 
 .card{
@@ -82,20 +86,20 @@ td{
 
 
 #invoiceModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;overflow:auto;padding:25px;box-sizing:border-box;}
-#invoiceModalContent{background:#fff;max-width:950px;margin:25px auto;padding:25px;border-radius:10px;box-shadow:0 5px 25px rgba(0,0,0,.25);}
+#invoiceModalContent{background:#fff;width:min(96vw,1800px);max-width:none;margin:12px auto;padding:25px;border-radius:10px;box-shadow:0 5px 25px rgba(0,0,0,.25);}
 .invoice-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;}
 .invoice-field label{display:block;font-weight:bold;margin-bottom:6px;}
 .invoice-field input,.invoice-field select,.invoice-field textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:5px;}
 .invoice-field input[type=checkbox]{width:auto;}
 .modal-actions{display:flex;gap:8px;margin-top:20px;}
-@media(max-width:650px){.invoice-fields{grid-template-columns:1fr;}#invoiceModal{padding:8px;}#invoiceModalContent{padding:15px;}}
+@media(max-width:650px){body{padding:6px}.invoice-fields{grid-template-columns:1fr;}#invoiceModal{padding:8px;}#invoiceModalContent{width:100%;padding:15px;}}
 
 
 .retention-panel{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:8px;margin-top:12px}
 .warning-panel{background:#fff7ed;border:1px solid #fdba74;padding:12px;border-radius:8px;margin:12px 0;color:#9a3412}
 .small-btn{padding:6px 9px;font-size:12px;margin:2px}
 #closedModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1100;overflow:auto;padding:20px;box-sizing:border-box}
-#closedModalContent{background:white;max-width:1200px;margin:20px auto;padding:20px;border-radius:10px}
+#closedModalContent{background:white;width:min(96vw,1800px);max-width:none;margin:12px auto;padding:20px;border-radius:10px}
 </style>
 </head>
 
@@ -476,6 +480,8 @@ row.innerText
 
 function addProject(){
 currentProjectEditId=null;
+document.getElementById("new_project_start_date").value=localToday();
+document.getElementById("new_project_end_date").value=localToday();
 document.querySelector("#projectModal h2").textContent="Add Project";
 const saveBtn=document.querySelector('#projectModal button[onclick="saveProject()"]');if(saveBtn)saveBtn.textContent="Save";
 document.getElementById(
@@ -756,6 +762,10 @@ function escapeHtml(value){
 
 let currentInvoiceId = null;
 
+function localToday(){
+  const now=new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+}
 function toDateInput(value){
   return value ? String(value).slice(0,10) : "";
 }
@@ -768,6 +778,9 @@ async function showInvoiceDetails(invoiceId){
   currentInvoiceId = invoiceId;
   currentInvoicePoNo = data.po_no;
   currentInvoiceVat = data.vat_applicable === true;
+  const {data: invoicePO, error: invoicePOError} = await supabaseClient.from("pos").select("*").eq("po_no", data.po_no).single();
+  if(invoicePOError){ alert("Could not load Purchase Order retention settings: " + invoicePOError.message); return; }
+  window.currentPOForInvoice = invoicePO || {};
   const fields = [
     ["invoice_no", "Invoice Number", data.invoice_no || "", "text"],
     ["status", "Status", data.status || "Draft", "select"],
@@ -782,6 +795,8 @@ async function showInvoiceDetails(invoiceId){
     ["invoice_amount", "Invoice Amount (Excl. VAT)", data.invoice_amount ?? 0, "number"],
     ["retention_amount", "Retention Amount (Excl. VAT)", data.retention_amount ?? 0, "calculated"],
     ["retention_vat", "Retention VAT", data.retention_vat ?? 0, "calculated"],
+    ["retention_total", "Total Retention", data.retention_total ?? (Number(data.retention_amount||0)+Number(data.retention_vat||0)), "calculated"],
+    ["net_payable", "Net Payable", data.net_payable ?? 0, "calculated"],
     ["retention_due_date", "Retention Due Date", toDateInput(data.retention_due_date), "calculated"],
     ["retention_released_amount", "Retention Released Amount", data.retention_released_amount ?? 0, "number"],
     ["paid_amount", "Paid Amount (Incl. VAT)", data.paid_amount ?? 0, "number"],
@@ -830,21 +845,29 @@ async function showInvoiceDetails(invoiceId){
 function updateExistingInvoiceTotals(){
   const amount = Number(document.getElementById("inv_invoice_amount")?.value || 0);
   const paid = Number(document.getElementById("inv_paid_amount")?.value || 0);
+  const po = window.currentPOForInvoice || {};
   const vat = currentInvoiceVat ? amount * 0.15 : 0;
   const total = amount + vat;
-  const balance = total - paid;
-  const vatEl = document.getElementById("inv_vat_amount");
-  const totalEl = document.getElementById("inv_invoice_total");
-  const balanceEl = document.getElementById("inv_open_balance");
-  const statusEl = document.getElementById("inv_payment_status");
-  const dueEl = document.getElementById("inv_due_date");
-  const overdueEl = document.getElementById("inv_overdue_status");
-  if(vatEl) vatEl.value = vat.toFixed(2);
-  if(totalEl) totalEl.value = total.toFixed(2);
-  if(balanceEl) balanceEl.value = balance.toFixed(2);
-  if(statusEl) statusEl.value = paid <= 0 ? "Unpaid" : balance <= 0 ? "Paid" : "Partially Paid";
-  if(dueEl) dueEl.value = calculateDueDate(document.getElementById("inv_approval_date")?.value, document.getElementById("inv_payment_terms")?.value);
-  if(overdueEl) overdueEl.value = getOverdueStatus(dueEl?.value, balance);
+  const pct = po.retention_applicable ? Number(po.retention_percentage || 0) / 100 : 0;
+  const retentionBase = amount * pct;
+  const retentionVat = currentInvoiceVat ? retentionBase * 0.15 : 0;
+  const approval = document.getElementById("inv_approval_date")?.value || "";
+  const retentionDue = approval && po.retention_applicable
+    ? calculateDueDate(approval, Number(po.retention_period_days || 0)) : "";
+  const dueDate = calculateDueDate(approval, document.getElementById("inv_payment_terms")?.value);
+  const balance = Math.max(0, total - paid);
+  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value;};
+  set("inv_vat_amount", vat.toFixed(2));
+  set("inv_invoice_total", total.toFixed(2));
+  set("inv_open_balance", balance.toFixed(2));
+  set("inv_payment_status", paid <= 0 ? "Unpaid" : balance <= 0.005 ? "Paid" : "Partially Paid");
+  set("inv_due_date", dueDate);
+  set("inv_overdue_status", getOverdueStatus(dueDate, balance));
+  set("inv_retention_amount", retentionBase.toFixed(2));
+  set("inv_retention_vat", retentionVat.toFixed(2));
+  set("inv_retention_total", (retentionBase+retentionVat).toFixed(2));
+  set("inv_retention_due_date", retentionDue);
+  set("inv_net_payable", Math.max(0,total-retentionBase-retentionVat).toFixed(2));
 }
 
 function getOverdueStatus(dueDate, balance){
@@ -886,6 +909,9 @@ async function saveInvoiceChanges(){
     invoice_amount: amount,
     paid_amount: paid,
     retention_released_amount: Number(document.getElementById("inv_retention_released_amount")?.value || 0),
+    retention_amount: Number(document.getElementById("inv_retention_amount")?.value || 0),
+    retention_vat: Number(document.getElementById("inv_retention_vat")?.value || 0),
+    retention_due_date: document.getElementById("inv_retention_due_date")?.value || null,
     erp: document.getElementById("inv_erp").checked,
     description: document.getElementById("inv_description").value
   };
@@ -949,13 +975,13 @@ async function editProject(id){
  currentProjectEditId=id;
  document.getElementById('projectModal').style.display='block';
  document.querySelector('#projectModal h2').textContent='Edit Project';
- document.getElementById('new_project_name').value=data.project_name||'';document.getElementById('new_company').value=data.company||'';document.getElementById('new_department').value=data.department||'';document.getElementById('new_project_manager').value=data.project_manager||'';document.getElementById('new_status').innerHTML=['Active','Pending','Completed','Closed'].map(x=>`<option ${data.status===x?'selected':''}>${x}</option>`).join('');
+ document.getElementById('new_project_name').value=data.project_name||'';document.getElementById('new_company').value=data.company||'';document.getElementById('new_department').value=data.department||'';document.getElementById('new_project_manager').value=data.project_manager||'';document.getElementById('new_project_start_date').value=toDateInput(data.start_date);document.getElementById('new_project_end_date').value=toDateInput(data.end_date);document.getElementById('new_status').innerHTML=['Active','Pending','Completed','Closed'].map(x=>`<option ${data.status===x?'selected':''}>${x}</option>`).join('');
  const b=document.querySelector('#projectModal button[onclick="saveProject()"]');b.textContent='Save Changes';
  let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent='Back to Completed Projects';back.style.background='#64748b';back.onclick=()=>{closeProjectModal();showCompletedProjects();};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
- const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),status:document.getElementById('new_status').value};
+ const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),start_date:document.getElementById('new_project_start_date').value||null,end_date:document.getElementById('new_project_end_date').value||null,status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
  const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.from('projects').insert([payload]);
  const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
@@ -990,7 +1016,7 @@ async function addInvoice(poNo,projectId){
  <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option>Submitted</option><option>1-Submitted</option><option>2-Waiting For Approval</option><option>3-Approved</option><option>Approved</option><option>Completed</option></select></div>
  <div class="invoice-field"><label>Invoice Amount Excl. VAT</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Paid Amount Incl. VAT</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
  <div class="invoice-field"><label>VAT</label><input readonly value="${po.vat?'15%':'No VAT'}"></div><div class="invoice-field"><label>VAT Amount</label><input id="new_inv_vat" readonly></div><div class="invoice-field"><label>Invoice Total</label><input id="new_inv_total" readonly></div><div class="invoice-field"><label>Retention %</label><input readonly value="${po.retention_applicable?Number(po.retention_percentage||0):0}%"></div><div class="invoice-field"><label>Retention Amount Excl. VAT</label><input id="new_inv_retention_base" readonly></div><div class="invoice-field"><label>Retention VAT</label><input id="new_inv_retention_vat" readonly></div><div class="invoice-field"><label>Total Retention</label><input id="new_inv_retention_total" readonly></div><div class="invoice-field"><label>Net Payable</label><input id="new_inv_net" readonly></div><div class="invoice-field"><label>Retention Due Date (from Approval Date)</label><input id="new_inv_retention_due" readonly></div>
- <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div><div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div></div><div class="modal-actions"><button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
+ <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date" value="${localToday()}"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" value="${localToday()}" oninput="updateNewInvoiceTotals()" onchange="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div><div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div></div><div class="modal-actions"><button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';updateNewInvoiceTotals();
 }
 function updateNewInvoiceTotals(){
@@ -1144,6 +1170,13 @@ id="new_project_manager"
 type="text"
 placeholder="Project Manager">
 
+<br><br>
+
+<label>Project Start Date</label>
+<input id="new_project_start_date" type="date">
+<br><br>
+<label>Project End Date</label>
+<input id="new_project_end_date" type="date">
 <br><br>
 
 <select id="new_status">
