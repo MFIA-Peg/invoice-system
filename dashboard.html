@@ -901,7 +901,7 @@ async function saveInvoiceChanges(){
   document.getElementById("invoiceEditMessage").style.color = "green";
   const poNo = currentInvoicePoNo;
   closeInvoiceModal();
-  await openInvoices(poNo);
+  if(returnToPaidInvoices){returnToPaidInvoices=false;await showPaidInvoices();}else{await openInvoices(poNo);}
 }
 
 /* ===== V18 enhancements: open/closed workflow, edits, retention and attachments ===== */
@@ -950,13 +950,14 @@ async function editProject(id){
  document.querySelector('#projectModal h2').textContent='Edit Project';
  document.getElementById('new_project_name').value=data.project_name||'';document.getElementById('new_company').value=data.company||'';document.getElementById('new_department').value=data.department||'';document.getElementById('new_project_manager').value=data.project_manager||'';document.getElementById('new_status').innerHTML=['Active','Pending','Completed','Closed'].map(x=>`<option ${data.status===x?'selected':''}>${x}</option>`).join('');
  const b=document.querySelector('#projectModal button[onclick="saveProject()"]');b.textContent='Save Changes';
+ let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent='Back to Completed Projects';back.style.background='#64748b';back.onclick=()=>{closeProjectModal();showCompletedProjects();};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
  const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
  const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.from('projects').insert([payload]);
- const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');closeProjectModal();await refreshDashboard();
+ const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
 };
 
 async function editPO(id){
@@ -977,7 +978,7 @@ async function savePOChanges(){
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
  if(pct<0||pct>100||days<0){alert('Invalid retention percentage or period.');return;}
  const payload={po_no:document.getElementById('poe_no').value.trim(),company:document.getElementById('poe_company').value.trim(),department:document.getElementById('poe_department').value.trim(),project_id:projectId,project_name:pr?.project_name||'',po_value_ex_vat:Number(document.getElementById('poe_value').value||0),vat:document.getElementById('poe_vat').value==='true',po_date:document.getElementById('poe_date').value||null,expiry_date:document.getElementById('poe_expiry').value||null,retention_applicable:applicable,retention_percentage:applicable?pct:0,retention_period_days:applicable?days:0,status:document.getElementById('poe_status').value,archive:document.getElementById('poe_status').value==='Closed',notes:document.getElementById('poe_notes').value};
- const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}closeInvoiceModal();await openProject(projectId);
+ const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }
 
 async function addInvoice(poNo,projectId){
@@ -1012,17 +1013,45 @@ async function openInvoices(poNo){
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open invoices.</p>');
 }
 
+// Open a closed record from its archive list. The detail/edit screen includes a return button.
+let returnToCompletedProjects = false;
+let returnToClosedPOs = false;
+let returnToPaidInvoices = false;
+async function openClosedProject(id){
+  returnToCompletedProjects = true;
+  document.getElementById('closedModal').style.display='none';
+  await openProject(id);
+  const box=document.getElementById('projectDetails');
+  if(box && !document.getElementById('backToClosedProjects')){
+    box.insertAdjacentHTML('afterbegin', '<div class="modal-actions"><button id="backToClosedProjects" style="background:#64748b" onclick="showCompletedProjects()">Back to Completed Projects</button></div>');
+  }
+}
+async function openClosedPO(id){
+  returnToClosedPOs = true;
+  document.getElementById('closedModal').style.display='none';
+  await editPO(id);
+  const actions=document.querySelector('#invoiceModalContent .modal-actions');
+  if(actions) actions.insertAdjacentHTML('beforeend', '<button style="background:#64748b" onclick="closeInvoiceModal();showClosedPurchaseOrders()">Back to Closed Purchase Orders</button>');
+}
+async function openPaidInvoice(id){
+  returnToPaidInvoices = true;
+  document.getElementById('closedModal').style.display='none';
+  await showInvoiceDetails(id);
+  const actions=document.querySelector('#invoiceModalContent .modal-actions');
+  if(actions) actions.insertAdjacentHTML('beforeend', '<button style="background:#64748b" onclick="closeInvoiceModal();showPaidInvoices()">Back to Paid Invoices</button>');
+}
+
 async function showCompletedProjects(){
  const {data,error}=await supabaseClient.from('projects').select('*').eq('status','Completed').order('id');
  if(error){alert(error.message);return;}
- let h='<h2>Completed Projects</h2><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Status</th></tr>'+(data||[]).map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.project_name)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.status)}</td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Completed Projects</h2><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Status</th><th>Open</th></tr>'+(data||[]).map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.project_name)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedProject(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
 async function showClosedPurchaseOrders(){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('status','Closed').order('id');
  if(error){alert(error.message);return;}
- let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Excl. VAT</th><th>PO Date</th><th>Status</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.po_value_ex_vat||0).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Excl. VAT</th><th>PO Date</th><th>Status</th><th>Open</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.po_value_ex_vat||0).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedPO(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
@@ -1030,7 +1059,7 @@ async function showPaidInvoices(){
  const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*');
  if(error){alert(error.message);return;}
  const paid=(data||[]).filter(x=>Number(x.paid_amount||0)>=Number(x.net_payable||x.invoice_total||0)-0.005 && Number(x.retention_balance||0)<=0.005);
- let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th><th>Open</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openPaidInvoice(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
