@@ -124,7 +124,7 @@ document.getElementById("forgotPassword").addEventListener("click", async functi
 
         if(error) throw error;
 
-        showMessage("Recovery email sent. Check your inbox.", "green");
+        showMessage("Recovery email sent. Open the latest email and follow its link.", "green");
 
     } catch(error) {
         showMessage(error.message || "Unable to send recovery email.", "red");

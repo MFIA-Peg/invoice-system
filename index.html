@@ -77,6 +77,29 @@ button{
 }
 
 </style>
+
+<script>
+(function () {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const isRecoveryReturn =
+        query.has("code") ||
+        query.has("token_hash") ||
+        query.has("error") ||
+        query.has("error_description") ||
+        hash.has("access_token") ||
+        hash.get("type") === "recovery" ||
+        hash.has("error");
+
+    if (isRecoveryReturn) {
+        const target = new URL("reset-password.html", window.location.href);
+        target.search = window.location.search;
+        target.hash = window.location.hash;
+        window.location.replace(target.toString());
+    }
+})();
+</script>
+
 </head>
 
 <body>
