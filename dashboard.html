@@ -730,6 +730,7 @@ async function saveNewInvoice(){
     project_name: project.project_name,
     invoice_amount: amount,
     paid_amount: paid,
+    advance_amortisation: advanceAmortisation,
     retention_released_amount: Number(document.getElementById("inv_retention_released_amount")?.value || 0),
     start_date: document.getElementById("new_inv_start_date").value || null,
     approval_date: document.getElementById("new_inv_approval_date").value || null,
@@ -821,6 +822,7 @@ async function showInvoiceDetails(invoiceId){
     .from("pos").select("*").eq("po_no", data.po_no).single();
   if(invoicePOError){ alert("Could not load Purchase Order retention settings: " + invoicePOError.message); return; }
   window.currentPOForInvoice = invoicePO || {};
+  try{const av=await getAdvanceAvailability(invoicePO,invoiceId);window.currentAdvanceAvailable=av.available;}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}
   // VAT and retention rules must come from the linked PO, not from a possibly
   // stale/missing calculated field in the invoice view.
   currentInvoiceVat = invoicePO?.vat === true;
@@ -836,18 +838,20 @@ async function showInvoiceDetails(invoiceId){
     ["due_date", "Due Date", toDateInput(data.due_date), "calculated"],
     ["completed_date", "Completed Date", toDateInput(data.completed_date), "date"],
     ["invoice_amount", "Invoice Amount (Excl. VAT)", data.invoice_amount ?? 0, "number"],
+    ["advance_amortisation", "Advance Amortisation", data.advance_amortisation ?? 0, "calculated"],
     ["retention_amount", "Retention Amount (Excl. VAT)", data.retention_amount ?? 0, "calculated"],
     ["retention_vat", "Retention VAT", data.retention_vat ?? 0, "calculated"],
     ["retention_total", "Total Retention", data.retention_total ?? (Number(data.retention_amount||0)+Number(data.retention_vat||0)), "calculated"],
-    ["net_payable", "Net Payable", data.net_payable ?? 0, "calculated"],
+    ["net_payable", "Net Payable After Retention", data.net_payable_after_advance ?? data.net_payable ?? 0, "calculated"],
     ["retention_due_date", "Retention Due Date", toDateInput(data.retention_due_date), "calculated"],
     ["retention_released_amount", "Retention Released Amount", data.retention_released_amount ?? 0, "number"],
     ["paid_amount", "Paid Amount (Incl. VAT)", data.paid_amount ?? 0, "number"],
-    ["vat_amount", "VAT Amount", Number(data.vat_amount || 0).toFixed(2), "calculated"],
-    ["invoice_total", "Invoice Total", Number(data.invoice_total || 0).toFixed(2), "calculated"],
-    ["open_balance", "Remaining Balance", Number(data.open_balance || 0).toFixed(2), "calculated"],
-    ["payment_status", "Payment Status", data.payment_status || "", "calculated"],
-    ["overdue_status", "Overdue Status", getOverdueStatus(data.due_date, Number(data.open_balance || 0)), "calculated"],
+    ["vat_amount", "VAT Amount After Advance", Number(data.vat_after_advance ?? data.vat_amount ?? 0).toFixed(2), "calculated"],
+    ["invoice_total", "Invoice Total After Advance", Number(data.invoice_total_after_advance ?? data.invoice_total ?? 0).toFixed(2), "calculated"],
+    ["open_balance", "Remaining Balance", Number(data.collection_balance_after_advance ?? data.open_balance ?? 0).toFixed(2), "calculated"],
+    ["net_invoice_amount", "Net Invoice Amount After Advance", Number(data.net_invoice_amount ?? data.invoice_amount ?? 0).toFixed(2), "calculated"],
+    ["payment_status", "Payment Status", data.payment_status_after_advance || data.payment_status || "", "calculated"],
+    ["overdue_status", "Overdue Status", getOverdueStatus(data.due_date, Number(data.collection_balance_after_advance ?? data.open_balance ?? 0)), "calculated"],
     ["erp", "ERP", data.erp ? "true" : "false", "checkbox"],
     ["description", "Description", data.description || "", "textarea"]
   ];
@@ -889,8 +893,10 @@ function updateExistingInvoiceTotals(){
   const amount = Number(document.getElementById("inv_invoice_amount")?.value || 0);
   const paid = Number(document.getElementById("inv_paid_amount")?.value || 0);
   const po = window.currentPOForInvoice || {};
-  const vat = currentInvoiceVat ? amount * 0.15 : 0;
-  const total = amount + vat;
+  const advanceAmortisation = calculateAdvanceAmortisation(amount,po,window.currentAdvanceAvailable??0);
+  const netInvoiceAmount = Math.max(0,amount-advanceAmortisation);
+  const vat = currentInvoiceVat ? netInvoiceAmount * 0.15 : 0;
+  const total = netInvoiceAmount + vat;
   const pct = po.retention_applicable ? Number(po.retention_percentage || 0) / 100 : 0;
   const retentionBase = amount * pct;
   const retentionVat = currentInvoiceVat ? retentionBase * 0.15 : 0;
@@ -900,9 +906,14 @@ function updateExistingInvoiceTotals(){
   const dueDate = calculateDueDate(approval, document.getElementById("inv_payment_terms")?.value);
   const balance = Math.max(0, total - paid);
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value;};
+  set("inv_advance_amortisation", advanceAmortisation.toFixed(2));
+  set("inv_net_invoice_amount", netInvoiceAmount.toFixed(2));
+  set("inv_vat_after_advance", vat.toFixed(2));
+  set("inv_invoice_total_after_advance", total.toFixed(2));
   set("inv_vat_amount", vat.toFixed(2));
   set("inv_invoice_total", total.toFixed(2));
   set("inv_open_balance", balance.toFixed(2));
+  set("inv_net_payable_after_advance", Math.max(0,total-retentionBase-retentionVat).toFixed(2));
   set("inv_payment_status", paid <= 0 ? "Unpaid" : balance <= 0.005 ? "Paid" : "Partially Paid");
   set("inv_due_date", dueDate);
   set("inv_overdue_status", getOverdueStatus(dueDate, balance));
@@ -949,6 +960,8 @@ async function saveInvoiceChanges(){
   const retentionPct = retentionApplies ? Number(po.retention_percentage || 0) / 100 : 0;
   const retentionAmount = amount * retentionPct;
   const retentionVat = currentInvoiceVat ? retentionAmount * 0.15 : 0;
+  let advanceAvailability;try{advanceAvailability=await getAdvanceAvailability(po,currentInvoiceId);}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}
+  const advanceAmortisation=calculateAdvanceAmortisation(amount,po,advanceAvailability.available);
   const approvalDate = document.getElementById("inv_approval_date").value || null;
   const retentionDueDate = approvalDate && retentionApplies
     ? calculateDueDate(approvalDate, Number(po.retention_period_days || 0)) : null;
@@ -962,6 +975,7 @@ async function saveInvoiceChanges(){
     payment_terms: terms,
     invoice_amount: amount,
     paid_amount: paid,
+    advance_amortisation: advanceAmortisation,
     retention_released_amount: Number(document.getElementById("inv_retention_released_amount")?.value || 0),
     retention_amount: Number(retentionAmount.toFixed(2)),
     retention_vat: Number(retentionVat.toFixed(2)),
@@ -978,6 +992,8 @@ async function saveInvoiceChanges(){
     return;
   }
 
+  try{await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}
+  catch(e){document.getElementById("invoiceEditMessage").textContent = "Invoice saved, but advance schedule recalculation failed: " + e.message;document.getElementById("invoiceEditMessage").style.color = "red";return;}
   document.getElementById("invoiceEditMessage").textContent = "Invoice updated successfully.";
   document.getElementById("invoiceEditMessage").style.color = "green";
   const poNo = currentInvoicePoNo;
@@ -1020,8 +1036,8 @@ async function loadPOs(projectId){
  if(poNos.length){const r=await supabaseClient.from('invoice_details_with_retention').select('*').in('po_no',poNos); if(r.error){document.getElementById('poList').textContent=r.error.message;return;} rows=r.data||[];}
  const invBy={}; rows.forEach(i=>invBy[i.po_no]=(invBy[i.po_no]||0)+Number(i.invoice_amount||0));
  const open=(pos||[]).filter(p=>p.status!=='Closed');
- let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value</th><th>Invoiced</th><th>Balance</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th></tr>';
- open.forEach(po=>{const bal=Number(po.po_value_ex_vat||0)-(invBy[po.po_no]||0);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${Number(po.po_value_ex_vat||0).toFixed(2)}</td><td>${(invBy[po.po_no]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td></tr>`;});
+ let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value</th><th>Invoiced</th><th>PO Balance</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th></tr>';
+ open.forEach(po=>{const bal=Number(po.po_value_ex_vat||0)-(invBy[po.po_no]||0);const advAmount=Number(po.po_value_ex_vat||0)*Number(po.advance_payment_percentage||0)/100;const advUsed=rows.filter(x=>x.po_no===po.po_no).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);const advBalance=Math.max(0,advAmount-advUsed);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${Number(po.po_value_ex_vat||0).toFixed(2)}</td><td>${(invBy[po.po_no]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${Number(po.advance_payment_percentage||0).toFixed(2)}%</td><td>${advAmount.toFixed(2)}</td><td>${advUsed.toFixed(2)}</td><td>${advBalance.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td></tr>`;});
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open purchase orders.</p>');
 }
 
@@ -1045,53 +1061,90 @@ saveProject=async function(){
 async function editPO(id){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}currentPOEditId=id;
  const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
+ const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
  const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>Edit Purchase Order</h2><div class="invoice-fields">
  <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company</label><input id="poe_company" value="${escapeHtml(data.company)}"></div>
  <div class="invoice-field"><label>Department</label><input id="poe_department" value="${escapeHtml(data.department)}"></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
- <div class="invoice-field"><label>PO Value Excl. VAT</label><input id="poe_value" type="number" step="0.01" value="${Number(data.po_value_ex_vat||0)}"></div><div class="invoice-field"><label>VAT Applicable</label><select id="poe_vat"><option value="true" ${data.vat?'selected':''}>Yes</option><option value="false" ${!data.vat?'selected':''}>No</option></select></div>
+ <div class="invoice-field"><label>PO Value Excl. VAT</label><input id="poe_value" type="number" step="0.01" value="${Number(data.po_value_ex_vat||0)}" oninput="updatePOAdvancePreview()"></div><div class="invoice-field"><label>VAT Applicable</label><select id="poe_vat"><option value="true" ${data.vat?'selected':''}>Yes</option><option value="false" ${!data.vat?'selected':''}>No</option></select></div>
+ <div class="invoice-field"><label>Advance Payment %</label><input id="poe_advance_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.advance_payment_percentage||0)}" oninput="updatePOAdvancePreview()"></div><div class="invoice-field"><label>Advance Amount</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
  <div class="invoice-field"><label>PO Date</label><input id="poe_date" type="date" value="${toDateInput(data.po_date)}"></div><div class="invoice-field"><label>Expiry Date</label><input id="poe_expiry" type="date" value="${toDateInput(data.expiry_date)}"></div>
  <div class="invoice-field"><label>Subject to Retention</label><select id="poe_retention"><option value="false" ${!data.retention_applicable?'selected':''}>No</option><option value="true" ${data.retention_applicable?'selected':''}>Yes</option></select></div><div class="invoice-field"><label>Retention %</label><input id="poe_retention_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.retention_percentage||0)}"></div>
  <div class="invoice-field"><label>Retention Period (Days)</label><input id="poe_retention_days" type="number" min="0" value="${Number(data.retention_period_days||0)}"></div><div class="invoice-field"><label>PO Status</label><select id="poe_status"><option value="Open" ${(data.status||'Open')==='Open'?'selected':''}>Open</option><option value="Closed" ${data.status==='Closed'?'selected':''}>Closed</option></select></div>
  <div class="invoice-field"><label>Notes</label><textarea id="poe_notes">${escapeHtml(data.notes||'')}</textarea></div></div><div class="modal-actions"><button class="btn-po" onclick="savePOChanges()">Save Changes</button><button onclick="manageAttachments('po',${id})">Attachments</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
 }
+function updatePOAdvancePreview(){const v=Number(document.getElementById('poe_value')?.value||0),p=Number(document.getElementById('poe_advance_pct')?.value||0);const e=document.getElementById('poe_advance_amount');if(e)e.value=(v*p/100).toFixed(2);}
+
+async function recalculatePOAdvanceAmortisations(poNo, poValue, advancePct){
+ const {data:invs,error}=await supabaseClient.from('invoices').select('id,invoice_amount,start_date').eq('po_no',poNo).order('start_date',{ascending:true}).order('id',{ascending:true});
+ if(error) throw error;
+ let remaining=Math.max(0,Number(poValue||0)*Number(advancePct||0)/100);
+ for(const inv of (invs||[])){
+   const desired=Math.max(0,Number(inv.invoice_amount||0)*Number(advancePct||0)/100);
+   const amort=Number(Math.min(desired,remaining).toFixed(2));
+   const {error:updateError}=await supabaseClient.from('invoices').update({advance_amortisation:amort}).eq('id',inv.id);
+   if(updateError) throw updateError;
+   remaining=Math.max(0,remaining-amort);
+ }
+}
+
+async function getAdvanceAvailability(po, excludeInvoiceId=null){
+ const pct=Number(po.advance_payment_percentage||0),total=Number(po.po_value_ex_vat||0)*pct/100;
+ let q=supabaseClient.from('invoices').select('id,advance_amortisation').eq('po_no',po.po_no);
+ if(excludeInvoiceId!==null) q=q.neq('id',excludeInvoiceId);
+ const {data,error}=await q;if(error)throw error;
+ const used=(data||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
+ return {percentage:pct,advanceAmount:total,used,available:Math.max(0,total-used)};
+}
+function calculateAdvanceAmortisation(amount, po, available){
+ const requested=Math.max(0,Number(amount||0)*Number(po.advance_payment_percentage||0)/100);
+ return Number(Math.min(requested,Math.max(0,Number(available||0))).toFixed(2));
+}
+
 async function savePOChanges(){
  const projectId=Number(document.getElementById('poe_project').value);const {data:pr}=await supabaseClient.from('projects').select('project_name').eq('id',projectId).single();
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
- if(pct<0||pct>100||days<0){alert('Invalid retention percentage or period.');return;}
- const payload={po_no:document.getElementById('poe_no').value.trim(),company:document.getElementById('poe_company').value.trim(),department:document.getElementById('poe_department').value.trim(),project_id:projectId,project_name:pr?.project_name||'',po_value_ex_vat:Number(document.getElementById('poe_value').value||0),vat:document.getElementById('poe_vat').value==='true',po_date:document.getElementById('poe_date').value||null,expiry_date:document.getElementById('poe_expiry').value||null,retention_applicable:applicable,retention_percentage:applicable?pct:0,retention_period_days:applicable?days:0,status:document.getElementById('poe_status').value,archive:document.getElementById('poe_status').value==='Closed',notes:document.getElementById('poe_notes').value};
- const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
+ const advancePct=Number(document.getElementById('poe_advance_pct').value||0);if(pct<0||pct>100||days<0||advancePct<0||advancePct>100){alert('Invalid retention or advance payment percentage/period.');return;}
+ const payload={advance_payment_percentage:advancePct,po_no:document.getElementById('poe_no').value.trim(),company:document.getElementById('poe_company').value.trim(),department:document.getElementById('poe_department').value.trim(),project_id:projectId,project_name:pr?.project_name||'',po_value_ex_vat:Number(document.getElementById('poe_value').value||0),vat:document.getElementById('poe_vat').value==='true',po_date:document.getElementById('poe_date').value||null,expiry_date:document.getElementById('poe_expiry').value||null,retention_applicable:applicable,retention_percentage:applicable?pct:0,retention_period_days:applicable?days:0,status:document.getElementById('poe_status').value,archive:document.getElementById('poe_status').value==='Closed',notes:document.getElementById('poe_notes').value};
+ const {data:oldPO}=await supabaseClient.from('pos').select('po_no').eq('id',currentPOEditId).single();
+ const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}
+ if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
+ try{await recalculatePOAdvanceAmortisations(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
+ closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }
 
 async function addInvoice(poNo,projectId){
  const [{data:pr,error:pe},{data:po,error:oe}]=await Promise.all([supabaseClient.from('projects').select('*').eq('id',projectId).single(),supabaseClient.from('pos').select('*').eq('po_no',poNo).single()]);if(pe||oe){alert((pe||oe).message);return;}
- currentInvoiceId=null;currentInvoicePoNo=poNo;currentProjectId=projectId;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;
+ currentInvoiceId=null;currentInvoicePoNo=poNo;currentProjectId=projectId;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;try{const av=await getAdvanceAvailability(po);window.currentAdvanceAvailable=av.available;}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}
  document.getElementById('invoiceModalContent').innerHTML=`<h2>Add Invoice</h2><div class="invoice-fields">
  <div class="invoice-field"><label>Project</label><input readonly value="${escapeHtml(pr.project_name)}"></div><div class="invoice-field"><label>PO Number</label><input readonly value="${escapeHtml(poNo)}"></div>
  <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option>Submitted</option><option>1-Submitted</option><option>2-Waiting For Approval</option><option>3-Approved</option><option>Approved</option><option>Completed</option></select></div>
- <div class="invoice-field"><label>Invoice Amount Excl. VAT</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Paid Amount Incl. VAT</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
- <div class="invoice-field"><label>VAT</label><input readonly value="${po.vat?'15%':'No VAT'}"></div><div class="invoice-field"><label>VAT Amount</label><input id="new_inv_vat" readonly></div><div class="invoice-field"><label>Invoice Total</label><input id="new_inv_total" readonly></div><div class="invoice-field"><label>Retention %</label><input readonly value="${po.retention_applicable?Number(po.retention_percentage||0):0}%"></div><div class="invoice-field"><label>Retention Amount Excl. VAT</label><input id="new_inv_retention_base" readonly></div><div class="invoice-field"><label>Retention VAT</label><input id="new_inv_retention_vat" readonly></div><div class="invoice-field"><label>Total Retention</label><input id="new_inv_retention_total" readonly></div><div class="invoice-field"><label>Net Payable</label><input id="new_inv_net" readonly></div><div class="invoice-field"><label>Retention Due Date (from Approval Date)</label><input id="new_inv_retention_due" readonly></div>
+ <div class="invoice-field"><label>Invoice Amount Excl. VAT</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Advance Payment %</label><input readonly value="${Number(po.advance_payment_percentage||0)}%"></div><div class="invoice-field"><label>Advance Balance Before Invoice</label><input readonly value="${Number(window.currentAdvanceAvailable||0).toFixed(2)}"></div><div class="invoice-field"><label>Advance Amortisation</label><input id="new_inv_advance_amortisation" readonly value="0.00"></div><div class="invoice-field"><label>Net Invoice Amount After Advance</label><input id="new_inv_net_amount" readonly value="0.00"></div><div class="invoice-field"><label>Paid Amount Incl. VAT</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
+ <div class="invoice-field"><label>VAT</label><input readonly value="${po.vat?'15%':'No VAT'}"></div><div class="invoice-field"><label>VAT on Net Amount</label><input id="new_inv_vat" readonly></div><div class="invoice-field"><label>Net Invoice Subject to Collection</label><input id="new_inv_total" readonly></div><div class="invoice-field"><label>Remaining Balance</label><input id="new_inv_balance" readonly></div><div class="invoice-field"><label>Retention %</label><input readonly value="${po.retention_applicable?Number(po.retention_percentage||0):0}%"></div><div class="invoice-field"><label>Retention Amount Excl. VAT</label><input id="new_inv_retention_base" readonly></div><div class="invoice-field"><label>Retention VAT</label><input id="new_inv_retention_vat" readonly></div><div class="invoice-field"><label>Total Retention</label><input id="new_inv_retention_total" readonly></div><div class="invoice-field"><label>Net Payable</label><input id="new_inv_net" readonly></div><div class="invoice-field"><label>Retention Due Date (from Approval Date)</label><input id="new_inv_retention_due" readonly></div>
  <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date" value="${localToday()}"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" value="${localToday()}" oninput="updateNewInvoiceTotals()" onchange="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div><div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div></div><div class="modal-actions"><button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';updateNewInvoiceTotals();
 }
 function updateNewInvoiceTotals(){
- const a=Number(document.getElementById('new_inv_amount')?.value||0),p=Number(document.getElementById('new_inv_paid')?.value||0),po=window.currentPOForInvoice||{};const vat=currentInvoiceVat?a*.15:0,total=a+vat,pct=po.retention_applicable?Number(po.retention_percentage||0)/100:0,rb=a*pct,rv=currentInvoiceVat?rb*.15:0,rt=rb+rv;
- const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=Number(v).toFixed(2)};set('new_inv_vat',vat);set('new_inv_total',total);set('new_inv_retention_base',rb);set('new_inv_retention_vat',rv);set('new_inv_retention_total',rt);set('new_inv_net',total-rt);
+ const a=Number(document.getElementById('new_inv_amount')?.value||0),p=Number(document.getElementById('new_inv_paid')?.value||0),po=window.currentPOForInvoice||{};
+ const advance=calculateAdvanceAmortisation(a,po,window.currentAdvanceAvailable??0),netAmount=Math.max(0,a-advance),vat=currentInvoiceVat?netAmount*.15:0,total=netAmount+vat;
+ const pct=po.retention_applicable?Number(po.retention_percentage||0)/100:0,rb=a*pct,rv=currentInvoiceVat?rb*.15:0,rt=rb+rv;
+ const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=Number(v).toFixed(2)};set('new_inv_advance_amortisation',advance);set('new_inv_net_amount',netAmount);set('new_inv_vat',vat);set('new_inv_total',total);set('new_inv_balance',Math.max(0,total-p));set('new_inv_retention_base',rb);set('new_inv_retention_vat',rv);set('new_inv_retention_total',rt);set('new_inv_net',Math.max(0,total-rt));
  const approval=document.getElementById('new_inv_approval_date')?.value||'';const days=Number(po.retention_period_days||0);const rd=approval&&po.retention_applicable?calculateDueDate(approval,days):'';const due=calculateDueDate(approval,document.getElementById('new_inv_terms')?.value);const re=document.getElementById('new_inv_retention_due');if(re)re.value=rd;const de=document.getElementById('new_inv_due_date');if(de)de.value=due;
 }
 async function saveNewInvoice(){
  const invoiceNo=document.getElementById('new_inv_invoice_no').value.trim(),amount=Number(document.getElementById('new_inv_amount').value||0),paid=Number(document.getElementById('new_inv_paid').value||0),terms=Number(document.getElementById('new_inv_terms').value||0),po=window.currentPOForInvoice||{};if(!invoiceNo||amount<=0||paid<0){alert('Enter invoice number and valid amounts.');return;}
  const {data:pr,error:pe}=await supabaseClient.from('projects').select('project_name').eq('id',currentProjectId).single();if(pe){alert(pe.message);return;}
+ let availability;try{availability=await getAdvanceAvailability(po);}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}const advanceAmortisation=calculateAdvanceAmortisation(amount,po,availability.available);
  const rb=po.retention_applicable?amount*Number(po.retention_percentage||0)/100:0,rv=currentInvoiceVat?rb*.15:0;
- const payload={invoice_no:invoiceNo,status:document.getElementById('new_inv_status').value,po_no:currentInvoicePoNo,project_id:currentProjectId,project_name:pr.project_name,invoice_amount:amount,paid_amount:paid,start_date:document.getElementById('new_inv_start_date').value||null,approval_date:document.getElementById('new_inv_approval_date').value||null,completed_date:document.getElementById('new_inv_completed_date').value||null,payment_terms:terms,description:document.getElementById('new_inv_description').value.trim(),erp:false,retention_amount:rb,retention_vat:rv,retention_due_date:(document.getElementById('new_inv_retention_due').value||null)};
- const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}closeInvoiceModal();await openInvoices(currentInvoicePoNo);
+ const payload={invoice_no:invoiceNo,status:document.getElementById('new_inv_status').value,po_no:currentInvoicePoNo,project_id:currentProjectId,project_name:pr.project_name,invoice_amount:amount,paid_amount:paid,advance_amortisation:advanceAmortisation,start_date:document.getElementById('new_inv_start_date').value||null,approval_date:document.getElementById('new_inv_approval_date').value||null,completed_date:document.getElementById('new_inv_completed_date').value||null,payment_terms:terms,description:document.getElementById('new_inv_description').value.trim(),erp:false,retention_amount:rb,retention_vat:rv,retention_due_date:(document.getElementById('new_inv_retention_due').value||null)};
+ const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}try{await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){alert('Invoice saved, but advance schedule recalculation failed: '+e.message);return;}closeInvoiceModal();await openInvoices(currentInvoicePoNo);
 }
 async function openInvoices(poNo){
  currentInvoicePoNo=poNo;const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*').eq('po_no',poNo);if(error){alert(error.message);return;}const {data:po}=await supabaseClient.from('pos').select('*').eq('po_no',poNo).single();
- const open=(data||[]).filter(x=>x.status!=='Completed' && (Number(x.paid_amount||0)<Number(x.net_payable||x.invoice_total||0)-0.005 || Number(x.retention_balance||0)>0.005));const pending=(data||[]).filter(x=>!/(approved|completed|cancelled)/i.test(x.status||''));
+ const open=(data||[]).filter(x=>x.status!=='Completed' && (Number(x.paid_amount||0)<Number(x.net_payable_after_advance??x.net_payable??x.invoice_total_after_advance??x.invoice_total??0)-0.005 || Number(x.retention_balance||0)>0.005));const pending=(data||[]).filter(x=>!/(approved|completed|cancelled)/i.test(x.status||''));
  let html=`<div class="modal-actions"><button style="background:#64748b" onclick="backToProject()">Back to Project</button></div><h3>Purchase Order: ${escapeHtml(poNo)}</h3>`;if(pending.length)html+=`<div class="warning-panel"><b>Approval Required – ${pending.length} invoice(s) have not reached approval:</b><ul>${pending.map(x=>`<li>${escapeHtml(x.invoice_no)} | ${escapeHtml(x.project_name)} | ${escapeHtml(x.status)}</li>`).join('')}</ul></div>`;
- html+='<table><tr><th>Open</th><th>Invoice No</th><th>Invoice Date</th><th>Approval Date</th><th>Amount Excl VAT</th><th>VAT</th><th>Total</th><th>Paid</th><th>Balance</th><th>Retention</th><th>Retention VAT</th><th>Total Retention</th><th>Retention Released</th><th>Retention Balance</th><th>Retention Due</th><th>Net Payable</th><th>Status</th></tr>';
- for(const x of open){const rb=Number(x.retention_amount||0),rv=Number(x.retention_vat||0),rt=rb+rv;html+=`<tr><td><button onclick="showInvoiceDetails(${x.id})">Open</button></td><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.start_date)}</td><td>${escapeHtml(x.approval_date)}</td><td>${Number(x.invoice_amount||0).toFixed(2)}</td><td>${Number(x.vat_amount||0).toFixed(2)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.open_balance||0).toFixed(2)}</td><td>${rb.toFixed(2)}</td><td>${rv.toFixed(2)}</td><td>${rt.toFixed(2)}</td><td>${Number(x.retention_released_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||Math.max(0,rt-Number(x.retention_released_amount||0))).toFixed(2)}</td><td>${escapeHtml(x.retention_due_date||'')}</td><td>${(Number(x.invoice_total||0)-rt).toFixed(2)}</td><td>${escapeHtml(x.status)}</td></tr>`;}
+ html+='<table><tr><th>Open</th><th>Invoice No</th><th>Invoice Date</th><th>Approval Date</th><th>Amount Excl VAT</th><th>Advance Amortisation</th><th>Net Invoice Amount</th><th>VAT After Advance</th><th>Net Invoice Subject to Collection</th><th>Paid</th><th>Balance</th><th>Retention</th><th>Retention VAT</th><th>Total Retention</th><th>Retention Released</th><th>Retention Balance</th><th>Retention Due</th><th>Net Payable</th><th>Status</th></tr>';
+ for(const x of open){const rb=Number(x.retention_amount||0),rv=Number(x.retention_vat||0),rt=rb+rv;html+=`<tr><td><button onclick="showInvoiceDetails(${x.id})">Open</button></td><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.start_date)}</td><td>${escapeHtml(x.approval_date)}</td><td>${Number(x.invoice_amount||0).toFixed(2)}</td><td>${Number(x.advance_amortisation||0).toFixed(2)}</td><td>${Number(x.net_invoice_amount??x.invoice_amount??0).toFixed(2)}</td><td>${Number(x.vat_after_advance??x.vat_amount??0).toFixed(2)}</td><td>${Number(x.invoice_total_after_advance??x.invoice_total??0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.collection_balance_after_advance??x.open_balance??0).toFixed(2)}</td><td>${rb.toFixed(2)}</td><td>${rv.toFixed(2)}</td><td>${rt.toFixed(2)}</td><td>${Number(x.retention_released_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||Math.max(0,rt-Number(x.retention_released_amount||0))).toFixed(2)}</td><td>${escapeHtml(x.retention_due_date||'')}</td><td>${Number(x.net_payable_after_advance??(Number(x.invoice_total||0)-rt)).toFixed(2)}</td><td>${escapeHtml(x.status)}</td></tr>`;}
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open invoices.</p>');
  setDashboardFocus('po');
 }
