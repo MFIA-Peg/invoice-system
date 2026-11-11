@@ -31,6 +31,7 @@ h1{
     text-align:center;
 }
 
+.form-section{border:1px solid #dbe3ed;border-radius:9px;padding:16px;margin:16px 0;background:#fbfdff}.form-section h2{font-size:18px;color:#14263d;margin:0 0 14px;border-bottom:1px solid #e2e8f0;padding-bottom:8px}
 .row{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -84,74 +85,22 @@ button{
 
 <h1>Purchase Order Entry</h1>
 
-<div class="row">
+<section class="form-section"><h2>1. General Identification Data</h2>
+<div class="row"><div><label>PO Number *</label><input id="po_no" type="text"></div><div><label>Company / Customer *</label><input id="company" type="text"></div></div>
+<div class="row"><div><label>Department *</label><input id="department" type="text"></div><div><label>Project *</label><select id="project_id"></select></div></div>
+<div class="row"><div><label>PO Date</label><input id="po_date" type="date"></div><div><label>Expiry Date</label><input id="expiry_date" type="date"></div></div>
+<div class="row"><div><label>PO Status</label><select id="po_status"><option>Open</option><option>Closed</option></select></div><div><label>Notes</label><textarea id="notes" rows="3"></textarea></div></div>
+</section>
 
-<div>
-<label>PO Number *</label>
-<input id="po_no" type="text">
-</div>
+<section class="form-section"><h2>2. Financial Item Data</h2>
+<div class="row"><div><label>PO Value Ex VAT *</label><input id="po_value_ex_vat" type="number" min="0" step="0.01"></div><div><label>VAT</label><select id="vat"><option value="true">Yes</option><option value="false">No</option></select></div></div>
+</section>
 
-<div>
-<label>Company *</label>
-<input id="company" type="text">
-</div>
-
-</div>
-
-<div class="row">
-
-<div>
-<label>Department *</label>
-<input id="department" type="text">
-</div>
-
-<div>
-<label>Project *</label>
-<select id="project_id"></select>
-</div>
-
-</div>
-
-<div class="row">
-
-<div>
-<label>PO Value Ex VAT *</label>
-<input id="po_value_ex_vat" type="number">
-</div>
-
-<div>
-<label>VAT</label>
-
-<select id="vat">
-<option value="true">Yes</option>
-<option value="false">No</option>
-</select>
-
-</div>
-
-</div>
-
-<div class="row">
-
-<div>
-<label>PO Date</label>
-<input id="po_date" type="date">
-</div>
-
-<div>
-<label>Expiry Date</label>
-<input id="expiry_date" type="date">
-</div>
-
-</div>
-
-<label>Notes</label>
-
-<textarea
-id="notes"
-rows="5"></textarea>
-
-<br><br>
+<section class="form-section"><h2>3. Retention and Advance Payment Deductions</h2>
+<div class="row"><div><label>Subject to Retention</label><select id="retention_applicable"><option value="false">No</option><option value="true">Yes</option></select></div><div><label>Retention %</label><input id="retention_percentage" type="number" min="0" max="100" step="0.01" value="0"></div></div>
+<div class="row"><div><label>Retention Period (Days)</label><input id="retention_period_days" type="number" min="0" value="0"></div><div><label>Advance Payment %</label><input id="advance_payment_percentage" type="number" min="0" max="100" step="0.01" value="0" oninput="updateAdvancePreview()"></div></div>
+<div class="row"><div><label>Advance Payment Amount</label><input id="advance_amount_preview" type="number" readonly value="0.00"></div><div></div></div>
+</section>
 
 <button
 class="btn-back"
@@ -196,6 +145,8 @@ params.get("project_id");
 function localToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 document.getElementById("po_date").value=localToday();
 document.getElementById("expiry_date").value=localToday();
+document.getElementById("po_value_ex_vat").addEventListener("input",updateAdvancePreview);
+function updateAdvancePreview(){const v=Number(document.getElementById("po_value_ex_vat").value||0),p=Number(document.getElementById("advance_payment_percentage").value||0);document.getElementById("advance_amount_preview").value=(v*p/100).toFixed(2);}
 loadProjects();
 
 async function loadProjects(){
@@ -372,7 +323,12 @@ document
 .getElementById("notes")
 .value || "",
 
-archive:false
+status:document.getElementById("po_status").value,
+retention_applicable:document.getElementById("retention_applicable").value === "true",
+retention_percentage:Number(document.getElementById("retention_percentage").value || 0),
+retention_period_days:Number(document.getElementById("retention_period_days").value || 0),
+advance_payment_percentage:Number(document.getElementById("advance_payment_percentage").value || 0),
+archive:document.getElementById("po_status").value === "Closed"
 
 }]);
 
