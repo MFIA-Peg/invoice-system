@@ -182,9 +182,9 @@ supabase.createClient(
 SUPABASE_URL,
 SUPABASE_KEY
 );
-const attachmentClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { storageKey: "pe-attachment-auth", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
-});
+// Use the same authenticated Supabase session as the rest of the application.
+// This keeps project data and attachment access under one login.
+const attachmentClient = supabaseClient;
 
 /* Focus mode: show only the record currently opened by the user. */
 function setDashboardFocus(mode){
@@ -1225,7 +1225,7 @@ async function signInAttachmentUser(){
  document.getElementById('attachmentAuth').innerHTML='<p>Authenticated attachment access enabled.</p><button onclick="signOutAttachmentUser()">Sign Out</button>';
  document.getElementById('attachmentWorkspace').style.display='block';await loadAttachments();
 }
-async function signOutAttachmentUser(){await attachmentClient.auth.signOut();manageAttachments(currentAttachmentType,currentAttachmentId);}
+async function signOutAttachmentUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert(error.message);return;}window.location.href='login.html';}
 async function loadAttachments(){
  const {data,error}=await attachmentClient.from('record_attachments').select('*').eq('record_type',currentAttachmentType).eq('record_id',currentAttachmentId).order('created_at',{ascending:false});const el=document.getElementById('attachmentList');if(!el)return;if(error){el.textContent='Attachment list error: '+error.message+' (check SQL migration and authenticated policies)';return;}el.innerHTML=(data||[]).map(f=>`<p>${escapeHtml(f.file_name)} (${Math.round(Number(f.size_bytes||0)/1024)} KB) <button class="small-btn" onclick="downloadAttachment('${escapeHtml(f.storage_path)}')">Download</button></p>`).join('')||'<p>No attachments.</p>';
 }
