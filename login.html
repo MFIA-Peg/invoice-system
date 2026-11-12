@@ -54,6 +54,8 @@ const SUPABASE_KEY = "sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const message = document.getElementById("message");
+// A login page visit always requires an explicit password entry.
+sessionStorage.removeItem("pe_login_verified");
 
 function showMessage(text, color) {
     message.textContent = text;
@@ -92,6 +94,7 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
         if(error) throw error;
 
         await checkProfile(data.user);
+        sessionStorage.setItem("pe_login_verified", "true");
 
         showMessage("Login successful. Opening dashboard...", "green");
         window.location.replace("dashboard.html");
@@ -131,20 +134,9 @@ document.getElementById("forgotPassword").addEventListener("click", async functi
     }
 });
 
-async function checkExistingSession() {
-    const {data} = await client.auth.getSession();
+// Do not auto-redirect based on a previously persisted Supabase session.
+// The user must submit the login form on every fresh visit to this page.
 
-    if(data.session) {
-        try {
-            await checkProfile(data.session.user);
-            window.location.replace("dashboard.html");
-        } catch(error) {
-            await client.auth.signOut();
-        }
-    }
-}
-
-checkExistingSession();
 </script>
 </body>
 </html>
