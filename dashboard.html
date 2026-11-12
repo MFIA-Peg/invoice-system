@@ -136,6 +136,7 @@ Add Project
 Refresh
 </button>
 <button onclick="location.href='reports.html'" style="background:#0f766e">Reports</button>
+<button onclick="logoutUser()" style="background:#b91c1c">Sign Out</button>
 <button onclick="showCompletedProjects()" style="background:#475569">Completed Projects</button>
 <button onclick="showClosedPurchaseOrders()" style="background:#475569">Closed Purchase Orders</button>
 <button onclick="showPaidInvoices()" style="background:#475569">Paid Invoices</button>
@@ -337,8 +338,10 @@ async function deletePO(id){
 }
 
 async function deleteInvoice(id){
-  const {data:invoiceRecord,error:invoiceLoadError}=await supabaseClient.from('invoices').select('invoice_no').eq('id',id).single();
+  const {data:invoiceRecord,error:invoiceLoadError}=await supabaseClient.from('invoices').select('invoice_no,status,paid_amount').eq('id',id).single();
   if(invoiceLoadError){alert('Could not load invoice: '+invoiceLoadError.message);return;}
+  const normalizedStatus=String(invoiceRecord.status||'').trim().toLowerCase();
+  if(['closed','paid','fully paid','complete','completed'].includes(normalizedStatus) || Number(invoiceRecord.paid_amount||0)>0){alert('This invoice cannot be deleted because it is closed or has a recorded payment.');return;}
   if(!confirm(`Delete invoice "${invoiceRecord.invoice_no}"? Payments and collection history associated with it may also be affected. This action cannot be undone.`)) return;
   const {data:inv,error:invError}=await supabaseClient.from('invoices').select('id,po_no').eq('id',id).single();
   if(invError){alert('Could not load invoice: '+invError.message);return;}
@@ -1270,7 +1273,7 @@ async function showPaidInvoices(){
  const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*');
  if(error){alert(error.message);return;}
  const paid=(data||[]).filter(x=>Number(x.paid_amount||0)>=Number(x.net_payable||x.invoice_total||0)-0.005 && Number(x.retention_balance||0)<=0.005);
- let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th><th>Open</th><th>Delete</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openPaidInvoice(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deleteInvoice(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th><th>Open</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openPaidInvoice(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
@@ -1288,7 +1291,7 @@ async function signInAttachmentUser(){
  document.getElementById('attachmentAuth').innerHTML='<p>Authenticated attachment access enabled.</p><button onclick="signOutAttachmentUser()">Sign Out</button>';
  document.getElementById('attachmentWorkspace').style.display='block';await loadAttachments();
 }
-async function signOutAttachmentUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert(error.message);return;}window.location.href='login.html';}
+async function signOutAttachmentUser(){sessionStorage.removeItem('pe_login_verified');const {error}=await supabaseClient.auth.signOut();if(error){alert(error.message);return;}window.location.href='login.html';}
 async function loadAttachments(){
  const {data,error}=await attachmentClient.from('record_attachments').select('*').eq('record_type',currentAttachmentType).eq('record_id',currentAttachmentId).order('created_at',{ascending:false});const el=document.getElementById('attachmentList');if(!el)return;if(error){el.textContent='Attachment list error: '+error.message+' (check SQL migration and authenticated policies)';return;}el.innerHTML=(data||[]).map(f=>`<p>${escapeHtml(f.file_name)} (${Math.round(Number(f.size_bytes||0)/1024)} KB) <button class="small-btn" onclick="downloadAttachment('${escapeHtml(f.storage_path)}')">Download</button></p>`).join('')||'<p>No attachments.</p>';
 }
@@ -1346,7 +1349,40 @@ async function downloadAttachment(path){const {data,error}=await attachmentClien
 
 async function refreshDashboard(){const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadProjects();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
 
-loadProjects();
+
+async function logoutUser(){
+  if(!confirm('Sign out of the Power Energy Invoice System?')) return;
+  sessionStorage.removeItem('pe_login_verified');
+  sessionStorage.removeItem('pe_user_role');
+  sessionStorage.removeItem('pe_username');
+  sessionStorage.removeItem('pe_full_name');
+  const {error}=await supabaseClient.auth.signOut();
+  if(error){alert('Sign out failed: '+error.message);return;}
+  window.location.replace('login.html');
+}
+
+async function initializeDashboard(){
+  // A fresh tab must have passed through the login form, even if Supabase has a persisted session.
+  if(sessionStorage.getItem('pe_login_verified') !== 'true'){
+    window.location.replace('login.html');
+    return;
+  }
+  const {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
+  if(sessionError || !session){sessionStorage.removeItem('pe_login_verified');window.location.replace('login.html');return;}
+  const {data:profile,error:profileError}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
+  if(profileError || !profile || profile.active!==true){
+    sessionStorage.removeItem('pe_login_verified');
+    await supabaseClient.auth.signOut();
+    window.location.replace('login.html');
+    return;
+  }
+  sessionStorage.setItem('pe_user_role',profile.role||'');
+  sessionStorage.setItem('pe_username',profile.username||'');
+  sessionStorage.setItem('pe_full_name',profile.full_name||'');
+  await loadProjects();
+}
+
+initializeDashboard();
 
 </script>
 <div id="closedModal" onclick="if(event.target===this)this.style.display='none'"><div id="closedModalContent"></div></div>
