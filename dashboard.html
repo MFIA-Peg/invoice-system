@@ -1230,8 +1230,54 @@ async function loadAttachments(){
  const {data,error}=await attachmentClient.from('record_attachments').select('*').eq('record_type',currentAttachmentType).eq('record_id',currentAttachmentId).order('created_at',{ascending:false});const el=document.getElementById('attachmentList');if(!el)return;if(error){el.textContent='Attachment list error: '+error.message+' (check SQL migration and authenticated policies)';return;}el.innerHTML=(data||[]).map(f=>`<p>${escapeHtml(f.file_name)} (${Math.round(Number(f.size_bytes||0)/1024)} KB) <button class="small-btn" onclick="downloadAttachment('${escapeHtml(f.storage_path)}')">Download</button></p>`).join('')||'<p>No attachments.</p>';
 }
 async function uploadAttachments(){
- const {data:{session}}=await attachmentClient.auth.getSession();if(!session){alert('Sign in before uploading attachments.');return;}
- const files=[...(document.getElementById('attachmentFiles')?.files||[])];if(!files.length){alert('Select at least one file.');return;}for(const f of files){const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=`${currentAttachmentType}/${currentAttachmentId}/${Date.now()}_${safe}`;const up=await attachmentClient.storage.from(ATTACHMENT_BUCKET).upload(path,f,{upsert:false});if(up.error){alert('Upload failed: '+up.error.message);return;}const ins=await attachmentClient.from('record_attachments').insert([{record_type:currentAttachmentType,record_id:currentAttachmentId,file_name:f.name,storage_path:path,mime_type:f.type,size_bytes:f.size}]);if(ins.error){alert('File uploaded but metadata save failed: '+ins.error.message);return;}}await loadAttachments();alert('Attachments uploaded.');
+  const {data:{session},error:sessionError}=await attachmentClient.auth.getSession();
+  if(sessionError){alert('Could not verify attachment login: '+sessionError.message);return;}
+  if(!session){alert('Sign in before uploading attachments.');return;}
+
+  if(!['po','invoice'].includes(currentAttachmentType) || !currentAttachmentId){
+    alert('Invalid attachment record. Close this window and open the attachments from a PO or invoice.');
+    return;
+  }
+
+  const tableName=currentAttachmentType==='po'?'pos':'invoices';
+  const {data:record,error:recordError}=await attachmentClient
+    .from(tableName)
+    .select('project_id')
+    .eq('id',currentAttachmentId)
+    .single();
+  if(recordError || !record || !Number.isSafeInteger(Number(record.project_id)) || Number(record.project_id)<=0){
+    alert('Could not determine the project for this attachment: '+(recordError?.message||'Invalid project ID'));
+    return;
+  }
+  const projectId=Number(record.project_id);
+  const files=[...(document.getElementById('attachmentFiles')?.files||[])];
+  if(!files.length){alert('Select at least one file.');return;}
+
+  for(const f of files){
+    const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,180)||'attachment';
+    const unique=`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    // Storage RLS requires the first path segment to be the numeric project_id.
+    const path=`${projectId}/${currentAttachmentType}_${currentAttachmentId}_${unique}_${safe}`;
+    const up=await attachmentClient.storage.from(ATTACHMENT_BUCKET).upload(path,f,{upsert:false});
+    if(up.error){alert('Upload failed: '+up.error.message);return;}
+
+    const ins=await attachmentClient.from('record_attachments').insert([{
+      record_type:currentAttachmentType,
+      record_id:currentAttachmentId,
+      file_name:f.name,
+      storage_path:path,
+      mime_type:f.type,
+      size_bytes:f.size
+    }]);
+    if(ins.error){
+      // Remove the uploaded object if its database metadata could not be saved.
+      await attachmentClient.storage.from(ATTACHMENT_BUCKET).remove([path]);
+      alert('Attachment details could not be saved: '+ins.error.message+' The uploaded file was removed.');
+      return;
+    }
+  }
+  await loadAttachments();
+  alert('Attachments uploaded.');
 }
 async function downloadAttachment(path){const {data,error}=await attachmentClient.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path,300);if(error){alert(error.message);return;}window.open(data.signedUrl,'_blank','noopener');}
 
