@@ -116,6 +116,7 @@ td{
 .small-btn{padding:6px 9px;font-size:12px;margin:2px}
 #closedModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1100;overflow:auto;padding:20px;box-sizing:border-box}
 #closedModalContent{background:white;width:min(96vw,1800px);max-width:none;margin:12px auto;padding:20px;border-radius:10px}
+.btn-danger{background:#b91c1c!important;color:#fff!important;border:0;padding:7px 11px;border-radius:5px;cursor:pointer}.btn-danger:hover{background:#991b1b!important}
 </style>
 </head>
 
@@ -294,6 +295,68 @@ async function loadProjects(){
 
 }
 
+
+/* ===== Controlled record deletion (system_admin permission required by database RLS) ===== */
+async function deleteProject(id){
+  const {data:project,error:projectError}=await supabaseClient.from('projects').select('project_name').eq('id',id).single();
+  if(projectError){alert('Could not load project: '+projectError.message);return;}
+  if(!confirm(`Delete project "${project.project_name}"? This action cannot be undone.`)) return;
+  const {count,error:countError}=await supabaseClient.from('pos').select('id',{count:'exact',head:true}).eq('project_id',id);
+  if(countError){alert('Could not check linked purchase orders: '+countError.message);return;}
+  if(count>0){alert(`Cannot delete this project because it has ${count} purchase order(s). Delete or reassign the purchase orders first.`);return;}
+  const {error}=await supabaseClient.from('projects').delete().eq('id',id);
+  if(error){alert('Project deletion failed: '+error.message);return;}
+  if(Number(currentProjectId)===Number(id)){currentProjectId=null;currentInvoicePoNo=null;showAllDashboard();}
+  await loadProjects();
+  const cm=document.getElementById('closedModal');if(cm?.style.display==='block') await showCompletedProjects();
+  alert('Project deleted successfully.');
+}
+
+async function deletePO(id){
+  const {data:poRecord,error:poLoadError}=await supabaseClient.from('pos').select('po_no,project_id').eq('id',id).single();
+  if(poLoadError){alert('Could not load purchase order: '+poLoadError.message);return;}
+  const poNo=poRecord.po_no;
+  if(!confirm(`Delete purchase order "${poNo}"? This action cannot be undone.`)) return;
+  const {count,error:countError}=await supabaseClient.from('invoices').select('id',{count:'exact',head:true}).eq('po_no',poNo);
+  if(countError){alert('Could not check linked invoices: '+countError.message);return;}
+  if(count>0){alert(`Cannot delete this purchase order because it has ${count} invoice(s). Delete or reassign the invoices first.`);return;}
+  const {data:files,error:fileError}=await supabaseClient.from('record_attachments').select('id,storage_path').eq('record_type','po').eq('record_id',id);
+  if(fileError){alert('Could not check PO attachments: '+fileError.message);return;}
+  if(files?.length){
+    const paths=files.map(x=>x.storage_path).filter(Boolean);
+    if(paths.length){const {error:storageError}=await supabaseClient.storage.from(ATTACHMENT_BUCKET).remove(paths);if(storageError){alert('Could not remove PO attachments: '+storageError.message);return;}}
+    const {error:metaError}=await supabaseClient.from('record_attachments').delete().eq('record_type','po').eq('record_id',id);
+    if(metaError){alert('Could not remove PO attachment records: '+metaError.message);return;}
+  }
+  const {error}=await supabaseClient.from('pos').delete().eq('id',id);
+  if(error){alert('Purchase order deletion failed: '+error.message);return;}
+  if(currentInvoicePoNo===poNo) currentInvoicePoNo=null;
+  if(Number(currentProjectId)===Number(poRecord.project_id)) await openProject(currentProjectId);
+  else await showClosedPurchaseOrders();
+  alert('Purchase order deleted successfully.');
+}
+
+async function deleteInvoice(id){
+  const {data:invoiceRecord,error:invoiceLoadError}=await supabaseClient.from('invoices').select('invoice_no').eq('id',id).single();
+  if(invoiceLoadError){alert('Could not load invoice: '+invoiceLoadError.message);return;}
+  if(!confirm(`Delete invoice "${invoiceRecord.invoice_no}"? Payments and collection history associated with it may also be affected. This action cannot be undone.`)) return;
+  const {data:inv,error:invError}=await supabaseClient.from('invoices').select('id,po_no').eq('id',id).single();
+  if(invError){alert('Could not load invoice: '+invError.message);return;}
+  const {data:files,error:fileError}=await supabaseClient.from('record_attachments').select('id,storage_path').eq('record_type','invoice').eq('record_id',id);
+  if(fileError){alert('Could not check invoice attachments: '+fileError.message);return;}
+  if(files?.length){
+    const paths=files.map(x=>x.storage_path).filter(Boolean);
+    if(paths.length){const {error:storageError}=await supabaseClient.storage.from(ATTACHMENT_BUCKET).remove(paths);if(storageError){alert('Could not remove invoice attachments: '+storageError.message);return;}}
+    const {error:metaError}=await supabaseClient.from('record_attachments').delete().eq('record_type','invoice').eq('record_id',id);
+    if(metaError){alert('Could not remove invoice attachment records: '+metaError.message);return;}
+  }
+  const {error}=await supabaseClient.from('invoices').delete().eq('id',id);
+  if(error){alert('Invoice deletion failed: '+error.message);return;}
+  try{const {data:po}=await supabaseClient.from('pos').select('po_no,po_value_ex_vat,advance_payment_percentage').eq('po_no',inv.po_no).single();if(po)await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){console.warn('Advance recalculation after invoice deletion:',e);}
+  if(returnToPaidInvoices){returnToPaidInvoices=false;await showPaidInvoices();}
+  else await openInvoices(inv.po_no);
+  alert('Invoice deleted successfully.');
+}
 
 async function refreshDashboard(){
   const button = document.getElementById("refreshButton");
@@ -999,8 +1062,8 @@ let currentPOEditId = null, currentProjectEditId = null;
 async function loadProjects(){
   const {data,error}=await supabaseClient.from('projects').select('*').order('id');
   if(error){document.getElementById('projectsList').textContent=error.message;return;}
-  let html='<table><tr><th>ID</th><th>Project Name</th><th>Company</th><th>Status</th><th>Open</th><th>Add PO</th><th>Edit</th></tr>';
-  (data||[]).filter(pr=>pr.status!=='Completed').forEach(pr=>{html+=`<tr><td>${pr.id}</td><td>${escapeHtml(pr.project_name)}</td><td>${escapeHtml(pr.company)}</td><td>${escapeHtml(pr.status)}</td><td><button onclick="openProject(${pr.id})">Open</button></td><td><button class="btn-po" onclick="directAddPO(${pr.id},'${escapeHtml(pr.project_name).replace(/'/g,"\\'")}')">Add PO</button></td><td><button onclick="editProject(${pr.id})">Edit</button></td></tr>`;});
+  let html='<table><tr><th>ID</th><th>Project Name</th><th>Company</th><th>Status</th><th>Open</th><th>Add PO</th><th>Edit</th><th>Delete</th></tr>';
+  (data||[]).filter(pr=>pr.status!=='Completed').forEach(pr=>{html+=`<tr><td>${pr.id}</td><td>${escapeHtml(pr.project_name)}</td><td>${escapeHtml(pr.company)}</td><td>${escapeHtml(pr.status)}</td><td><button onclick="openProject(${pr.id})">Open</button></td><td><button class="btn-po" onclick="directAddPO(${pr.id},'${escapeHtml(pr.project_name).replace(/'/g,"\\'")}')">Add PO</button></td><td><button onclick="editProject(${pr.id})">Edit</button></td><td><button class="btn-danger" onclick="deleteProject(${pr.id})">Delete</button></td></tr>`;});
   document.getElementById('projectsList').innerHTML=html+'</table>';
 }
 
@@ -1026,8 +1089,8 @@ async function loadPOs(projectId){
  if(poNos.length){const r=await supabaseClient.from('invoice_details_with_retention').select('*').in('po_no',poNos); if(r.error){document.getElementById('poList').textContent=r.error.message;return;} rows=r.data||[];}
  const invBy={}; rows.forEach(i=>invBy[i.po_no]=(invBy[i.po_no]||0)+Number(i.invoice_amount||0));
  const open=(pos||[]).filter(p=>p.status!=='Closed');
- let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value</th><th>Invoiced</th><th>PO Balance</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th></tr>';
- open.forEach(po=>{const bal=Number(po.po_value_ex_vat||0)-(invBy[po.po_no]||0);const advAmount=Number(po.po_value_ex_vat||0)*Number(po.advance_payment_percentage||0)/100;const advUsed=rows.filter(x=>x.po_no===po.po_no).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);const advBalance=Math.max(0,advAmount-advUsed);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${Number(po.po_value_ex_vat||0).toFixed(2)}</td><td>${(invBy[po.po_no]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${Number(po.advance_payment_percentage||0).toFixed(2)}%</td><td>${advAmount.toFixed(2)}</td><td>${advUsed.toFixed(2)}</td><td>${advBalance.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td></tr>`;});
+ let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value</th><th>Invoiced</th><th>PO Balance</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th><th>Delete</th></tr>';
+ open.forEach(po=>{const bal=Number(po.po_value_ex_vat||0)-(invBy[po.po_no]||0);const advAmount=Number(po.po_value_ex_vat||0)*Number(po.advance_payment_percentage||0)/100;const advUsed=rows.filter(x=>x.po_no===po.po_no).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);const advBalance=Math.max(0,advAmount-advUsed);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${Number(po.po_value_ex_vat||0).toFixed(2)}</td><td>${(invBy[po.po_no]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${Number(po.advance_payment_percentage||0).toFixed(2)}%</td><td>${advAmount.toFixed(2)}</td><td>${advUsed.toFixed(2)}</td><td>${advBalance.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td><td><button class="btn-danger" onclick="deletePO(${po.id})">Delete</button></td></tr>`;});
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open purchase orders.</p>');
 }
 
@@ -1155,8 +1218,8 @@ async function openInvoices(poNo){
  currentInvoicePoNo=poNo;const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*').eq('po_no',poNo);if(error){alert(error.message);return;}const {data:po}=await supabaseClient.from('pos').select('*').eq('po_no',poNo).single();
  const open=(data||[]).filter(x=>x.status!=='Completed' && (Number(x.paid_amount||0)<Number(x.net_payable_after_advance??x.net_payable??x.invoice_total_after_advance??x.invoice_total??0)-0.005 || Number(x.retention_balance||0)>0.005));const pending=(data||[]).filter(x=>!/(approved|completed|cancelled)/i.test(x.status||''));
  let html=`<div class="modal-actions"><button style="background:#64748b" onclick="backToProject()">Back to Project</button></div><h3>Purchase Order: ${escapeHtml(poNo)}</h3>`;if(pending.length)html+=`<div class="warning-panel"><b>Approval Required – ${pending.length} invoice(s) have not reached approval:</b><ul>${pending.map(x=>`<li>${escapeHtml(x.invoice_no)} | ${escapeHtml(x.project_name)} | ${escapeHtml(x.status)}</li>`).join('')}</ul></div>`;
- html+='<table><tr><th>Open</th><th>Invoice No</th><th>Invoice Date</th><th>Approval Date</th><th>Amount Excl VAT</th><th>Advance Amortisation</th><th>Net Invoice Amount</th><th>VAT After Advance</th><th>Net Invoice Subject to Collection</th><th>Paid</th><th>Balance</th><th>Retention</th><th>Retention VAT</th><th>Total Retention</th><th>Retention Released</th><th>Retention Balance</th><th>Retention Due</th><th>Net Payable</th><th>Status</th></tr>';
- for(const x of open){const rb=Number(x.retention_amount||0),rv=Number(x.retention_vat||0),rt=rb+rv;html+=`<tr><td><button onclick="showInvoiceDetails(${x.id})">Open</button></td><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.start_date)}</td><td>${escapeHtml(x.approval_date)}</td><td>${Number(x.invoice_amount||0).toFixed(2)}</td><td>${Number(x.advance_amortisation||0).toFixed(2)}</td><td>${Number(x.net_invoice_amount??x.invoice_amount??0).toFixed(2)}</td><td>${Number(x.vat_after_advance??x.vat_amount??0).toFixed(2)}</td><td>${Number(x.invoice_total_after_advance??x.invoice_total??0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.collection_balance_after_advance??x.open_balance??0).toFixed(2)}</td><td>${rb.toFixed(2)}</td><td>${rv.toFixed(2)}</td><td>${rt.toFixed(2)}</td><td>${Number(x.retention_released_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||Math.max(0,rt-Number(x.retention_released_amount||0))).toFixed(2)}</td><td>${escapeHtml(x.retention_due_date||'')}</td><td>${Number(x.net_payable_after_advance??(Number(x.invoice_total||0)-rt)).toFixed(2)}</td><td>${escapeHtml(x.status)}</td></tr>`;}
+ html+='<table><tr><th>Open</th><th>Invoice No</th><th>Invoice Date</th><th>Approval Date</th><th>Amount Excl VAT</th><th>Advance Amortisation</th><th>Net Invoice Amount</th><th>VAT After Advance</th><th>Net Invoice Subject to Collection</th><th>Paid</th><th>Balance</th><th>Retention</th><th>Retention VAT</th><th>Total Retention</th><th>Retention Released</th><th>Retention Balance</th><th>Retention Due</th><th>Net Payable</th><th>Status</th><th>Delete</th></tr>';
+ for(const x of open){const rb=Number(x.retention_amount||0),rv=Number(x.retention_vat||0),rt=rb+rv;html+=`<tr><td><button onclick="showInvoiceDetails(${x.id})">Open</button></td><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.start_date)}</td><td>${escapeHtml(x.approval_date)}</td><td>${Number(x.invoice_amount||0).toFixed(2)}</td><td>${Number(x.advance_amortisation||0).toFixed(2)}</td><td>${Number(x.net_invoice_amount??x.invoice_amount??0).toFixed(2)}</td><td>${Number(x.vat_after_advance??x.vat_amount??0).toFixed(2)}</td><td>${Number(x.invoice_total_after_advance??x.invoice_total??0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.collection_balance_after_advance??x.open_balance??0).toFixed(2)}</td><td>${rb.toFixed(2)}</td><td>${rv.toFixed(2)}</td><td>${rt.toFixed(2)}</td><td>${Number(x.retention_released_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||Math.max(0,rt-Number(x.retention_released_amount||0))).toFixed(2)}</td><td>${escapeHtml(x.retention_due_date||'')}</td><td>${Number(x.net_payable_after_advance??(Number(x.invoice_total||0)-rt)).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button class="btn-danger" onclick="deleteInvoice(${x.id})">Delete</button></td></tr>`;}
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open invoices.</p>');
  setDashboardFocus('po');
 }
@@ -1192,14 +1255,14 @@ async function openPaidInvoice(id){
 async function showCompletedProjects(){
  const {data,error}=await supabaseClient.from('projects').select('*').eq('status','Completed').order('id');
  if(error){alert(error.message);return;}
- let h='<h2>Completed Projects</h2><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Status</th><th>Open</th></tr>'+(data||[]).map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.project_name)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedProject(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Completed Projects</h2><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Status</th><th>Open</th><th>Delete</th></tr>'+(data||[]).map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.project_name)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedProject(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deleteProject(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
 async function showClosedPurchaseOrders(){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('status','Closed').order('id');
  if(error){alert(error.message);return;}
- let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Excl. VAT</th><th>PO Date</th><th>Status</th><th>Open</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.po_value_ex_vat||0).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedPO(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Excl. VAT</th><th>PO Date</th><th>Status</th><th>Open</th><th>Delete</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.po_value_ex_vat||0).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedPO(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deletePO(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
@@ -1207,7 +1270,7 @@ async function showPaidInvoices(){
  const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*');
  if(error){alert(error.message);return;}
  const paid=(data||[]).filter(x=>Number(x.paid_amount||0)>=Number(x.net_payable||x.invoice_total||0)-0.005 && Number(x.retention_balance||0)<=0.005);
- let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th><th>Open</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openPaidInvoice(${x.id})">Open</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Paid Invoices</h2><table><tr><th>Invoice</th><th>PO</th><th>Project</th><th>Invoice Total</th><th>Paid</th><th>Retention Balance</th><th>Invoice Status</th><th>Open</th><th>Delete</th></tr>'+(paid||[]).map(x=>`<tr><td>${escapeHtml(x.invoice_no)}</td><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.invoice_total||0).toFixed(2)}</td><td>${Number(x.paid_amount||0).toFixed(2)}</td><td>${Number(x.retention_balance||0).toFixed(2)}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openPaidInvoice(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deleteInvoice(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
