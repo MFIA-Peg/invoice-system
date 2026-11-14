@@ -54,7 +54,8 @@ const SUPABASE_KEY = "sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const message = document.getElementById("message");
-// A login page visit always requires an explicit password entry.
+
+// Revalidate any persisted Supabase session before marking this tab as authenticated.
 sessionStorage.removeItem("pe_login_verified");
 
 function showMessage(text, color) {
@@ -76,6 +77,7 @@ async function checkProfile(user) {
     sessionStorage.setItem("pe_user_role", profile.role);
     sessionStorage.setItem("pe_username", profile.username);
     sessionStorage.setItem("pe_full_name", profile.full_name || "");
+    sessionStorage.setItem("pe_login_verified", "true");
 }
 
 document.getElementById("loginForm").addEventListener("submit", async function(e) {
@@ -94,12 +96,12 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
         if(error) throw error;
 
         await checkProfile(data.user);
-        sessionStorage.setItem("pe_login_verified", "true");
 
         showMessage("Login successful. Opening dashboard...", "green");
         window.location.replace("dashboard.html");
 
     } catch(error) {
+        sessionStorage.removeItem("pe_login_verified");
         await client.auth.signOut();
         showMessage(error.message || "Login failed.", "red");
         button.disabled = false;
@@ -127,16 +129,27 @@ document.getElementById("forgotPassword").addEventListener("click", async functi
 
         if(error) throw error;
 
-        showMessage("Recovery email sent. Open the latest email and follow its link.", "green");
+        showMessage("Recovery email sent. Check your inbox.", "green");
 
     } catch(error) {
         showMessage(error.message || "Unable to send recovery email.", "red");
     }
 });
 
-// Do not auto-redirect based on a previously persisted Supabase session.
-// The user must submit the login form on every fresh visit to this page.
+async function checkExistingSession() {
+    const {data} = await client.auth.getSession();
 
+    if(data.session) {
+        try {
+            await checkProfile(data.session.user);
+            window.location.replace("dashboard.html");
+        } catch(error) {
+            await client.auth.signOut();
+        }
+    }
+}
+
+checkExistingSession();
 </script>
 </body>
 </html>
