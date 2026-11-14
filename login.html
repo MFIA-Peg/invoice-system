@@ -39,7 +39,7 @@ a{display:block;text-align:center;margin-top:18px;color:#1769aa;font-size:13px}
 <label>Password</label>
 <input type="password" id="password" required>
 
-<button type="submit" id="loginButton">Sign In</button>
+<button type="submit" id="loginButton" disabled>Preparing sign in...</button>
 </form>
 
 <a href="#" id="forgotPassword">Forgot Password?</a>
@@ -55,8 +55,11 @@ const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const message = document.getElementById("message");
 
-// Revalidate any persisted Supabase session before marking this tab as authenticated.
+// Require fresh credentials whenever the Login page is opened.
 sessionStorage.removeItem("pe_login_verified");
+sessionStorage.removeItem("pe_user_role");
+sessionStorage.removeItem("pe_username");
+sessionStorage.removeItem("pe_full_name");
 
 function showMessage(text, color) {
     message.textContent = text;
@@ -136,20 +139,25 @@ document.getElementById("forgotPassword").addEventListener("click", async functi
     }
 });
 
-async function checkExistingSession() {
-    const {data} = await client.auth.getSession();
+async function prepareLoginPage() {
+    const button = document.getElementById("loginButton");
 
-    if(data.session) {
-        try {
-            await checkProfile(data.session.user);
-            window.location.replace("dashboard.html");
-        } catch(error) {
-            await client.auth.signOut();
-        }
+    try {
+        // Clear only this browser's persisted session; do not sign out other devices.
+        const {error} = await client.auth.signOut({scope: "local"});
+        if(error) throw error;
+    } catch(error) {
+        showMessage("Unable to clear the previous session. Refresh the page and try again.", "red");
+        button.textContent = "Sign In";
+        button.disabled = true;
+        return;
     }
+
+    button.disabled = false;
+    button.textContent = "Sign In";
 }
 
-checkExistingSession();
+prepareLoginPage();
 </script>
 </body>
 </html>
