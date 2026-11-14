@@ -370,7 +370,7 @@ async function loadProjects(){
 }
 
 
-/* ===== Controlled record deletion (system_admin permission required by database RLS) ===== */
+/* ===== Controlled record deletion (Finance Manager or individually authorized user; enforced by database RLS) ===== */
 async function deleteProject(id){
   const {data:project,error:projectError}=await supabaseClient.from('projects').select('project_name').eq('id',id).single();
   if(projectError){alert('Could not load project: '+projectError.message);return;}
@@ -1420,11 +1420,15 @@ async function initializeDashboard(){
   }
   const {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
   if(sessionError || !session){sessionStorage.removeItem('pe_login_verified');window.location.replace('login.html');return;}
-  const {data:profile,error:profileError}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
+  const {data:profile,error:profileError}=await supabaseClient.from('users_profile').select('username,full_name,role,active,must_change_password').eq('auth_user_id',session.user.id).maybeSingle();
   if(profileError || !profile || profile.active!==true){
     sessionStorage.removeItem('pe_login_verified');
     await supabaseClient.auth.signOut();
     window.location.replace('login.html');
+    return;
+  }
+  if(profile.must_change_password===true){
+    window.location.replace('change-password.html');
     return;
   }
   sessionStorage.setItem('pe_user_role',profile.role||'');

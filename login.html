@@ -39,7 +39,7 @@ a{display:block;text-align:center;margin-top:18px;color:#1769aa;font-size:13px}
 <label>Password</label>
 <input type="password" id="password" required>
 
-<button type="submit" id="loginButton" disabled>Preparing sign in...</button>
+<button type="submit" id="loginButton">Sign In</button>
 </form>
 
 <a href="#" id="forgotPassword">Forgot Password?</a>
@@ -55,12 +55,6 @@ const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const message = document.getElementById("message");
 
-// Require fresh credentials whenever the Login page is opened.
-sessionStorage.removeItem("pe_login_verified");
-sessionStorage.removeItem("pe_user_role");
-sessionStorage.removeItem("pe_username");
-sessionStorage.removeItem("pe_full_name");
-
 function showMessage(text, color) {
     message.textContent = text;
     message.style.color = color;
@@ -69,7 +63,7 @@ function showMessage(text, color) {
 async function checkProfile(user) {
     const {data: profile, error} = await client
         .from("users_profile")
-        .select("username, full_name, role, active")
+        .select("username, full_name, role, active, must_change_password")
         .eq("auth_user_id", user.id)
         .maybeSingle();
 
@@ -81,6 +75,7 @@ async function checkProfile(user) {
     sessionStorage.setItem("pe_username", profile.username);
     sessionStorage.setItem("pe_full_name", profile.full_name || "");
     sessionStorage.setItem("pe_login_verified", "true");
+    return profile;
 }
 
 document.getElementById("loginForm").addEventListener("submit", async function(e) {
@@ -98,13 +93,12 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
 
         if(error) throw error;
 
-        await checkProfile(data.user);
+        const profile = await checkProfile(data.user);
 
-        showMessage("Login successful. Opening dashboard...", "green");
-        window.location.replace("dashboard.html");
+        showMessage("Login successful. Opening your account...", "green");
+        window.location.replace(profile.must_change_password === true ? "change-password.html" : "dashboard.html");
 
     } catch(error) {
-        sessionStorage.removeItem("pe_login_verified");
         await client.auth.signOut();
         showMessage(error.message || "Login failed.", "red");
         button.disabled = false;
@@ -139,25 +133,9 @@ document.getElementById("forgotPassword").addEventListener("click", async functi
     }
 });
 
-async function prepareLoginPage() {
-    const button = document.getElementById("loginButton");
-
-    try {
-        // Clear only this browser's persisted session; do not sign out other devices.
-        const {error} = await client.auth.signOut({scope: "local"});
-        if(error) throw error;
-    } catch(error) {
-        showMessage("Unable to clear the previous session. Refresh the page and try again.", "red");
-        button.textContent = "Sign In";
-        button.disabled = true;
-        return;
-    }
-
-    button.disabled = false;
-    button.textContent = "Sign In";
-}
-
-prepareLoginPage();
+// Keep the Login screen visible even when this browser has an existing session.
+// The user must submit credentials explicitly; successful sign-in then routes
+// to the initial-password page or dashboard based on the verified profile.
 </script>
 </body>
 </html>

@@ -10,255 +10,206 @@
 *{box-sizing:border-box}body{margin:0;background:var(--light);font-family:Arial,sans-serif;color:#172b42}
 header{background:var(--navy);color:#fff;padding:18px 26px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
 header h1{font-size:20px;margin:0}header p{margin:5px 0 0;color:#cbd5e1;font-size:13px}
-.header-actions{display:flex;gap:9px;flex-wrap:wrap}button{border:0;border-radius:6px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}button.secondary{background:#e7edf4;color:#18334f}button:disabled{opacity:.5;cursor:not-allowed}
+.header-actions,.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}button{border:0;border-radius:6px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}button.secondary{background:#e7edf4;color:#18334f}button.danger{background:#b42318}button:disabled{opacity:.5;cursor:not-allowed}
 .container{max-width:1400px;margin:22px auto;padding:0 18px}.notice{padding:12px 15px;background:#eef6ff;border:1px solid #b7d7f5;border-radius:8px;color:#17436b;font-size:13px;line-height:1.5;margin-bottom:16px}
 .layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px}.panel{background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 7px #10243a0a}.panel h2{font-size:16px;margin:0;padding:17px 18px;border-bottom:1px solid var(--border)}
 .user-list{padding:8px;max-height:72vh;overflow:auto}.user-item{width:100%;text-align:left;background:#fff;color:#172b42;border:1px solid transparent;padding:12px;border-radius:7px;margin:2px 0}.user-item:hover{background:#f4f7fb}.user-item.selected{background:#eaf3fc;border-color:#9bc5eb}.user-item strong{display:block;font-size:14px}.user-item small{display:block;color:var(--muted);margin-top:5px;font-size:12px}.badge{display:inline-block;border-radius:20px;padding:3px 8px;font-size:10px;font-weight:bold;background:#edf1f5;color:#475467;margin-top:7px}.badge.active{background:#e7f6ec;color:#137333}.badge.inactive{background:#fff0ed;color:#b42318}
-.content{padding:18px}.create-user-panel{margin-bottom:18px}.create-user-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.create-user-grid .field input{background:#fff}.create-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}.section{border:1px solid var(--border);border-radius:8px;margin-bottom:15px}.section-title{font-weight:700;padding:12px 14px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:14px}.section-body{padding:14px}.profile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-size:11px;font-weight:bold;color:var(--muted);margin-bottom:6px;text-transform:uppercase}.field input{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:#f8fafc;color:#344054}
-.check-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.check-card{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:7px;padding:11px;font-size:13px}.check-card input{width:17px;height:17px;accent-color:var(--blue)}.access-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.access-toolbar label{font-size:13px;font-weight:bold}.access-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:250px;overflow:auto;border:1px solid var(--border);padding:9px;border-radius:7px}.access-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:6px}.access-item input{margin:1px 0 0;accent-color:var(--blue)}.access-item span{line-height:1.35}.muted{font-size:12px;color:var(--muted);line-height:1.5}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:3px}.status{font-size:13px;min-height:18px}.status.error{color:var(--red)}.status.success{color:var(--green)}.empty{padding:28px;color:var(--muted);text-align:center;font-size:13px}
-@media(max-width:850px){.layout{grid-template-columns:1fr}.create-user-grid{grid-template-columns:1fr 1fr}.user-list{max-height:260px}.profile-grid{grid-template-columns:1fr 1fr}.check-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:520px){.profile-grid,.check-grid,.access-list,.create-user-grid{grid-template-columns:1fr}header{padding:15px}.content{padding:12px}}
+.content{padding:18px}.section{border:1px solid var(--border);border-radius:8px;margin-bottom:15px}.section-title{font-weight:700;padding:12px 14px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:14px}.section-body{padding:14px}.field-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-size:11px;font-weight:bold;color:var(--muted);margin-bottom:6px;text-transform:uppercase}.field input{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:#344054}.field input[readonly]{background:#f8fafc}
+.check-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.check-card{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:7px;padding:11px;font-size:13px}.check-card input{width:17px;height:17px;accent-color:var(--blue)}
+.access-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.access-toolbar label{font-size:13px;font-weight:bold}.access-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:230px;overflow:auto;border:1px solid var(--border);padding:9px;border-radius:7px}.access-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:7px;border-radius:5px}.access-item:hover{background:#f5f8fb}.access-item input{margin:1px 0 0;accent-color:var(--blue)}.access-item span{line-height:1.35}.muted{font-size:12px;color:var(--muted);line-height:1.5}.status{font-size:13px;min-height:18px}.status.error{color:var(--red)}.status.success{color:var(--green)}.empty{padding:28px;color:var(--muted);text-align:center;font-size:13px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 18px}.toolbar h2{border:0;padding:0}.search{width:min(100%,360px);padding:10px;border:1px solid var(--border);border-radius:6px}.hidden{display:none!important}.password-note{font-size:12px;color:var(--muted);margin-top:5px}.inline-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.user-list{max-height:260px}.field-grid{grid-template-columns:1fr 1fr}.check-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.field-grid,.check-grid,.access-list{grid-template-columns:1fr}header{padding:15px}.content{padding:12px}}
 </style>
 </head>
 <body>
 <header>
   <div><h1>User Management</h1><p>Power Energy Invoice System · Individual User Access Control</p></div>
-  <div class="header-actions"><button class="secondary" onclick="location.href='dashboard.html'">Back to Dashboard</button><button class="secondary" id="logoutButton">Sign Out</button></div>
+  <div class="header-actions"><button class="secondary" id="backButton">Back to Dashboard</button><button class="secondary" id="logoutButton">Sign Out</button></div>
 </header>
 <main class="container">
-  <div class="notice"><strong>Account security:</strong> New accounts are created without invitation emails. Each account starts inactive with all data permissions disabled. After assigning access and activating the account, the user can set a password through Forgot Password on the Login page. No service-role key is used in this page.</div>
-  <section class="panel create-user-panel">
-    <h2>Create New User</h2>
-    <div class="content">
-      <form id="createUserForm" autocomplete="off">
-        <div class="create-user-grid">
-          <div class="field"><label for="newFullName">Full Name</label><input id="newFullName" name="full_name" type="text" maxlength="150" required autocomplete="name" placeholder="Enter full name"></div>
-          <div class="field"><label for="newUsername">Username</label><input id="newUsername" name="username" type="text" maxlength="80" required autocomplete="off" placeholder="Enter username"></div>
-          <div class="field"><label for="newEmail">Email</label><input id="newEmail" name="email" type="email" maxlength="254" required autocomplete="email" placeholder="Enter email address"></div>
-        </div>
-        <div class="create-actions"><button id="createUserButton" type="submit">Create User</button><span id="createUserStatus" class="status" aria-live="polite"></span></div>
-      </form>
-    </div>
+  <div class="notice"><strong>Security:</strong> New accounts are created without invitation or password-setting emails. Users must change the initial password when they first sign in. Only the Finance Manager can manage users and access.</div>
+
+  <section id="listView" class="panel">
+    <div class="toolbar"><h2>Users</h2><button id="addUserButton">Add User</button></div>
+    <div id="userList" class="user-list"><div class="empty">Loading users...</div></div>
   </section>
-  <div class="layout">
-    <aside class="panel">
-      <h2>Users</h2>
-      <div id="userList" class="user-list"><div class="empty">Loading users...</div></div>
-    </aside>
-    <section class="panel">
-      <h2 id="editorTitle">Select a user</h2>
-      <div id="editor" class="content"><div class="empty">Select a user from the list to review and manage access.</div></div>
-    </section>
-  </div>
+
+  <section id="editorView" class="panel hidden">
+    <div class="toolbar"><h2 id="editorTitle">Add User</h2><button class="secondary" id="returnToListButton">Back to Users</button></div>
+    <div id="editor" class="content"></div>
+  </section>
 </main>
 <script>
 const SUPABASE_URL = "https://hxhfjmtjibwkkbpakopt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let currentUserId = null;
-let managerProfile = null;
-let users = [];
-let projects = [];
-let departments = [];
-let permissionsByUser = new Map();
-let projectAccessByUser = new Map();
-let departmentAccessByUser = new Map();
-
 const $ = id => document.getElementById(id);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-function setStatus(message, type='') { const el=$('saveStatus'); if(el){el.textContent=message;el.className='status '+type;} }
-function fail(message){ $('editor').innerHTML='<div class="empty" style="color:#b42318">'+escapeHtml(message)+'</div>'; }
+const validPassword = value => value.length >= 6 && /[A-Za-z]/.test(value) && /[0-9]/.test(value);
+let managerProfile=null, users=[], projects=[], departments=[], projectDepartments=new Map(), selectedProjectIds=new Set(), selectedDepartmentNames=new Set(), manuallySelectedProjectIds=new Set(), excludedAutoProjectIds=new Set(), currentUser=null, currentMode='list';
+
+function showStatus(message,type=''){const el=$('formStatus');if(el){el.textContent=message;el.className='status '+type;}}
+function fail(message){$('listView').classList.add('hidden');$('editorView').classList.remove('hidden');$('editorTitle').textContent='Access Error';$('editor').innerHTML='<div class="empty" style="color:#b42318">'+escapeHtml(message)+'</div>';}
+function showView(view){$('listView').classList.toggle('hidden',view!=='list');$('editorView').classList.toggle('hidden',view==='list');currentMode=view;}
 
 async function initializePage(){
   try{
-    if(sessionStorage.getItem('pe_login_verified') !== 'true') throw new Error('Please sign in through the Login page first.');
+    if(sessionStorage.getItem('pe_login_verified')!=='true')throw new Error('Please sign in through the Login page first.');
     const {data:{session},error:sessionError}=await client.auth.getSession();
-    if(sessionError || !session) throw new Error('Your session has expired. Sign in again.');
-    const {data:profile,error:profileError}=await client.from('users_profile')
-      .select('id,username,full_name,role,active,auth_user_id')
-      .eq('auth_user_id',session.user.id).maybeSingle();
-    if(profileError) throw profileError;
-    if(!profile || profile.active!==true || profile.role!=='finance_manager') throw new Error('Access denied. Finance Manager permission is required.');
+    if(sessionError||!session)throw new Error('Your session has expired. Sign in again.');
+    const {data:profile,error}=await client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').eq('auth_user_id',session.user.id).maybeSingle();
+    if(error)throw error;
+    if(!profile||profile.active!==true||profile.role!=='finance_manager')throw new Error('Access denied. Finance Manager permission is required.');
     managerProfile=profile;
     await loadManagementData();
-  }catch(error){
-    fail(error.message || 'Unable to initialize User Management.');
-    if(String(error.message||'').includes('Access denied')) setTimeout(()=>location.replace('dashboard.html'),1800);
-  }
+  }catch(error){fail(error.message||'Unable to initialize User Management.');}
 }
 
 async function loadManagementData(){
-  const [u,p,pr,po,pa,da]=await Promise.all([
-    client.from('users_profile').select('id,username,full_name,role,active,auth_user_id,all_projects,all_departments').order('id'),
-    client.from('user_permissions').select('user_id,can_view,can_add,can_edit,can_delete'),
+  const [u,pr,po]=await Promise.all([
+    client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').in('role',['finance_manager','user']).order('id'),
     client.from('projects').select('id,project_name,company').order('project_name'),
-    client.from('pos').select('department'),
-    client.from('user_project_access').select('user_id,project_id'),
-    client.from('user_department_access').select('user_id,department')
+    client.from('pos').select('project_id,department')
   ]);
-  for(const result of [u,p,pr,po,pa,da]) if(result.error) throw result.error;
-  users=u.data||[]; projects=pr.data||[];
-  permissionsByUser=new Map((p.data||[]).map(x=>[Number(x.user_id),x]));
-  projectAccessByUser=new Map();
-  for(const row of pa.data||[]){const id=Number(row.user_id);if(!projectAccessByUser.has(id))projectAccessByUser.set(id,new Set());projectAccessByUser.get(id).add(Number(row.project_id));}
-  departmentAccessByUser=new Map();
-  for(const row of da.data||[]){const id=Number(row.user_id);if(!departmentAccessByUser.has(id))departmentAccessByUser.set(id,new Set());departmentAccessByUser.get(id).add(row.department);}
+  for(const result of [u,pr,po])if(result.error)throw result.error;
+  users=u.data||[];projects=pr.data||[];projectDepartments=new Map();
   departments=[...new Set((po.data||[]).map(x=>String(x.department||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  renderUserList();
-  if(users.length) selectUser(users.find(x=>Number(x.id)!==Number(managerProfile.id))?.id ?? managerProfile.id);
+  for(const row of po.data||[]){const pid=Number(row.project_id),dept=String(row.department||'').trim();if(!pid||!dept)continue;if(!projectDepartments.has(dept))projectDepartments.set(dept,new Set());projectDepartments.get(dept).add(pid);}
+  renderUserList();showView('list');
 }
 
 function renderUserList(){
-  $('userList').innerHTML=users.map(u=>`<button type="button" class="user-item ${Number(u.id)===Number(currentUserId)?'selected':''}" data-user-id="${Number(u.id)}">
-    <strong>${escapeHtml(u.full_name||u.username||('User '+u.id))}</strong>
-    <small>${escapeHtml(u.username)} · ${escapeHtml(u.role)}</small>
-    <span class="badge ${u.active?'active':'inactive'}">${u.active?'Active':'Inactive'}</span>
-  </button>`).join('') || '<div class="empty">No user profiles found.</div>';
-  $('userList').querySelectorAll('[data-user-id]').forEach(btn=>btn.addEventListener('click',()=>selectUser(Number(btn.dataset.userId))));
+  $('userList').innerHTML=users.map(u=>`<button type="button" class="user-item" data-user-id="${Number(u.id)}"><strong>${escapeHtml(u.full_name||u.username||('User '+u.id))}</strong><small>${escapeHtml(u.username)} · ${escapeHtml(u.role)}</small><span class="badge ${u.active?'active':'inactive'}">${u.active?'Active':'Inactive'}</span></button>`).join('')||'<div class="empty">No users have been created yet.</div>';
+  $('userList').querySelectorAll('[data-user-id]').forEach(btn=>btn.addEventListener('click',()=>openExistingUser(Number(btn.dataset.userId))));
 }
 
-function selectUser(id){
-  currentUserId=Number(id);
-  const u=users.find(x=>Number(x.id)===currentUserId);
-  if(!u)return;
-  renderUserList();
-  $('editorTitle').textContent='Manage User: '+(u.full_name||u.username);
-  const perm=permissionsByUser.get(currentUserId)||{can_view:false,can_add:false,can_edit:false,can_delete:false};
-  const assignedProjects=projectAccessByUser.get(currentUserId)||new Set();
-  const assignedDepartments=departmentAccessByUser.get(currentUserId)||new Set();
-  const isManager=u.role==='finance_manager';
-  const canChangeActive=!!u.auth_user_id && !isManager && Number(u.id)!==Number(managerProfile.id);
+function resetAccessState(deptIds=[],projectIds=[]){
+  selectedDepartmentNames=new Set(deptIds);selectedProjectIds=new Set(projectIds);manuallySelectedProjectIds=new Set(projectIds);excludedAutoProjectIds=new Set();
+}
+function autoProjectIdsForDepartments(){const result=new Set();for(const dept of selectedDepartmentNames)for(const id of projectDepartments.get(dept)||[])result.add(id);return result;}
+function updateProjectsAfterDepartmentChange(){const autoIds=autoProjectIdsForDepartments();selectedProjectIds=new Set([...manuallySelectedProjectIds,...autoIds].filter(id=>!excludedAutoProjectIds.has(id)));renderProjectChecks();}
+function onProjectToggle(id,checked){if(checked){selectedProjectIds.add(id);manuallySelectedProjectIds.add(id);excludedAutoProjectIds.delete(id);}else{selectedProjectIds.delete(id);manuallySelectedProjectIds.delete(id);if(autoProjectIdsForDepartments().has(id))excludedAutoProjectIds.add(id);}const count=$('selectedProjectCount');if(count)count.textContent=`${selectedProjectIds.size} selected`;}
+
+function renderDepartmentChecks(){
+  $('departmentAccessList').innerHTML=departments.map(d=>`<label class="access-item"><input type="checkbox" class="department-check" value="${escapeHtml(d)}" ${selectedDepartmentNames.has(d)?'checked':''}><span>${escapeHtml(d)}</span></label>`).join('')||'<div class="empty">No departments found.</div>';
+  document.querySelectorAll('.department-check').forEach(cb=>cb.addEventListener('change',()=>{if(cb.checked)selectedDepartmentNames.add(cb.value);else selectedDepartmentNames.delete(cb.value);updateProjectsAfterDepartmentChange();}));
+}
+function renderProjectChecks(){
+  const search=($('projectSearch')?.value||'').trim().toLowerCase();
+  const visible=projects.filter(p=>`${p.project_name||''} ${p.company||''} ${p.id}`.toLowerCase().includes(search));
+  $('projectAccessList').innerHTML=visible.map(p=>`<label class="access-item"><input type="checkbox" class="project-check" value="${Number(p.id)}" ${selectedProjectIds.has(Number(p.id))?'checked':''}><span><strong>${escapeHtml(p.project_name)}</strong><br><span class="muted">${escapeHtml(p.company||'')} · #${Number(p.id)}</span></span></label>`).join('')||'<div class="empty">No matching projects.</div>';
+  document.querySelectorAll('.project-check').forEach(cb=>cb.addEventListener('change',()=>onProjectToggle(Number(cb.value),cb.checked)));
+  const selectedCount=$('selectedProjectCount');if(selectedCount)selectedCount.textContent=`${selectedProjectIds.size} selected`;
+}
+function renderAccessSections(permissions={can_view:false,can_add:false,can_edit:false,can_delete:false}){
+  return `
+    <div class="section"><div class="section-title">Department Access</div><div class="section-body"><p class="muted">Select departments first. Projects linked to the selected departments will be checked automatically. You can then adjust project access below.</p><div id="departmentAccessList" class="access-list"></div></div></div>
+    <div class="section"><div class="section-title">Project Access</div><div class="section-body"><div class="access-toolbar"><input id="projectSearch" class="search" type="search" placeholder="Search projects by name or company"><strong id="selectedProjectCount" class="muted">0 selected</strong></div><div id="projectAccessList" class="access-list"></div><p class="muted">Project access and department access are both required. Selecting a project does not grant access to departments that have not been assigned.</p></div></div>
+    <div class="section"><div class="section-title">Data Permissions</div><div class="section-body"><div class="check-grid">${[['can_view','View'],['can_add','Add'],['can_edit','Edit'],['can_delete','Delete']].map(([key,label])=>`<label class="check-card"><input type="checkbox" id="${key}" ${permissions[key]?'checked':''}><span>${label}</span></label>`).join('')}</div></div></div>`;
+}
+function attachAccessHandlers(){renderDepartmentChecks();renderProjectChecks();$('projectSearch').addEventListener('input',renderProjectChecks);}
+function getPermissionPayload(){return{can_view:$('can_view').checked,can_add:$('can_add').checked,can_edit:$('can_edit').checked,can_delete:$('can_delete').checked};}
+
+function openAddUser(){
+  currentUser=null;resetAccessState();$('editorTitle').textContent='Add User';
   $('editor').innerHTML=`
-    <div class="section"><div class="section-title">User Profile</div><div class="section-body">
-      <div class="profile-grid">
-        <div class="field"><label>Username</label><input value="${escapeHtml(u.username)}" readonly></div>
-        <div class="field"><label>Full Name</label><input value="${escapeHtml(u.full_name)}" readonly></div>
-        <div class="field"><label>Legacy Role</label><input value="${escapeHtml(u.role)}" readonly></div>
-      </div>
-      <div style="margin-top:14px"><label class="check-card" style="max-width:320px"><input type="checkbox" id="activeAccess" ${u.active?'checked':''} ${canChangeActive?'':'disabled'}><span><strong>Account Active</strong><br><small class="muted">${!u.auth_user_id?'Cannot activate: no Authentication account is linked.':isManager?'Finance Manager status is protected.':'Allow this linked account to sign in.'}</small></span></label></div>
-    </div></div>
-    <div class="section"><div class="section-title">Data Permissions</div><div class="section-body"><div class="check-grid">
-      ${[['can_view','View'],['can_add','Add'],['can_edit','Edit'],['can_delete','Delete']].map(([key,label])=>`<label class="check-card"><input type="checkbox" id="${key}" ${perm[key]?'checked':''} ${isManager?'disabled':''}><span>${label}</span></label>`).join('')}
-    </div>${isManager?'<p class="muted">Finance Manager has all permissions by definition; these settings cannot be changed here.</p>':''}</div></div>
-    <div class="section"><div class="section-title">Project Access</div><div class="section-body">
-      <div class="access-toolbar"><label><input type="checkbox" id="allProjects" ${u.all_projects?'checked':''} ${isManager?'disabled':''}> All Projects</label><span class="muted">When enabled, individual project assignments are bypassed.</span></div>
-      <div id="projectAccessList" class="access-list">${projects.map(p=>`<label class="access-item"><input type="checkbox" class="project-check" value="${Number(p.id)}" ${assignedProjects.has(Number(p.id))?'checked':''} ${isManager||u.all_projects?'disabled':''}><span>${escapeHtml(p.project_name)} <span class="muted">(#${Number(p.id)})</span></span></label>`).join('')}</div>
-    </div></div>
-    <div class="section"><div class="section-title">Department Access</div><div class="section-body">
-      <div class="access-toolbar"><label><input type="checkbox" id="allDepartments" ${u.all_departments?'checked':''} ${isManager?'disabled':''}> All Departments</label><span class="muted">When enabled, individual department assignments are bypassed.</span></div>
-      <div id="departmentAccessList" class="access-list">${departments.map(d=>`<label class="access-item"><input type="checkbox" class="department-check" value="${escapeHtml(d)}" ${assignedDepartments.has(d)?'checked':''} ${isManager||u.all_departments?'disabled':''}><span>${escapeHtml(d)}</span></label>`).join('')}</div>
-      <p class="muted">Purchase Orders without a department are not available to regular users.</p>
-    </div></div>
-    <div class="actions"><button id="saveButton" ${isManager?'disabled':''}>Save Changes</button><button class="secondary" id="reloadButton" type="button">Reload</button><span id="saveStatus" class="status"></span></div>
-    ${isManager?'<p class="muted">The Finance Manager account is protected from changes on this page.</p>':''}
-  `;
-  $('allProjects')?.addEventListener('change',e=>toggleAccessList('projectAccessList',e.target.checked));
-  $('allDepartments')?.addEventListener('change',e=>toggleAccessList('departmentAccessList',e.target.checked));
-  $('saveButton')?.addEventListener('click',saveUserChanges);
-  $('reloadButton')?.addEventListener('click',()=>loadManagementData().catch(e=>setStatus(e.message,'error')));
+    <form id="userForm" autocomplete="off">
+      <div class="section"><div class="section-title">User Details</div><div class="section-body"><div class="field-grid">
+        <div class="field"><label for="fullName">Full Name</label><input id="fullName" maxlength="150" required placeholder="Enter full name"></div>
+        <div class="field"><label for="username">Username</label><input id="username" maxlength="80" required placeholder="Enter username"></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" maxlength="254" required placeholder="Enter email address"></div>
+        <div class="field"><label for="initialPassword">Initial Password</label><input id="initialPassword" type="password" minlength="6" required autocomplete="new-password" placeholder="At least 6 characters"></div>
+        <div class="field"><label for="confirmPassword">Confirm Password</label><input id="confirmPassword" type="password" minlength="6" required autocomplete="new-password" placeholder="Confirm initial password"></div>
+      </div><p class="password-note">Minimum 6 characters, including at least one letter and one number. The user must change this password at first sign-in.</p></div></div>
+      ${renderAccessSections()}
+      <div class="actions"><button id="saveUserButton" type="submit">Save User</button><button class="secondary" type="button" id="cancelUserButton">Cancel</button><span id="formStatus" class="status" aria-live="polite"></span></div>
+    </form>`;
+  attachAccessHandlers();$('userForm').addEventListener('submit',createUser);$('cancelUserButton').addEventListener('click',()=>showView('list'));showView('editor');
 }
 
-function toggleAccessList(id,all){document.querySelectorAll('#'+id+' input[type="checkbox"]').forEach(x=>x.disabled=all);}
+async function openExistingUser(id){
+  const user=users.find(x=>Number(x.id)===id);if(!user)return;currentUser=user;
+  $('editorTitle').textContent='Manage User: '+(user.full_name||user.username);
+  const [perm,pa,da]=await Promise.all([
+    client.from('user_permissions').select('can_view,can_add,can_edit,can_delete').eq('user_id',id).maybeSingle(),
+    client.from('user_project_access').select('project_id').eq('user_id',id),
+    client.from('user_department_access').select('department').eq('user_id',id)
+  ]);
+  for(const r of [perm,pa,da])if(r.error){alert('Unable to load user access: '+r.error.message);return;}
+  resetAccessState((da.data||[]).map(x=>x.department),(pa.data||[]).map(x=>Number(x.project_id)));
+  const isManager=user.role==='finance_manager';
+  $('editor').innerHTML=`
+    <div class="section"><div class="section-title">User Details</div><div class="section-body"><div class="field-grid"><div class="field"><label>Full Name</label><input readonly value="${escapeHtml(user.full_name)}"></div><div class="field"><label>Username</label><input readonly value="${escapeHtml(user.username)}"></div><div class="field"><label>Account Type</label><input readonly value="${escapeHtml(user.role)}"></div></div>
+    ${!isManager?`<div class="inline-actions"><label class="check-card"><input id="accountActive" type="checkbox" ${user.active?'checked':''}><span>Account Active</span></label><button type="button" class="secondary" id="resetPasswordButton">Reset Password</button><button type="button" class="danger" id="deleteUserButton">Delete User</button></div>`:'<p class="muted">The Finance Manager account is protected and cannot be edited here.</p>'}</div></div>
+    ${isManager?'':renderAccessSections(perm.data||{})}
+    ${isManager?'':`<div class="actions"><button id="saveChangesButton" type="button">Save Changes</button><button class="secondary" id="cancelEditButton" type="button">Back to Users</button><span id="formStatus" class="status" aria-live="polite"></span></div>`}`;
+  if(!isManager){attachAccessHandlers();$('saveChangesButton').addEventListener('click',saveExistingUser);$('cancelEditButton').addEventListener('click',()=>showView('list'));$('resetPasswordButton').addEventListener('click',resetUserPassword);$('deleteUserButton').addEventListener('click',deleteUser);}
+  showView('editor');
+}
 
-async function saveUserChanges(){
-  const u=users.find(x=>Number(x.id)===currentUserId);
-  if(!u || u.role==='finance_manager' || currentUserId===Number(managerProfile.id)) return;
-  const saveButton=$('saveButton');saveButton.disabled=true;setStatus('Saving changes...');
+async function createUser(event){
+  event.preventDefault();const button=$('saveUserButton');button.disabled=true;showStatus('Creating user and saving access...');
+  const full_name=$('fullName').value.trim(),username=$('username').value.trim(),email=$('email').value.trim().toLowerCase(),initial_password=$('initialPassword').value,confirm_password=$('confirmPassword').value;
   try{
-    const allProjects=$('allProjects').checked;
-    const allDepartments=$('allDepartments').checked;
-    const active=$('activeAccess').checked;
-    if(active && !u.auth_user_id) throw new Error('This profile has no linked Authentication account and cannot be activated.');
-
-    const profileUpdate=await client.from('users_profile').update({active,all_projects:allProjects,all_departments:allDepartments}).eq('id',currentUserId);
-    if(profileUpdate.error) throw profileUpdate.error;
-
-    const permissionPayload={user_id:currentUserId,can_view:$('can_view').checked,can_add:$('can_add').checked,can_edit:$('can_edit').checked,can_delete:$('can_delete').checked,updated_at:new Date().toISOString()};
-    const permissionSave=await client.from('user_permissions').upsert(permissionPayload,{onConflict:'user_id'});
-    if(permissionSave.error) throw permissionSave.error;
-
-    if(!allProjects){
-      const del=await client.from('user_project_access').delete().eq('user_id',currentUserId);if(del.error)throw del.error;
-      const selected=[...document.querySelectorAll('.project-check:checked')].map(x=>Number(x.value));
-      if(selected.length){const ins=await client.from('user_project_access').insert(selected.map(project_id=>({user_id:currentUserId,project_id})));if(ins.error)throw ins.error;}
-    }
-    if(!allDepartments){
-      const del=await client.from('user_department_access').delete().eq('user_id',currentUserId);if(del.error)throw del.error;
-      const selected=[...document.querySelectorAll('.department-check:checked')].map(x=>x.value);
-      if(selected.length){const ins=await client.from('user_department_access').insert(selected.map(department=>({user_id:currentUserId,department})));if(ins.error)throw ins.error;}
-    }
-    setStatus('Changes saved successfully.','success');
+    if(!full_name||!username||!email)throw new Error('Complete all user details.');
+    if(!validPassword(initial_password))throw new Error('Password must contain at least 6 characters, including letters and numbers.');
+    if(initial_password!==confirm_password)throw new Error('Password and confirmation do not match.');
+    const payload={full_name,username,email,initial_password,permissions:getPermissionPayload(),department_access:[...selectedDepartmentNames],project_access:[...selectedProjectIds]};
+    const {data,error}=await client.functions.invoke('create-user',{body:payload});
+    if(error)throw await edgeFunctionError(error);
+    if(!data?.success||!data?.user_id)throw new Error(data?.error||'The server did not confirm user creation.');
+    $('userForm').reset();showStatus('User created successfully. Provide the initial password to the user securely.','success');
     await loadManagementData();
-    selectUser(currentUserId);
-  }catch(error){
-    setStatus('Save failed: '+(error.message||'Unknown error')+'. Some earlier changes may already have been saved; reload and verify before retrying.','error');
-  }finally{if($('saveButton'))$('saveButton').disabled=false;}
+  }catch(error){showStatus(error.message||'Unable to create user.','error');}
+  finally{if($('saveUserButton'))$('saveUserButton').disabled=false;}
 }
 
-$('createUserForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
+async function saveExistingUser(){
+  if(!currentUser||currentUser.role!=='user')return;const button=$('saveChangesButton');button.disabled=true;showStatus('Saving user access...');
+  try{
+    const payload={p_user_id:Number(currentUser.id),p_active:$('accountActive').checked,p_permissions:getPermissionPayload(),p_department_access:[...selectedDepartmentNames],p_project_access:[...selectedProjectIds]};
+    const {error}=await client.rpc('save_user_access',payload);if(error)throw error;
+    showStatus('User access saved successfully.','success');await loadManagementData();await openExistingUser(Number(currentUser.id));
+  }catch(error){showStatus('Save failed: '+(error.message||'Unknown error'),'error');}
+  finally{if($('saveChangesButton'))$('saveChangesButton').disabled=false;}
+}
 
-  const form = $('createUserForm');
-  const button = $('createUserButton');
-  const status = $('createUserStatus');
-  const full_name = $('newFullName').value.trim();
-  const username = $('newUsername').value.trim();
-  const email = $('newEmail').value.trim().toLowerCase();
+async function resetUserPassword(){
+  if(!currentUser||currentUser.role!=='user')return;
+  const new_password=prompt('Enter the new password (minimum 6 characters, letters and numbers):');if(new_password===null)return;
+  if(!validPassword(new_password)){alert('Password must contain at least 6 characters, including letters and numbers.');return;}
+  const confirmation=prompt('Confirm the new password:');if(confirmation===null)return;if(new_password!==confirmation){alert('Password confirmation does not match.');return;}
+  const button=$('resetPasswordButton');button.disabled=true;
+  try{const {data,error}=await client.functions.invoke('admin-reset-user-password',{body:{user_id:Number(currentUser.id),new_password}});if(error)throw await edgeFunctionError(error);if(!data?.success)throw new Error(data?.error||'Password reset was not confirmed.');alert('Password reset successfully. The user will be required to change it at next sign-in.');}
+  catch(error){alert('Password reset failed: '+(error.message||'Unknown error'));}
+  finally{if($('resetPasswordButton'))$('resetPasswordButton').disabled=false;}
+}
 
-  status.textContent = '';
-  status.className = 'status';
+async function edgeFunctionError(error){let message=error.message||'The server returned an error.';if(error.context&&typeof error.context.json==='function'){try{const body=await error.context.json();if(body?.error)message=body.error;}catch(_){}}return new Error(message);}
 
-  if (!full_name || !username || !email) {
-    status.textContent = 'Complete all fields before creating the user.';
-    status.classList.add('error');
-    return;
-  }
-
-  button.disabled = true;
-  status.textContent = 'Creating user account...';
-
-  try {
-    const { data, error } = await client.functions.invoke('create-user', {
-      body: { full_name, username, email }
-    });
-
-    if (error) {
-      let detail = error.message || 'The create-user function returned an error.';
-      if (error.context && typeof error.context.json === 'function') {
-        try {
-          const responseBody = await error.context.json();
-          if (responseBody && responseBody.error) detail = responseBody.error;
-        } catch (_) {}
-      }
-      throw new Error(detail);
-    }
-
-    if (!data || data.success !== true || !data.user_id) {
-      throw new Error(data?.error || 'The server did not confirm user creation.');
-    }
-
-    form.reset();
-    status.textContent = 'User created successfully. The account is inactive and all permissions are disabled.';
-    status.classList.add('success');
-
+async function deleteUser(){
+  if(!currentUser||currentUser.role!=='user')return;
+  const label=currentUser.full_name||currentUser.username||('User '+currentUser.id);
+  if(!confirm(`Delete user "${label}" permanently? This removes the Auth account, profile, permissions and project/department assignments.`))return;
+  const button=$('deleteUserButton');button.disabled=true;showStatus('Deleting user account...');
+  try{
+    const {data,error}=await client.functions.invoke('delete-user',{body:{user_id:Number(currentUser.id)}});
+    if(error)throw await edgeFunctionError(error);
+    if(!data?.success)throw new Error(data?.error||'User deletion was not confirmed.');
+    currentUser=null;
     await loadManagementData();
-    selectUser(Number(data.user_id));
-  } catch (error) {
-    status.textContent = 'Creation failed: ' + (error.message || 'Unknown error');
-    status.classList.add('error');
-  } finally {
-    button.disabled = false;
+    showView('list');
+    alert('User deleted successfully.');
+  }catch(error){
+    showStatus('Delete failed: '+(error.message||'Unknown error'),'error');
+    if($('deleteUserButton'))$('deleteUserButton').disabled=false;
   }
-});
+}
 
-$('logoutButton').addEventListener('click',async()=>{
-  const {error}=await client.auth.signOut();
-  sessionStorage.removeItem('pe_login_verified');sessionStorage.removeItem('pe_user_role');sessionStorage.removeItem('pe_username');sessionStorage.removeItem('pe_full_name');
-  if(error){alert('Sign out failed: '+error.message);return;}
-  location.replace('login.html');
-});
-
+$('addUserButton').addEventListener('click',openAddUser);
+$('returnToListButton').addEventListener('click',()=>showView('list'));
+$('backButton').addEventListener('click',()=>location.href='dashboard.html');
+$('logoutButton').addEventListener('click',async()=>{const {error}=await client.auth.signOut();sessionStorage.removeItem('pe_login_verified');sessionStorage.removeItem('pe_user_role');sessionStorage.removeItem('pe_username');sessionStorage.removeItem('pe_full_name');if(error){alert('Sign out failed: '+error.message);return;}location.replace('login.html');});
 initializePage().catch(error=>fail(error.message||'Unexpected initialization error.'));
 </script>
 </body>
