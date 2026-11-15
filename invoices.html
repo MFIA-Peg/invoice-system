@@ -27,7 +27,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 </nav><div class="navright"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div>
 </div></header>
 <main class="page">
-<section class="hero"><div><h1>Invoices</h1><p>Invoice register, financial performance, receivables and invoice maintenance</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html">Financial Reports</a></div></section>
+<section class="hero"><div><h1>Invoices</h1><p>Invoice register, financial performance, receivables and invoice maintenance</p></div><div class="actions"><button type="button" class="teal" id="openCreate" disabled>+ Add Invoice</button><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html">Financial Reports</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Financial Summary</h2><div class="muted">Summary recalculates automatically using the current filters.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading invoices...</div></div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Financial Overview</h2><div class="muted">Values are in SAR and reflect the filtered invoice set.</div></div></div><div id="invoiceChart" class="chart"></div></section>
@@ -46,6 +46,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div><div class="tablewrap" id="tableWrap"><div class="empty">Loading invoices...</div></div><div class="footer"><span>Read source: invoice_details_with_retention · Edit source: invoices.</span><span>Currency: SAR</span></div></section>
 </main>
+<dialog id="createPicker" aria-labelledby="createTitle" style="width:min(430px,90vw);padding:22px;border:1px solid #cbd5e1;border-radius:14px;color:#14263d"><form id="createForm"><h2 id="createTitle" style="margin-top:0">Add Invoice</h2><div class="field"><label for="createSource">Purchase order</label><select id="createSource" required></select></div><div class="actions" style="margin-top:16px"><button type="submit" id="createContinue">Continue</button><button type="button" class="secondary" id="closeCreate">Cancel</button></div></form></dialog>
 
 <div class="modal-backdrop" id="editBackdrop" role="dialog" aria-modal="true" aria-labelledby="editTitle">
 <div class="modal">
@@ -112,10 +113,10 @@ async function fetchRows(table,columns='*',orderBy='id'){
 }
 function setOptions(id,values){const list=$(id+'Options');if(!list)return;const vals=[...new Set(values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
 async function loadAll(){
- $('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
+ $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
-  const [iv,p,po]=await Promise.all([fetchRows('invoice_details_with_retention','*',null),fetchRows('projects','id,project_name,company,department'),fetchRows('pos','id,po_no,project_id,project_name,company,department')]);
-  allInvoices=iv;projects=p;pos=po;populateFilters();applyFilters();
+  const [iv,p,po]=await Promise.all([fetchRows('invoice_details_with_retention','*',null),fetchRows('projects','id,project_name,company,department'),fetchRows('pos','id,po_no,project_id,project_name,company,department,status')]);
+  allInvoices=iv;projects=p;pos=po;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load invoices: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Could not load invoice data. Check database permissions and view availability.</div>'}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh'}
 }
@@ -215,6 +216,26 @@ function exportCSV(){
  const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='invoice-register-'+today()+'.csv';a.click();URL.revokeObjectURL(url);
 }
+function openCreatePicker(){
+ const select=$('createSource');
+ const sources=pos.filter(row=>row.po_no&&row.project_id&&row.status!=='Closed');
+ select.replaceChildren(new Option(sources.length?'Select purchase order':'No eligible purchase orders available',''));
+ for(const [index,row] of sources.entries()){
+  const label=[row.po_no,row.project_name,row.company].filter(Boolean).join(' · ');
+  select.add(new Option(label,String(index)));
+ }
+ $('createContinue').disabled=!sources.length;
+ $('createForm').onsubmit=event=>{
+  event.preventDefault();
+  if(select.value==='')return;
+  const selected=sources[Number(select.value)];
+  const params=new URLSearchParams({create:'invoice',po_id:selected.id});
+  location.href='companies.html?'+params;
+ };
+ $('createPicker').showModal();
+}
+$('openCreate').addEventListener('click',openCreatePicker);
+$('closeCreate').addEventListener('click',()=>$('createPicker').close());
 $('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status'].forEach(id=>$(id).value='');applyFilters();});
 ['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status'].forEach(id=>$(id).addEventListener('input',applyFilters));
 $('editForm').addEventListener('submit',saveEdit);$('closeModal').addEventListener('click',closeModal);$('cancelEdit').addEventListener('click',closeModal);

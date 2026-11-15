@@ -1238,7 +1238,10 @@ async function editPO(id){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}currentPOEditId=id;
  const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
  const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
- const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>Edit Purchase Order</h2>
+ renderPOForm(data,projects,advanceAmount,advanceUsed,false,id);
+}
+function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id){
+ const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>${creating?'Add':'Edit'} Purchase Order</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
  <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company / Customer</label><input id="poe_company" value="${escapeHtml(data.company)}"></div>
  <div class="invoice-field"><label>Department</label><input id="poe_department" value="${escapeHtml(data.department)}"></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
@@ -1252,7 +1255,7 @@ async function editPO(id){
  <div class="invoice-field"><label>Subject to Retention</label><select id="poe_retention"><option value="false" ${!data.retention_applicable?'selected':''}>No</option><option value="true" ${data.retention_applicable?'selected':''}>Yes</option></select></div><div class="invoice-field"><label>Retention %</label><input id="poe_retention_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.retention_percentage||0)}"></div>
  <div class="invoice-field"><label>Retention Period (Days)</label><input id="poe_retention_days" type="number" min="0" value="${Number(data.retention_period_days||0)}"></div><div class="invoice-field"><label>Advance Payment %</label><input id="poe_advance_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.advance_payment_percentage||0)}" oninput="updatePOAdvancePreview()"></div>
  <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
- </div></section><div class="modal-actions"><button class="btn-po" onclick="savePOChanges()">Save Changes</button><button onclick="manageAttachments('po',${id})">Attachments</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
+ </div></section><div class="modal-actions"><button id="savePOButton" class="btn-po" onclick="savePOChanges(${creating})">${creating?'Save Purchase Order':'Save Changes'}</button>${creating?'':`<button onclick="manageAttachments('po',${id})">Attachments</button>`}<button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
 }
 function updatePOAdvancePreview(){const v=Number(document.getElementById('poe_value')?.value||0),p=Number(document.getElementById('poe_advance_pct')?.value||0);const e=document.getElementById('poe_advance_amount');if(e)e.value=(v*p/100).toFixed(2);}
@@ -1283,11 +1286,24 @@ function calculateAdvanceAmortisation(amount, po, available){
  return Number(Math.min(requested,Math.max(0,Number(available||0))).toFixed(2));
 }
 
-async function savePOChanges(){
+async function savePOChanges(creating=false){
  const projectId=Number(document.getElementById('poe_project').value);const {data:pr}=await supabaseClient.from('projects').select('project_name').eq('id',projectId).single();
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
  const advancePct=Number(document.getElementById('poe_advance_pct').value||0);if(pct<0||pct>100||days<0||advancePct<0||advancePct>100){alert('Invalid retention or advance payment percentage/period.');return;}
  const advanceReceived=Number(document.getElementById('poe_advance_received')?.value||0);if(advanceReceived<0){alert('Advance received amount cannot be negative.');return;}const payload={advance_received_amount:advanceReceived,advance_payment_percentage:advancePct,po_no:document.getElementById('poe_no').value.trim(),company:document.getElementById('poe_company').value.trim(),department:document.getElementById('poe_department').value.trim(),project_id:projectId,project_name:pr?.project_name||'',po_value_ex_vat:Number(document.getElementById('poe_value').value||0),vat:document.getElementById('poe_vat').value==='true',po_date:document.getElementById('poe_date').value||null,expiry_date:document.getElementById('poe_expiry').value||null,retention_applicable:applicable,retention_percentage:applicable?pct:0,retention_period_days:applicable?days:0,status:document.getElementById('poe_status').value,archive:document.getElementById('poe_status').value==='Closed',notes:document.getElementById('poe_notes').value};
+ if(creating){
+  if(!pr||!payload.po_no||!Number.isFinite(payload.po_value_ex_vat)||payload.po_value_ex_vat<=0){alert('Select a project and enter a PO number and positive PO value.');return;}
+  const button=document.getElementById('savePOButton');
+  if(button.disabled)return;
+  button.disabled=true;
+  try{
+   const {error}=await supabaseClient.from('pos').insert([payload]);
+   if(error){alert('Save failed: '+error.message);return;}
+   location.href='purchase-orders.html';
+  }catch(error){alert('Save failed: '+error.message);}
+  finally{button.disabled=false;}
+  return;
+ }
  const {data:oldPO}=await supabaseClient.from('pos').select('po_no').eq('id',currentPOEditId).single();
  const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}
  if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
@@ -1481,6 +1497,28 @@ async function logoutUser(){
   window.location.replace('login.html');
 }
 
+function openRequestedCreation(){
+ const params=new URLSearchParams(location.search);
+ const mode=params.get('create');
+ if(!['project','invoice','purchase-order'].includes(mode))return;
+ const back=document.createElement('a');
+ back.href={'project':'projects.html','invoice':'invoices.html','purchase-order':'purchase-orders.html'}[mode];
+ back.textContent='Back to '+{'project':'Projects','invoice':'Invoices','purchase-order':'Purchase Orders'}[mode];
+ back.style.color='#dbeafe';
+ document.querySelector('#dashboardHeaderCard .actions').prepend(back);
+ if(mode==='project'){addProject();return;}
+ if(mode==='purchase-order'){
+  const project=executiveData.projects.find(row=>String(row.id)===params.get('project_id')&&row.status!=='Completed');
+  if(!project){alert('Select an available project.');return;}
+  currentPOEditId=null;
+  renderPOForm({project_id:project.id,company:project.company,department:project.department,po_date:localToday(),vat:true},[project],0,0,true);
+  return;
+ }
+ const purchaseOrder=executiveData.pos.find(po=>String(po.id)===params.get('po_id')&&po.status!=='Closed');
+ if(!purchaseOrder?.po_no||!purchaseOrder.project_id){alert('The purchase order is unavailable. Select an open purchase order.');return;}
+ return addInvoice(purchaseOrder.po_no,purchaseOrder.project_id);
+}
+
 async function initializeDashboard(){
   // A fresh tab must have passed through the login form, even if Supabase has a persisted session.
   if(sessionStorage.getItem('pe_login_verified') !== 'true'){
@@ -1505,6 +1543,7 @@ async function initializeDashboard(){
   await loadExecutiveDashboard();
   setDashboardFocus('all');
   await loadCompanies();
+  await openRequestedCreation();
   if(isExecutiveRole()) renderExecutiveDashboard();
   // Re-render after the analytics card becomes visible; Chart.js cannot size charts inside display:none containers.
   if(isExecutiveRole()) await new Promise(resolve=>requestAnimationFrame(()=>{renderExecutiveDashboard();resolve();}));

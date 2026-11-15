@@ -26,7 +26,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 </nav><div class="navright"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div>
 </div></header>
 <main class="page">
-<section class="hero"><div><h1>Projects</h1><p>Project portfolio, purchase order coverage and linked invoice performance</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=projects">Project Financial Report</a></div></section>
+<section class="hero"><div><h1>Projects</h1><p>Project portfolio, purchase order coverage and linked invoice performance</p></div><div class="actions"><a class="btn teal" href="companies.html?create=project">+ Add Project</a><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=projects">Project Financial Report</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
 <section class="panel"><div class="panelhead"><div><h2>Project Financial Summary</h2><div class="muted">Financial values are derived from linked purchase orders and invoice records.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading projects...</div></div></section>
 <section class="panel"><div class="panelhead"><div><h2>Project Financial Overview</h2><div class="muted">Chart updates with the current filters.</div></div></div><div id="projectChart" class="chart"></div></section>
