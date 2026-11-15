@@ -65,14 +65,14 @@
     nav.setAttribute('aria-label', 'Main navigation');
     nav.style.cssText = 'position:sticky;top:0;z-index:1500;background:#14263d;padding:10px 14px;box-shadow:0 2px 8px #0f172a22;';
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:1600px;margin:auto;';
+    row.style.cssText = 'display:flex;align-items:center;gap:7px;flex-wrap:wrap;width:100%;box-sizing:border-box;margin:auto;';
 
     items.forEach(([label, href, requiredRole]) => {
       if (requiredRole && role() !== requiredRole) return;
       const a = document.createElement('a');
       a.href = href;
       a.textContent = label;
-      a.style.cssText = 'display:inline-block;padding:8px 10px;border-radius:6px;background:#1e3a5f;color:#fff;text-decoration:none;font:600 12px Arial,sans-serif;';
+      a.style.cssText = 'display:inline-block;padding:8px 10px;border-radius:6px;background:#1e3a5f;color:#fff;text-decoration:none;font:600 14px Arial,sans-serif;';
       row.appendChild(a);
     });
 
@@ -99,7 +99,7 @@
     }, 'pe-nav-signout'));
 
     Array.from(row.querySelectorAll('button')).forEach((el) => {
-      el.style.cssText += 'padding:8px 10px;border:0;border-radius:6px;background:#0f766e;color:#fff;font:600 12px Arial,sans-serif;cursor:pointer;';
+      el.style.cssText += 'padding:8px 10px;border:0;border-radius:6px;background:#0f766e;color:#fff;font:600 14px Arial,sans-serif;cursor:pointer;';
     });
     const signOut = row.querySelector('.pe-nav-signout');
     if (signOut) signOut.style.background = '#b91c1c';
