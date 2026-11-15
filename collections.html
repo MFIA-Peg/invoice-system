@@ -46,9 +46,13 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="panel"><div class="panelhead"><div><h2>Find Collection Transactions</h2><div class="muted">Type customer, project, invoice or reference details to filter instantly.</div></div><button class="secondary" id="clearFilters" type="button">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="Invoice, reference, notes"></div>
-<div class="field"><label for="filterCompany">Company</label><input id="filterCompany" list="companyOptions" placeholder="Type company"><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="filterCompany">Customer / Company</label><input id="filterCompany" list="companyOptions" placeholder="Type customer"><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="filterDepartment">Department</label><input id="filterDepartment" list="departmentOptions" placeholder="Type department"><datalist id="departmentOptions"></datalist></div>
 <div class="field"><label for="filterProject">Project</label><input id="filterProject" list="projectOptions" placeholder="Type project"><datalist id="projectOptions"></datalist></div>
+<div class="field"><label for="filterPO">Purchase Order No.</label><input id="filterPO" list="poOptions" placeholder="Type PO number"><datalist id="poOptions"></datalist></div>
+<div class="field"><label for="filterInvoice">Invoice Number</label><input id="filterInvoice" list="invoiceOptions" placeholder="Type invoice number"><datalist id="invoiceOptions"></datalist></div>
 <div class="field"><label for="filterMethod">Payment Method</label><input id="filterMethod" list="methodOptions" placeholder="Type method"><datalist id="methodOptions"></datalist></div>
+<div class="field"><label for="filterReference">Reference Number</label><input id="filterReference" list="referenceOptions" placeholder="Type reference"><datalist id="referenceOptions"></datalist></div>
 <div class="field"><label for="filterFrom">Collection Date From</label><input type="date" id="filterFrom"></div>
 <div class="field"><label for="filterTo">Collection Date To</label><input type="date" id="filterTo"></div>
 </div></section>
@@ -92,29 +96,58 @@ async function loadCollections(){const b=$('refresh');b.disabled=true;b.textCont
  }catch(e){showError('Load failed: '+(e.message||e));$('transactionsTable').innerHTML=`<div class="empty">${esc(e.message)}</div>`}
  finally{b.disabled=false;b.textContent='↻ Refresh'}}
 function setOptions(id,values){const list=$(id+'Options');if(!list)return;const vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
-function populateFilters(){setOptions('filterCompany',projects.map(x=>x.company));setOptions('filterProject',projects.map(x=>x.project_name));setOptions('filterMethod',transactions.map(x=>x.payment_method))}
+function populateFilters(){
+ setOptions('filterCompany',projects.map(x=>x.company));
+ setOptions('filterDepartment',projects.map(x=>x.department));
+ setOptions('filterProject',projects.map(x=>x.project_name));
+ setOptions('filterPO',pos.map(x=>x.po_no));
+ setOptions('filterInvoice',invoices.map(x=>x.invoice_no));
+ setOptions('filterMethod',transactions.map(x=>x.payment_method));
+ setOptions('filterReference',transactions.map(x=>x.reference_no));
+}
 function fillInvoices(){const old=$('invoiceSelect').value,open=invoices.filter(i=>invMetrics(i).balance>.005);$('invoiceSelect').innerHTML='<option value="">Select an open invoice</option>'+open.map(i=>{const m=invMetrics(i);return `<option value="${i.id}">${esc(i.invoice_no||'No Invoice No.')} · ${esc(i.po_no)} · ${esc(m.pr?.project_name||i.project_name||'')} · ${money(m.balance)}</option>`}).join('');if(open.some(i=>String(i.id)===old))$('invoiceSelect').value=old;updateBalance()}
 function updateBalance(){const i=invoices.find(x=>String(x.id)===$('invoiceSelect').value);if(!i){$('invoiceBalanceInfo').textContent='Select an invoice to view its current balance.';return}const m=invMetrics(i);$('invoiceBalanceInfo').textContent=`${m.pr?.company||''} · ${m.pr?.project_name||i.project_name||''} · Invoice total ${money(m.gross)} · Previously collected ${money(m.col)} · Current balance ${money(m.balance)}`}
 async function saveCollection(){if(!canAdd())return status('No Add permission.',true);const id=Number($('invoiceSelect').value),i=invoices.find(x=>Number(x.id)===id),amount=Number($('collectionAmount').value);if(!i)return status('Select an invoice.',true);if(!$('collectionDate').value||!Number.isFinite(amount)||amount<=0)return status('Enter a valid date and amount.',true);const m=invMetrics(i);if(amount>m.balance+.005)return status(`Amount exceeds balance ${money(m.balance)}.`,true);
  const b=$('saveCollectionButton');b.disabled=true;try{const {error}=await client.from('invoice_collections').insert({invoice_id:id,collection_date:$('collectionDate').value,amount,payment_method:$('paymentMethod').value||null,reference_no:$('referenceNo').value.trim()||null,notes:$('collectionNotes').value.trim()||null});if(error)throw error;status('Collection saved.');resetForm(false);await loadCollections()}catch(e){status('Save failed: '+e.message,true)}finally{b.disabled=!canAdd()}}
 function resetForm(date=true){$('invoiceSelect').value='';$('collectionAmount').value='';$('paymentMethod').value='';$('referenceNo').value='';$('collectionNotes').value='';if(date)$('collectionDate').value=today();updateBalance()}
-function applyFilters(){const im=new Map(invoices.map(i=>[Number(i.id),i])),co=$('filterCompany').value.trim().toLowerCase(),pr=$('filterProject').value.trim().toLowerCase(),method=$('filterMethod').value.trim().toLowerCase(),q=$('search').value.trim().toLowerCase(),from=$('filterFrom').value,to=$('filterTo').value;
- filteredTransactions=transactions.filter(c=>{const i=im.get(Number(c.invoice_id)),m=i&&invMetrics(i);if(!i)return false;const company=m.pr?.company||'',project=m.pr?.project_name||i.project_name||'';if(co&&!String(company).toLowerCase().includes(co))return false;if(pr&&!String(project).toLowerCase().includes(pr))return false;if(method&&!String(c.payment_method||'').toLowerCase().includes(method))return false;if(from&&c.collection_date<from)return false;if(to&&c.collection_date>to)return false;if(q&&![i.invoice_no,i.po_no,company,project,c.payment_method,c.reference_no,c.notes,c.collection_date].join(' ').toLowerCase().includes(q))return false;return true});render()}
+function applyFilters(){
+ const im=new Map(invoices.map(i=>[Number(i.id),i]));
+ const co=$('filterCompany').value.trim().toLowerCase(),dept=$('filterDepartment').value.trim().toLowerCase();
+ const pr=$('filterProject').value.trim().toLowerCase(),po=$('filterPO').value.trim().toLowerCase();
+ const invoice=$('filterInvoice').value.trim().toLowerCase(),method=$('filterMethod').value.trim().toLowerCase();
+ const reference=$('filterReference').value.trim().toLowerCase(),q=$('search').value.trim().toLowerCase();
+ const from=$('filterFrom').value,to=$('filterTo').value;
+ filteredTransactions=transactions.filter(c=>{
+  const i=im.get(Number(c.invoice_id)),m=i&&invMetrics(i);if(!i)return false;
+  const company=m.pr?.company||'',department=m.pr?.department||'',project=m.pr?.project_name||i.project_name||'';
+  if(co&&!String(company).toLowerCase().includes(co))return false;
+  if(dept&&!String(department).toLowerCase().includes(dept))return false;
+  if(pr&&!String(project).toLowerCase().includes(pr))return false;
+  if(po&&!String(i.po_no||'').toLowerCase().includes(po))return false;
+  if(invoice&&!String(i.invoice_no||'').toLowerCase().includes(invoice))return false;
+  if(method&&!String(c.payment_method||'').toLowerCase().includes(method))return false;
+  if(reference&&!String(c.reference_no||'').toLowerCase().includes(reference))return false;
+  if(from&&c.collection_date<from)return false;if(to&&c.collection_date>to)return false;
+  if(q&&![i.invoice_no,i.po_no,company,department,project,c.payment_method,c.reference_no,c.notes,c.collection_date].join(' ').toLowerCase().includes(q))return false;
+  return true;
+ });
+ render();
+}
 function render(){const a=filteredTransactions,im=new Map(invoices.map(i=>[Number(i.id),i])),total=a.reduce((s,x)=>s+num(x.amount),0),invIds=new Set(a.map(x=>x.invoice_id)),methods=new Set(a.map(x=>x.payment_method).filter(Boolean)),companies=new Set(a.map(x=>{const i=im.get(Number(x.invoice_id));return invMetrics(i).pr?.company}).filter(Boolean));
  const cards=[['Total Collected',money(total),'Sum of filtered collection transactions'],['Transactions',a.length,'Collection entries'],['Invoices With Collections',invIds.size,'Distinct invoices'],['Customers',companies.size,'Customers represented'],['Payment Methods',methods.size,'Methods used'],['Average Collection',money(a.length?total/a.length:0),'Average transaction amount'],['Largest Collection',money(a.reduce((m,x)=>Math.max(m,num(x.amount)),0)),'Highest single transaction'],['Latest Collection',a.length?String(a[0].collection_date):'—','Most recent date in filtered results']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(a,im);
- $('transactionsTable').innerHTML=a.length?`<table><thead><tr><th>Date</th><th>Company</th><th>Project</th><th>PO No.</th><th>Invoice No.</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Notes</th></tr></thead><tbody>${a.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return `<tr><td>${esc(c.collection_date)}</td><td>${esc(m.pr?.company)}</td><td>${esc(m.pr?.project_name||i.project_name)}</td><td>${esc(i.po_no)}</td><td>${esc(i.invoice_no)}</td><td>${esc(c.payment_method)}</td><td>${esc(c.reference_no)}</td><td class="num">${money(c.amount)}</td><td>${esc(c.notes)}</td></tr>`}).join('')}</tbody></table>`:'<div class="empty">No collection transactions found.</div>';
+ $('transactionsTable').innerHTML=a.length?`<table><thead><tr><th>Date</th><th>Company</th><th>Department</th><th>Project</th><th>PO No.</th><th>Invoice No.</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Notes</th></tr></thead><tbody>${a.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return `<tr><td>${esc(c.collection_date)}</td><td>${esc(m.pr?.company)}</td><td>${esc(m.pr?.department)}</td><td>${esc(m.pr?.project_name||i.project_name)}</td><td>${esc(i.po_no)}</td><td>${esc(i.invoice_no)}</td><td>${esc(c.payment_method)}</td><td>${esc(c.reference_no)}</td><td class="num">${money(c.amount)}</td><td>${esc(c.notes)}</td></tr>`}).join('')}</tbody></table>`:'<div class="empty">No collection transactions found.</div>';
  $('resultCount').textContent=`Showing ${a.length} of ${transactions.length} collection transactions`}
 function renderChart(a,im){const total=a.reduce((s,x)=>s+num(x.amount),0),byMethod=new Map(),byMonth=new Map();a.forEach(x=>{const method=x.payment_method||'Unspecified';byMethod.set(method,(byMethod.get(method)||0)+num(x.amount));const month=String(x.collection_date||'').slice(0,7)||'Unknown';byMonth.set(month,(byMonth.get(month)||0)+num(x.amount))});
  const items=[...Array.from(byMethod,([k,v])=>({label:'Method: '+k,value:v})),...Array.from(byMonth,([k,v])=>({label:'Month: '+k,value:v})).sort((x,y)=>x.label.localeCompare(y.label))].slice(0,12);if(!items.length){$('collectionChart').innerHTML='<div class="empty">No financial values for the selected collection transactions.</div>';return}
  const max=Math.max(1,...items.map(x=>x.value)),width=1050,left=230,right=150,rowH=37,top=12,barW=width-left-right,height=top+items.length*rowH+10;
  const bars=items.map((x,i)=>{const y=top+i*rowH,w=x.value/max*barW;return `<text x="${left-12}" y="${y+17}" text-anchor="end" fill="#475569" font-size="12" font-weight="600">${esc(x.label)}</text><rect x="${left}" y="${y+2}" width="${barW}" height="20" rx="6" fill="#e8eef5"/><rect x="${left}" y="${y+2}" width="${w}" height="20" rx="6" fill="${i%2?'#0f766e':'#2563eb'}"/><text x="${left+barW+9}" y="${y+17}" fill="#14263d" font-size="11" font-weight="700">${esc(money(x.value))}</text>`}).join('');
  $('collectionChart').innerHTML=`<div class="muted" style="margin-bottom:8px">Filtered total: ${money(total)} · Breakdown by payment method and month (top 12 groups)</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Collections by method and month">${bars}</svg>`}
-function exportCSV(){const im=new Map(invoices.map(i=>[Number(i.id),i])),headers=['Collection Date','Company','Project','PO Number','Invoice Number','Payment Method','Reference Number','Amount SAR','Notes'];const rows=filteredTransactions.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return[c.collection_date,m.pr?.company,m.pr?.project_name||i.project_name,i.po_no,i.invoice_no,c.payment_method,c.reference_no,c.amount,c.notes]});const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='collections-'+today()+'.csv';a.click();URL.revokeObjectURL(url)}
-function clearFilters(){['search','filterCompany','filterProject','filterMethod','filterFrom','filterTo'].forEach(x=>$(x).value='');applyFilters()}
+function exportCSV(){const im=new Map(invoices.map(i=>[Number(i.id),i])),headers=['Collection Date','Company','Department','Project','PO Number','Invoice Number','Payment Method','Reference Number','Amount SAR','Notes'];const rows=filteredTransactions.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return[c.collection_date,m.pr?.company,m.pr?.department,m.pr?.project_name||i.project_name,i.po_no,i.invoice_no,c.payment_method,c.reference_no,c.amount,c.notes]});const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='collections-'+today()+'.csv';a.click();URL.revokeObjectURL(url)}
+function clearFilters(){['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(x=>$(x).value='');applyFilters()}
 async function logoutUser(){const {error}=await client.auth.signOut();if(error)return alert(error.message);sessionStorage.clear();location.replace('login.html')}
-$('refresh').addEventListener('click',loadCollections);$('export').addEventListener('click',exportCSV);$('clearFilters').addEventListener('click',clearFilters);$('saveCollectionButton').addEventListener('click',saveCollection);$('clearForm').addEventListener('click',()=>resetForm());$('invoiceSelect').addEventListener('change',updateBalance);['search','filterCompany','filterProject','filterMethod','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('input',applyFilters));$('signOut').addEventListener('click',logoutUser);
+$('refresh').addEventListener('click',loadCollections);$('export').addEventListener('click',exportCSV);$('clearFilters').addEventListener('click',clearFilters);$('saveCollectionButton').addEventListener('click',saveCollection);$('clearForm').addEventListener('click',()=>resetForm());$('invoiceSelect').addEventListener('change',updateBalance);['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('input',applyFilters));$('signOut').addEventListener('click',logoutUser);
 initialize();
 </script>
 </body></html>
