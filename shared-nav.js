@@ -7,7 +7,7 @@
     ['Dashboard', 'dashboard.html'],
     ['Customers', 'companies.html'],
     ['Departments', 'departments.html'],
-    ['Projects', 'companies.html'],
+    ['Projects', 'projects.html'],
    ['Purchase Orders', 'purchase-orders.html'],
     ['Invoices', 'reports.html?report=open'],
     ['Collections', 'collections.html'],
