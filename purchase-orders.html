@@ -28,6 +28,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="hero"><div><h1>Purchase Orders</h1><p>Purchase order register, invoicing utilization and remaining contract value</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=pos">PO Financial Report</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
 <section class="panel"><div class="panelhead"><div><h2>Purchase Order Summary</h2><div class="muted">Values are shown before VAT unless stated otherwise.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading purchase orders...</div></div></section>
+<section class="panel"><div class="panelhead"><div><h2>Purchase Order Financial Overview</h2><div class="muted">Live totals for the currently filtered purchase orders.</div></div></div>
+<div id="poTotalsChart" style="width:100%;min-height:260px;overflow:hidden" aria-label="Purchase order financial totals chart"></div>
+</section>
 <section class="panel"><div class="panelhead"><div><h2>Find Purchase Orders</h2><div class="muted">Filter by customer, department, project, status or PO number.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="PO number or notes"></div>
@@ -89,10 +92,37 @@ function render(){
  const invoiced=sum(x=>invoiceTotals(x).invoiced),poValue=sum(x=>num(x.po_value_ex_vat)),remaining=sum(x=>invoiceTotals(x).remaining),advance=sum(x=>num(x.advance_received_amount));
  const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
+ renderTotalsChart({poValue,invoiced,remaining,advance,amortised:sum(x=>invoiceTotals(x).amort)});
  const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr><td><strong>${esc(po.po_no)}</strong></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><a class="btn secondary" href="reports.html?report=pos">PO Report</a></td></tr>`;});
  $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>PO Number</th><th>Customer</th><th>Department</th><th>Project</th><th>PO Date</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining Ex VAT</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Status</th><th>Report</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
  $('resultCount').textContent=`Showing ${filtered.length} of ${allPO.length} purchase orders`;
 }
+
+function renderTotalsChart(values){
+ const host=$('poTotalsChart');
+ const items=[
+  {label:'PO Value',value:values.poValue},
+  {label:'Invoiced',value:values.invoiced},
+  {label:'Remaining',value:values.remaining},
+  {label:'Advance',value:values.advance},
+  {label:'Advance Amortised',value:values.amortised}
+ ];
+ const max=Math.max(1,...items.map(x=>x.value));
+ const width=900,rowH=46,left=175,right=115,top=16,barW=width-left-right;
+ const height=top+items.length*rowH+12;
+ const bars=items.map((x,i)=>{
+   const y=top+i*rowH;
+   const w=Math.max(0,(x.value/max)*barW);
+   return `<text x="${left-12}" y="${y+19}" text-anchor="end" fill="#475569" font-size="13" font-weight="600">${esc(x.label)}</text>
+   <rect x="${left}" y="${y+3}" width="${barW}" height="22" rx="6" fill="#e8eef5"/>
+   <rect x="${left}" y="${y+3}" width="${w}" height="22" rx="6" fill="${['#2563eb','#0f766e','#64748b','#7c3aed','#d97706'][i]}"/>
+   <text x="${left+barW+10}" y="${y+19}" fill="#14263d" font-size="12" font-weight="700">${esc(money(x.value))}</text>`;
+ }).join('');
+ host.innerHTML=items.every(x=>x.value===0)
+  ? '<div class="empty">No financial values are available for the selected purchase orders.</div>'
+  : `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Financial totals bar chart" style="display:block;width:100%;height:auto;min-width:620px">${bars}</svg>`;
+}
+
 function exportCSV(){
  const headers=['PO Number','Customer','Department','Project','PO Date','Expiry Date','PO Value Ex VAT','VAT Applicable','Invoice Count','Invoiced Ex VAT','Remaining Ex VAT','Advance Percentage','Advance Amount','Advance Received','Advance Amortised','Advance Balance','Retention Applicable','Retention Percentage','Retention Period Days','Status','Notes'];
  const rows=filtered.map(p=>{const m=invoiceTotals(p),adv=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return [p.po_no,p.company,p.department,p.project_name,p.po_date,p.expiry_date,p.po_value_ex_vat,p.vat,m.count,m.invoiced,m.remaining,p.advance_payment_percentage,adv,p.advance_received_amount,m.amort,Math.max(0,adv-m.amort),p.retention_applicable,p.retention_percentage,p.retention_period_days,p.status,p.notes];});
