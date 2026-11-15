@@ -3,14 +3,25 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a}.wrap{padding:22px;max-width:1600px;margin:auto}.top,.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #0f172a0a}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}h1{font-size:24px;margin:0 0 7px}.muted{color:#64748b;font-size:13px}button{border:0;border-radius:7px;padding:10px 15px;background:#2563eb;color:#fff;cursor:pointer;font-weight:600}button.secondary{background:#64748b}button.green{background:#0f766e}.filters{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin:12px 0 16px}.filters label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px}.filters select,.filters input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;background:white}.actions{display:flex;gap:8px;flex-wrap:wrap}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.kpi{border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#fff;min-height:115px}.label{font-size:13px;font-weight:700;color:#64748b}.value{font-size:clamp(20px,2.2vw,29px);font-weight:700;color:#0f766e;margin-top:12px;overflow-wrap:anywhere}.note{font-size:12px;color:#64748b;margin-top:6px}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.chart-card{border:1px solid #e2e8f0;border-radius:10px;padding:16px;min-width:0}.chart-card h3{font-size:15px;margin:0 0 5px}.chart-card .note{min-height:30px}.chart-box{height:245px;position:relative;margin-top:8px}@media(max-width:1050px){.charts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.charts{grid-template-columns:1fr}}@media(max-width:900px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.wrap{padding:10px}.filters,.kpis{grid-template-columns:1fr}.top,.panel{padding:14px}}
+
+/* Unified Power Energy design */
+:root{--navy:#14263d;--blue:#2563eb;--teal:#0f766e;--line:#e2e8f0;--muted:#64748b}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#f3f6fb;color:#18283d}
+.wrap{max-width:1480px;padding:30px 26px 70px}
+.top,.panel{border-radius:15px;border:1px solid var(--line);box-shadow:0 8px 32px rgba(19,38,61,.06);padding:22px;margin-bottom:20px}
+.top h1{font-size:29px;letter-spacing:-.6px;color:var(--navy)}
+button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+.kpi,.chart-card{border-radius:12px}.kpi .value{color:var(--navy)}
+#pe-global-nav{font-family:Inter,Segoe UI,Arial,sans-serif}
+@media(max-width:560px){.wrap{padding:16px 12px 50px}.top h1{font-size:23px}}
 </style></head><body><main class="wrap">
-<section class="top"><div><h1>Power Energy — Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" onclick="location.href='companies.html'">Companies</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button><button class="green" onclick="location.href='collections.html'">Collections</button><button class="secondary" onclick="logoutUser()">Sign Out</button></div></section>
+<section class="top"><div><h1>Power Energy — Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
 <section class="panel"><h2 style="margin:0 0 8px;font-size:18px">Financial Filters</h2><div class="muted">Date filters are applied using invoice Due Date.</div>
 <div class="filters"><div><label for="company">Company</label><select id="company"><option value="">All companies</option></select></div><div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div><div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div><div><label for="fromDate">From Date (Due Date)</label><input type="date" id="fromDate"></div><div><label for="toDate">To Date (Due Date)</label><input type="date" id="toDate"></div></div>
 <div class="actions"><button onclick="renderKPIs()">Apply Filters</button><button class="secondary" onclick="clearFilters()">Clear Filters</button></div></section>
 <section class="panel"><h2 style="margin:0 0 14px;font-size:18px">Financial KPIs</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
 <section class="panel"><h2 style="margin:0 0 14px;font-size:18px">Financial Analysis</h2><div class="charts"><article class="chart-card"><h3>Collection Position</h3><div class="note">Collected amount versus current open balance. Collected is not restricted by Due Date.</div><div class="chart-box"><canvas id="collectionChart"></canvas></div></article><article class="chart-card"><h3>Overdue Analysis</h3><div class="note">Overdue collection balance versus the remaining open balance.</div><div class="chart-box"><canvas id="overdueChart"></canvas></div></article><article class="chart-card"><h3>Purchase Order Coverage</h3><div class="note">Invoiced PO value versus the remaining uninvoiced PO value, before VAT.</div><div class="chart-box"><canvas id="poChart"></canvas></div></article></div></section>
-</main><script>
+</main><script src="shared-nav.js" defer></script><script>
 const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
 const SUPABASE_KEY="sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -43,6 +54,24 @@ document.getElementById('status').textContent=`Showing ${projects.length} projec
 function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
 document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
 async function loadDashboard(){const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{const [projects,pos,invoices]=await Promise.all([fetchAll('projects','id,project_name,company,department,status'),fetchAll('pos','id,company,project_name,po_no,vat,po_value_ex_vat,project_id,archive,status'),fetchAll('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,approval_date,payment_terms,project_id,project_name,retention_amount,retention_vat,retention_released_amount,advance_amortisation')]);data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
+
+function exportToExcel(){
+  const projects=selectedProjects(), ids=new Set(projects.map(p=>Number(p.id)));
+  const poByNumber=new Map(data.pos.map(p=>[String(p.po_no),p]));
+  const projectById=new Map(data.projects.map(p=>[Number(p.id),p]));
+  const rows=data.invoices.filter(i=>{const pid=Number(i.project_id||poByNumber.get(String(i.po_no))?.project_id);return ids.has(pid)&&!excluded(i.status);})
+    .map(i=>{const po=poByNumber.get(String(i.po_no));const p=projectById.get(Number(i.project_id||po?.project_id));return {i,p,m:invoiceMetrics(i,po)};})
+    .filter(x=>inRange(x.m.due));
+  const columns=['Customer','Department','Project','PO Number','Invoice Number','Status','Invoice Amount SAR','Collected SAR','Open Collection SAR','Retention Balance SAR','Outstanding SAR','Due Date'];
+  const csvCell=v=>'"'+String(v??'').replace(/^[=+@-]/,s=>"'"+s).replace(/"/g,'""')+'"';
+  const output=[columns,...rows.map(({i,p,m})=>[p?.company||'',p?.department||'',p?.project_name||i.project_name||'',i.po_no||'',i.invoice_no||'',i.status||'',m.total,m.collected,m.collectionBalance,m.retentionBalance,m.outstanding,m.due||''])];
+  const csv='\uFEFF'+output.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Power_Energy_Financial_Dashboard_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+window.exportToExcel=exportToExcel;
+
 async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert('Sign out failed: '+error.message);return;}sessionStorage.clear();location.replace('login.html');}
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
