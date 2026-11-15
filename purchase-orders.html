@@ -34,9 +34,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="panel"><div class="panelhead"><div><h2>Find Purchase Orders</h2><div class="muted">Filter by customer, department, project, status or PO number.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="PO number or notes"></div>
-<div class="field"><label for="company">Customer / Company</label><select id="company"><option value="">All customers</option></select></div>
-<div class="field"><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
-<div class="field"><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
+<div class="field"><label for="company">Customer / Company</label><input id="company" list="companyOptions" type="text" placeholder="Type customer name"><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="department">Department</label><input id="department" list="departmentOptions" type="text" placeholder="Type department"><datalist id="departmentOptions"></datalist></div>
+<div class="field"><label for="project">Project</label><input id="project" list="projectOptions" type="text" placeholder="Type project name"><datalist id="projectOptions"></datalist></div>
 <div class="field"><label for="status">Status</label><select id="status"><option value="">All statuses</option><option value="Open">Open</option><option value="Closed">Closed</option></select></div>
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Purchase Order Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div>
@@ -79,12 +79,12 @@ async function loadAll(){
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
 }
-function setOptions(id,values,label){const el=$(id),old=el.value,vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));el.innerHTML=`<option value="">All ${label}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(vals.includes(old))el.value=old;}
+function setOptions(id,values,label){const el=$(id),old=el.value,vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));const list=$(id+'Options');if(list)list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('');el.value=old;}
 function populateFilters(){setOptions('company',allPO.map(x=>x.company),'customers');setOptions('department',allPO.map(x=>x.department),'departments');setOptions('project',allPO.map(x=>x.project_name),'projects');}
 function invoiceTotals(po){const rows=invoices.filter(i=>String(i.po_no)===String(po.po_no));const invoiced=rows.reduce((s,x)=>s+num(x.invoice_amount),0);const gross=rows.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0);const amort=rows.reduce((s,x)=>s+num(x.advance_amortisation),0);return{count:rows.length,invoiced,gross,amort,remaining:Math.max(0,num(po.po_value_ex_vat)-invoiced)};}
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
- filtered=allPO.filter(x=>(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||x.company===c)&&(!d||x.department===d)&&(!p||x.project_name===p)&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
+ filtered=allPO.filter(x=>(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c.toLowerCase()))&&(!d||String(x.department||'').toLowerCase().includes(d.toLowerCase()))&&(!p||String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
  render();
 }
 function render(){
@@ -130,7 +130,7 @@ function exportCSV(){
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='purchase-orders.csv';a.click();URL.revokeObjectURL(url);
 }
 $('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{$('search').value='';['company','department','project','status'].forEach(id=>$(id).value='');applyFilters();});
-['search','company','department','project','status'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',applyFilters));
+['search','company','department','project','status'].forEach(id=>$(id).addEventListener(['search','company','department','project'].includes(id)?'input':'change',applyFilters));
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html');});
 (async()=>{if(await checkSession())await loadAll();})();
 </script>
