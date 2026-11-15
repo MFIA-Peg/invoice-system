@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Energy — Collections</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="financial-metrics.js"></script>
+<title>Power Energy — Collections</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#0f172a;font-family:Arial,sans-serif}.wrap{max-width:1500px;margin:auto;padding:22px}
 .top,.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #0f172a0a}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -30,7 +30,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function isManager(){return profile?.role==='finance_manager'}function canAdd(){return isManager()||profile?.permissions?.can_add===true}
 function allowedProject(id){return isManager()||profile?.all_projects||profile?.projectIds.has(Number(id))}
 function allowedDept(d){return isManager()||profile?.all_departments||profile?.departments.has(String(d||''))}
-function invMetrics(i){const po=pos.find(p=>String(p.po_no)===String(i.po_no)),pr=projects.find(p=>Number(p.id)===Number(i.project_id||po?.project_id)),m=PEFinancialMetrics.metrics(i);return{...m,po,pr,gross:m.invoiceTotal,col:m.collected,balance:m.outstanding}}
+function invMetrics(i){const po=pos.find(p=>String(p.po_no)===String(i.po_no)),pr=projects.find(p=>Number(p.id)===Number(i.project_id||po?.project_id));const base=Math.max(0,Number(i.invoice_amount||0)-Number(i.advance_amortisation||0)),gross=base+(po?.vat?base*.15:0),ret=Number(i.retention_amount||0)+Number(i.retention_vat||0),col=Number(i.paid_amount||0);return{po,pr,gross,col,balance:Math.max(0,gross-ret-col)}}
 async function rows(t,s){const {data,error}=await client.from(t).select(s);if(error)throw error;return data||[]}
 function status(t,bad=false){$('formStatus').textContent=t;$('formStatus').style.color=bad?'#b91c1c':'#047857'}
 async function initialize(){try{
@@ -43,7 +43,7 @@ async function initialize(){try{
  $('signedInUser').textContent=`Signed in: ${p.full_name||p.username} · Role: ${p.role}`;if(!canAdd())$('saveCollectionButton').disabled=true;$('collectionDate').value=new Date().toISOString().slice(0,10);await loadCollections();
  }catch(e){$('signedInUser').textContent=e.message;document.querySelectorAll('main section').forEach(x=>x.style.display='none');setTimeout(()=>location.replace('login.html'),1600)}}
 async function loadCollections(){try{
- const [p,po,i,c]=await Promise.all([rows('projects','id,project_name,company,department,status'),rows('pos','id,po_no,project_id,company,department,vat,archive,status'),rows('invoice_details_with_retention','*'),rows('invoice_collections','id,invoice_id,collection_date,amount,payment_method,reference_no,notes,created_at')]);
+ const [p,po,i,c]=await Promise.all([rows('projects','id,project_name,company,department,status'),rows('pos','id,po_no,project_id,company,department,vat,archive,status'),rows('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,project_id,project_name,retention_amount,retention_vat,advance_amortisation'),rows('invoice_collections','id,invoice_id,collection_date,amount,payment_method,reference_no,notes,created_at')]);
  projects=p.filter(x=>allowedProject(x.id)&&allowedDept(x.department));const ids=new Set(projects.map(x=>Number(x.id)));pos=po.filter(x=>ids.has(Number(x.project_id))&&x.archive!==true);invoices=i.filter(x=>ids.has(Number(x.project_id||pos.find(y=>y.po_no===x.po_no)?.project_id)));const invIds=new Set(invoices.map(x=>Number(x.id)));
  transactions=c.filter(x=>invIds.has(Number(x.invoice_id))).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date))||b.id-a.id);
  setFilter('filterCompany',projects.map(x=>x.company),'All Companies');setFilter('filterProject',projects.map(x=>x.project_name),'All Projects');fillInvoices();renderTransactions();renderSummary();
