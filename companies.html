@@ -125,53 +125,95 @@ td{
 <style>
 #customerMasterCard{border-top:4px solid #0f766e}#customerMasterCard h2{margin-top:0}.cm-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.cm-toolbar input{min-width:240px;flex:1}.cm-scroll{overflow:auto}.cm-table{width:100%;min-width:1500px}.cm-table th{text-align:left}.cm-table td{vertical-align:top}.cm-actions{display:flex;gap:5px;flex-wrap:wrap}.cm-actions button{font-size:12px;padding:7px 9px}.cm-muted{color:#64748b;font-size:13px}.cm-dialog{display:none;position:fixed;inset:0;z-index:1600;background:#0f172aaa;overflow:auto;padding:20px;box-sizing:border-box}.cm-dialog-box{background:#fff;border-radius:12px;max-width:650px;margin:7vh auto;padding:24px}.cm-dialog label{display:block;font-weight:bold;margin-top:12px;margin-bottom:5px}.cm-dialog input,.cm-dialog select{width:100%;box-sizing:border-box;padding:10px}.cm-dialog .cm-actions{margin-top:18px}
 </style>
-<style>.customer-totals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:15px 0 22px}.customer-total-item{padding:15px;border:1px solid #dbe4ee;border-radius:10px;background:#f8fafc}.customer-total-item small{display:block;color:#64748b;margin-bottom:8px}.customer-total-item strong{font-size:19px;color:#0f172a;overflow-wrap:anywhere}.customer-totals-chart{display:grid;gap:12px;margin:16px 0}.customer-chart-row{display:grid;grid-template-columns:minmax(140px,200px) 1fr minmax(100px,150px);gap:10px;align-items:center;font-size:13px}.customer-chart-track{height:19px;background:#e2e8f0;border-radius:5px;overflow:hidden}.customer-chart-fill{height:100%;background:#0f766e;border-radius:5px}.customer-chart-amount{text-align:right;font-variant-numeric:tabular-nums}@media(max-width:600px){.customer-chart-row{grid-template-columns:110px 1fr 100px;font-size:11px}}</style>
+
+<style>
+:root{--navy:#14263d;--navy2:#203d5d;--blue:#2563eb;--teal:#0f766e;--bg:#f3f6fa;--ink:#172033;--muted:#64748b;--line:#e2e8f0;--shadow:0 8px 28px rgba(19,38,61,.06)}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,Segoe UI,Arial,sans-serif}
+.container.page{max-width:1600px;margin:auto;padding:25px 22px 60px}
+.hero{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border-radius:16px;padding:23px 25px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+.hero h1{margin:0;font-size:26px}.hero #signedInUser{margin-top:5px;color:#dbeafe;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.page button{border-radius:8px;font:650 12px Arial,sans-serif}
+.page .secondary{background:#475569}.page .teal{background:var(--teal)}.page button:disabled{opacity:.55;cursor:default}
+.card.panel,#customerMasterCard{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:17px;box-shadow:var(--shadow)}
+.panelhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.panel h2{font-size:17px;color:var(--navy);margin:0}.muted{color:var(--muted);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:15px;background:linear-gradient(145deg,#fff,#f8fafc);min-width:0}
+.kpi .label{font-size:12px;color:var(--muted);font-weight:700}.kpi .value{display:block;font-size:clamp(18px,2vw,25px);font-weight:800;color:var(--navy);margin-top:8px;overflow-wrap:anywhere}
+.filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.filters label{display:block;font-size:11px;font-weight:750;color:var(--muted);margin-bottom:5px}
+.filters input{box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:var(--ink);font:13px Arial}
+.cm-scroll,.company-table-wrap{overflow:auto;border-radius:9px}
+.panel .cm-table,.panel .company-table{font-size:12px}
+.panel .cm-table th,.panel .company-table th{background:var(--navy);color:white;font-size:10px;letter-spacing:.45px;text-transform:uppercase;text-align:left}
+.panel .cm-table td,.panel .company-table td{border:0;border-bottom:1px solid var(--line);padding:11px 10px;white-space:nowrap}
+.panel .cm-table tr:hover,.panel .company-table tr:hover{background:#f8fafc}
+.panel .company-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.customer-totals-chart{display:grid;gap:12px}
+.customer-chart-row{display:grid;grid-template-columns:minmax(120px,175px) minmax(15px,1fr) minmax(90px,auto);gap:10px;align-items:center;font-size:13px}
+.customer-chart-track{height:16px;background:#e2e8f0;border-radius:5px;display:flex;position:relative}
+.customer-chart-fill{position:absolute;height:100%;background:var(--teal);border-radius:5px}.customer-chart-fill.negative{background:#b45309}
+.customer-chart-amount{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:1000px){.kpis,.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.container.page{padding:12px}.hero{padding:18px}.hero h1{font-size:22px}.customer-chart-row{grid-template-columns:minmax(90px,110px) 1fr minmax(65px,auto);font-size:11px}}
+@media(max-width:420px){.filters{grid-template-columns:1fr}}
+</style>
 </head>
 
 <body>
 
-<div class="container">
 
-<div class="card" id="dashboardHeaderCard">
+<main class="container page">
+<section class="hero" id="dashboardHeaderCard">
+<div><h1>Customers</h1><div id="signedInUser"></div></div>
+<div class="actions">
+<button type="button" onclick="location.href='dashboard.html'" class="secondary">Dashboard</button>
+<button type="button" id="refreshButton" onclick="refreshDashboard()" class="teal">Refresh</button>
+<button type="button" id="customerExport" disabled>↓ Export to Excel</button>
+<button type="button" onclick="location.href='reports.html'" class="secondary">Reports</button>
+<button type="button" id="userManagementButton" onclick="location.href='user-management.html'" style="display:none">User Management</button>
+<button type="button" onclick="logoutUser()" class="secondary">Sign Out</button>
+</div>
+</section>
 
-<h1>Power Energy — Executive Dashboard</h1><div id="signedInUser" style="color:#64748b;font-size:13px;margin-bottom:8px"></div>
+<div id="customerOverview">
+<section class="card panel" id="customerTotalsCard">
+<div class="panelhead"><div><h2>Customer Financial Summary</h2><div class="muted" id="customerTotalsNote" role="status">Loading financial totals…</div></div></div>
+<div id="customerTotalsGrid" class="kpis"></div>
+</section>
+<section class="card panel">
+<div class="panelhead"><div><h2>Customer Financial Overview</h2><div class="muted">Amounts in SAR for the filtered customers</div></div></div>
+<div id="customerTotalsChart" class="customer-totals-chart"></div>
+</section>
+<section class="card panel">
+<div class="panelhead"><div><h2>Find Customers</h2><div class="muted">Project and status filters match linked projects. Amounts are customer totals.</div></div><button type="button" id="customerClear" class="secondary">Clear Filters</button></div>
+<div class="filters" id="customerFilters">
+<div class="field"><label for="cmSearch">Search</label><input id="cmSearch" type="search" placeholder="Customer, department, project or status"></div>
+<div class="field"><label for="companySearch">Customer</label><input id="companySearch" type="search" placeholder="Type customer name"></div>
+<div class="field"><label for="customerDepartment">Department</label><input id="customerDepartment" type="search" placeholder="Type department"></div>
+<div class="field"><label for="customerProject">Project</label><input id="customerProject" type="search" placeholder="Type project name"></div>
+<div class="field"><label for="customerStatus">Project Status</label><input id="customerStatus" type="search" placeholder="Type project status"></div>
+</div>
+</section>
 
-<button onclick="location.href='dashboard.html'" style="background:#0f766e">Dashboard</button>
-<button onclick="addProject()">
-Add Project
-</button>
-
-<button id="refreshButton" onclick="refreshDashboard()">
-Refresh
-</button>
-<button onclick="location.href='reports.html'" style="background:#0f766e">Reports</button>
-<button id="userManagementButton" onclick="location.href='user-management.html'" style="display:none;background:#1d4ed8">User Management</button>
-<button onclick="logoutUser()" style="background:#b91c1c">Sign Out</button>
-<button onclick="showCompletedProjects()" style="background:#475569">Completed Projects</button>
-<button onclick="showClosedPurchaseOrders()" style="background:#475569">Closed Purchase Orders</button>
-<button onclick="showPaidInvoices()" style="background:#475569">Paid Invoices</button>
-
-<input
-type="text"
-id="searchBox"
-placeholder="Search Project"
-onkeyup="filterProjects()">
-
+<section class="card panel" id="customerMasterCard">
+<div class="panelhead"><div><h2>Customer Register</h2><div id="cmStatus" class="muted" role="status">Loading customers…</div></div>
+<div class="actions"><button id="cmAdd" onclick="cmOpenCreate()" class="teal" style="display:none">Add Customer</button><button onclick="cmLoad()" class="secondary">Refresh Customers</button></div></div>
+<div id="cmList" class="cm-scroll"></div>
+</section>
 </div>
 
-<div class="card" id="customerTotalsCard"><h2>Customer Financial Totals</h2><p class="cm-muted">Consolidated amounts across the customer financial records (SAR). Search customers to update the totals and chart.</p><div id="customerTotalsGrid" class="customer-totals-grid">Loading financial totals...</div><h3>Financial Totals Comparison</h3><div id="customerTotalsChart" class="customer-totals-chart" role="img" aria-label="Financial totals bar chart"></div><p id="customerTotalsNote" class="cm-muted"></p></div>
-
-<div class="card" id="customerMasterCard">
-<h2>Customers — Master Records</h2><p class="cm-muted">Manage customer names and department assignments. Historical financial records are protected.</p>
-<div class="cm-toolbar"><input id="cmSearch" placeholder="Search customers" oninput="cmRender()"><button id="cmAdd" onclick="cmOpenCreate()" style="display:none;background:#0f766e">Add Customer</button><button onclick="cmLoad()">Refresh Customers</button></div>
-<div id="cmStatus" class="cm-muted">Loading customers...</div><div id="cmList" class="cm-scroll"></div>
-</div>
-<div class="card" id="companiesCard" style="display:none"><h2>Customer Financial Summary</h2><p style="color:#64748b">Summary of projects, purchase orders, billing, collections, and retention by company.</p><div class="company-search"><input id="companySearch" type="text" placeholder="Search company name" oninput="filterCompanyTiles()"></div><div id="companiesList">Loading companies...</div></div>
+<section class="card panel" id="companiesCard" style="display:none">
+<div class="panelhead"><div><h2>Customer Financial Register</h2><div class="muted" id="customerFinancialCount"></div></div></div>
+<div id="companiesList">Loading companies…</div>
+</section>
 
 <div class="card" id="projectsCard" style="display:none">
 
 <h2>Projects</h2>
 
+<div class="field" style="max-width:340px;margin-bottom:12px"><label for="searchBox">Search projects</label><input type="search" id="searchBox" placeholder="Type to filter projects" oninput="filterProjects()"></div>
 <div id="projectsList">
 Loading Projects...
 </div>
@@ -188,7 +230,7 @@ No Project Selected
 
 </div>
 
-</div>
+</main>
 
 <script>
 
@@ -218,6 +260,7 @@ function setDashboardFocus(mode){
  const header=document.getElementById('dashboardHeaderCard'),companies=document.getElementById('companiesCard'),analytics=document.getElementById('analyticsCard'),projects=document.getElementById('projectsCard'),details=document.getElementById('projectDetailsCard');
  if(header)header.style.display=['company','project','po'].includes(mode)?'none':'';
  if(companies)companies.style.display=mode==='all'?'':'none';
+ document.getElementById('customerOverview').hidden=mode!=='all';
  if(analytics)analytics.style.display=mode==='all'&&isExecutiveRole()?'block':'none';
  if(projects)projects.style.display=mode==='company'?'':'none';
  if(details)details.style.display=['project','po'].includes(mode)?'':'none';
@@ -267,11 +310,45 @@ function renderExecutiveDashboard(){
 function renderSvgFallbackChart(id,labels,datasets){const canvas=document.getElementById(id);if(!canvas)return;canvas.style.display='none';let box=canvas.parentElement.querySelector('.svg-chart-fallback');if(!box){box=document.createElement('div');box.className='svg-chart-fallback';box.style.cssText='width:100%;max-height:420px;overflow:auto;';canvas.parentElement.appendChild(box);}const colors=['#2563eb','#0f766e','#d97706','#9333ea'];const max=Math.max(1,...datasets.flatMap(d=>(d.data||[]).map(v=>Number(v)||0)));const rowH=44,top=30,height=Math.max(180,top+labels.length*rowH+12),barX=250,barW=650;let svg=`<svg viewBox="0 0 1000 ${height}" width="100%" height="${height}" role="img" aria-label="Company comparison">`;datasets.forEach((d,j)=>{svg+=`<rect x="${20+j*230}" y="8" width="12" height="12" fill="${colors[j%colors.length]}"/><text x="${38+j*230}" y="19" font-size="13" fill="#334155">${escapeHtml(d.label)}</text>`;});labels.forEach((name,i)=>{const y=top+i*rowH;svg+=`<g data-index="${i}" style="cursor:pointer"><text x="8" y="${y+16}" font-size="13" fill="#334155">${escapeHtml(name.length>25?name.slice(0,24)+'…':name)}</text>`;datasets.forEach((d,j)=>{const val=Math.max(0,Number(d.data[i]||0)),w=val/max*barW,yy=y+j*12;svg+=`<rect x="${barX}" y="${yy}" width="${w}" height="9" rx="3" fill="${colors[j%colors.length]}"><title>${escapeHtml(d.label)}: ${moneySAR(val)}</title></rect>`;});svg+='</g>';});svg+='</svg>';box.innerHTML=svg;box.querySelectorAll('g[data-index]').forEach(g=>g.addEventListener('click',()=>showCompanySummaryDetail(labels[Number(g.dataset.index)])));}function drawMultiChart(id,labels,datasets){const el=document.getElementById(id);if(!el)return;if(typeof Chart==='undefined'){renderSvgFallbackChart(id,labels,datasets);return;}const fallback=el.parentElement.querySelector('.svg-chart-fallback');if(fallback)fallback.remove();el.style.display='block';if(executiveCharts[id])executiveCharts[id].destroy();executiveCharts[id]=new Chart(el,{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${moneySAR(c.raw)}`}}},scales:{y:{beginAtZero:true}},onClick:(event,elements)=>{if(elements.length)showCompanySummaryDetail(labels[elements[0].index]);}}});}
 function showCompanySummaryDetail(company){const s=currentExecutiveSnapshot;if(!s)return;const rows=s.invoices.filter(i=>(i._project?.company||i._po?.company||'Unassigned')===company);let h=`<h2>Company Summary: ${escapeHtml(company)}</h2><table><tr><th>Invoice Number</th><th>Project</th><th>Purchase Order</th><th>Billing</th><th>Collected</th><th>Balance</th><th>Retention</th><th>Due Date</th></tr>`;rows.forEach(i=>h+=`<tr><td>${escapeHtml(i.invoice_no||'')}</td><td>${escapeHtml(i._project?.project_name||i.project_name||'')}</td><td>${escapeHtml(i.po_no||'')}</td><td>${moneySAR(i._m.total)}</td><td>${moneySAR(i._m.collected)}</td><td>${moneySAR(i._m.outstanding)}</td><td>${moneySAR(i._m.retentionBalance)}</td><td>${escapeHtml(i._m.due||'')}</td></tr>`);h+='</table><div class="modal-actions"><button onclick="document.getElementById(\'dashboardDetailModal\').style.display=\'none\'">Close</button></div>';document.getElementById('dashboardDetailContent').innerHTML=h;document.getElementById('dashboardDetailModal').style.display='block';}
 function clearExecutiveFilters(){['dashCompanyFilter','dashProjectFilter','dashDepartmentFilter','dashDateFrom','dashDateTo'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderExecutiveDashboard();}
-async function loadCompanies(){const {data,error}=await supabaseClient.from('projects').select('id,project_name,company,department,status').order('company');const target=document.getElementById('companiesList');if(error){target.textContent=error.message;return;}const groups={};(data||[]).forEach(p=>(groups[p.company||'Unassigned']??=[]).push(p));const entries=Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0]));const pos=executiveData.pos||[],invoices=executiveData.invoices||[];if(executiveData.loadError){target.innerHTML='<p style="color:#b91c1c">Financial data could not be loaded: '+escapeHtml(executiveData.loadError)+'</p>';return;}const poMap=new Map(pos.map(p=>[String(p.po_no||'').trim(),p]));const projMap=new Map((data||[]).map(p=>[Number(p.id),p]));const calc=i=>invoiceMetrics(i,poMap.get(String(i.po_no||'').trim()));target.innerHTML=entries.length?`<div class="company-table-wrap"><table class="company-table"><thead><tr><th>Company</th><th>Projects</th><th>Purchase Orders</th><th>Purchase Order Value</th><th>Purchase Order Balance</th><th>Billing</th><th>Paid</th><th>Collected</th><th>Outstanding Balance</th><th>Pending Approval</th><th>Overdue Balance</th><th>Not Yet Due</th><th>Retention</th><th>Actions</th></tr></thead><tbody>${entries.map(([name,rows])=>{const ids=new Set(rows.map(p=>Number(p.id)));const cp=pos.filter(po=>ids.has(Number(po.project_id))||String(po.company||'').trim().toLowerCase()===name.trim().toLowerCase());const cpNos=new Set(cp.map(po=>String(po.po_no||'').trim()));const ci=invoices.filter(i=>(ids.has(Number(i.project_id))||cpNos.has(String(i.po_no||'').trim())||String(i.company||'').trim().toLowerCase()===name.trim().toLowerCase())&&!['cancelled','canceled','void'].includes(String(i.status||'').toLowerCase()));const billed=ci.reduce((n,i)=>n+calc(i).total,0),collected=ci.reduce((n,i)=>n+calc(i).collected,0)+cp.reduce((n,p)=>n+Number(p.advance_received_amount||0),0),out=ci.reduce((n,i)=>n+calc(i).outstanding,0),ret=ci.reduce((n,i)=>n+calc(i).retentionBalance,0),paid=ci.filter(i=>calc(i).collectionBalance<=.005&&calc(i).retentionBalance<=.005).reduce((n,i)=>n+calc(i).total,0),poVal=cp.reduce((n,p)=>n+Number(p.po_value_ex_vat||0),0),poInv=ci.reduce((n,i)=>n+calc(i).invoiceBase,0),poBal=cp.reduce((n,p)=>n+Math.max(0,Number(p.po_value_ex_vat||0)-ci.filter(i=>String(i.po_no)===String(p.po_no)).reduce((a,i)=>a+calc(i).invoiceBase,0)),0);const today=new Date().toISOString().slice(0,10);const pending=ci.filter(i=>!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase())).reduce((n,i)=>n+calc(i).total,0);const overdue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due<today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);const notDue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due>=today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);return `<tr class="company-row" data-company="${escapeHtml(name.toLowerCase())}"><td><b>${escapeHtml(name)}</b></td><td>${rows.length}</td><td>${cp.length}</td><td>${moneySAR(poVal)}</td><td>${moneySAR(poBal)}</td><td>${moneySAR(billed)}</td><td>${moneySAR(paid)}</td><td>${moneySAR(collected)}</td><td>${moneySAR(out)}</td><td>${moneySAR(pending)}</td><td>${moneySAR(overdue)}</td><td>${moneySAR(notDue)}</td><td>${moneySAR(ret)}</td><td><div class="company-actions"><button onclick="showCompanyProjects(this.closest('tr').dataset.companyName||'${escapeHtml(name).replace(/'/g,"\\'")}')">Open</button><button onclick="addProjectForCompany('${escapeHtml(name).replace(/'/g,"\\'")}')">Add Project</button><button class="btn-danger" onclick="requestDeleteCompany('${escapeHtml(name).replace(/'/g,"\\'")}',${rows.length})">Delete</button></div></td></tr>`;}).join('')}</tbody></table></div>`:'<p>No companies found in the available data.</p>';document.querySelectorAll('.company-row').forEach((r)=>{r.dataset.companyName=entries.find(([n])=>n.toLowerCase()===r.dataset.company)?.[0]||'';});if(typeof cmRender==='function' && typeof cmState!=='undefined' && cmState.customers.length)cmRender();}
-function filterCompanyTiles(){const q=(document.getElementById('companySearch')?.value||'').toLowerCase().trim();document.querySelectorAll('.company-row').forEach(e=>e.style.display=e.dataset.company.includes(q)?'':'none');}
+async function loadCompanies(){
+ const {data,error}=await supabaseClient.from('projects').select('id,project_name,company,department,status').order('company');
+ customerFinanceError=error?.message||executiveData.loadError||null;
+ customerFinanceLoaded=!customerFinanceError;
+ customerFinancialRows=[];
+ if(customerFinanceError){renderCustomerFinancials();return;}
+ const groups=new Map();
+ for(const project of data||[]){
+  const name=project.company||'Unassigned';
+  if(!groups.has(name)) groups.set(name,[]);
+  groups.get(name).push(project);
+ }
+ const pos=executiveData.pos||[],invoices=executiveData.invoices||[];
+ const poMap=new Map(pos.map(p=>[String(p.po_no||'').trim(),p]));
+ const calc=i=>invoiceMetrics(i,poMap.get(String(i.po_no||'').trim()));
+ customerFinancialRows=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([name,rows])=>{
+  const ids=new Set(rows.map(p=>Number(p.id)));
+  const cp=pos.filter(po=>ids.has(Number(po.project_id))||String(po.company||'').trim().toLowerCase()===name.trim().toLowerCase());
+  const cpNos=new Set(cp.map(po=>String(po.po_no||'').trim()));
+  const ci=invoices.filter(i=>(ids.has(Number(i.project_id))||cpNos.has(String(i.po_no||'').trim())||String(i.company||'').trim().toLowerCase()===name.trim().toLowerCase())&&!['cancelled','canceled','void'].includes(String(i.status||'').toLowerCase()));
+  const billed=ci.reduce((n,i)=>n+calc(i).total,0);
+  const collected=ci.reduce((n,i)=>n+calc(i).collected,0)+cp.reduce((n,p)=>n+Number(p.advance_received_amount||0),0);
+  const out=ci.reduce((n,i)=>n+calc(i).outstanding,0);
+  const ret=ci.reduce((n,i)=>n+calc(i).retentionBalance,0);
+  const paid=ci.filter(i=>calc(i).collectionBalance<=.005&&calc(i).retentionBalance<=.005).reduce((n,i)=>n+calc(i).total,0);
+  const poVal=cp.reduce((n,p)=>n+Number(p.po_value_ex_vat||0),0);
+  const poBal=cp.reduce((n,p)=>n+Math.max(0,Number(p.po_value_ex_vat||0)-ci.filter(i=>String(i.po_no)===String(p.po_no)).reduce((a,i)=>a+calc(i).invoiceBase,0)),0);
+  const today=new Date().toISOString().slice(0,10);
+  const pending=ci.filter(i=>!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase())).reduce((n,i)=>n+calc(i).total,0);
+  const overdue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due<today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);
+  const notDue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due>=today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);
+  return {name,projects:rows,poCount:cp.length,poVal,poBal,billed,paid,collected,out,pending,overdue,notDue,ret};
+ });
+ renderCustomerFinancials();
+}
+
 function addProjectForCompany(company){addProject();const f=document.getElementById('new_company');if(f)f.value=company;}
 function requestDeleteCompany(company,projectCount){if(projectCount>0){alert('The company cannot be deleted because it is linked to '+projectCount+' project(s). Deleting a company must not delete its related projects or invoices.');return;}alert('There is no separate company record to delete in the current database. Companies are derived from the company field in projects.');}
-async function showCompanyProjects(company){currentCompanyName=company;setDashboardFocus('company');document.querySelector('#projectsCard h2').textContent='Projects — '+company;const {data,error}=await supabaseClient.from('projects').select('*').eq('company',company).order('id');const el=document.getElementById('projectsList');if(error){el.textContent=error.message;return;}let h=`<div class="modal-actions"><button style="background:#64748b" onclick="showAllDashboard()">Back to Companies</button><button onclick="addProjectForCompany('${escapeHtml(company).replace(/'/g,"\\'")}')">Add Project</button></div><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Department</th><th>Manager</th><th>Status</th><th>Open</th><th>Add PO</th><th>Edit</th></tr>`;(data||[]).filter(p=>p.status!=='Completed').forEach(p=>{h+=`<tr><td>${p.id}</td><td>${escapeHtml(p.project_name)}</td><td>${escapeHtml(p.company)}</td><td>${escapeHtml(p.department)}</td><td>${escapeHtml(p.project_manager)}</td><td>${escapeHtml(p.status)}</td><td><button onclick="openProject(${p.id})">Open</button></td><td><button class="btn-po" onclick="directAddPO(${p.id},'${escapeHtml(p.project_name).replace(/'/g,"\\'")}')">Add PO</button></td><td><button onclick="editProject(${p.id})">Edit</button></td></tr>`;});el.innerHTML=h+'</table>'+(data?.length?'':'<p>No projects found.</p>');}
+async function showCompanyProjects(company){currentCompanyName=company;setDashboardFocus('company');document.querySelector('#projectsCard h2').textContent='Projects — '+company;const {data,error}=await supabaseClient.from('projects').select('*').eq('company',company).order('id');const el=document.getElementById('projectsList');if(error){el.textContent=error.message;return;}let h=`<div class="modal-actions"><button style="background:#64748b" onclick="showAllDashboard()">Back to Companies</button></div><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Department</th><th>Manager</th><th>Status</th><th>Open</th><th>Add PO</th><th>Edit</th></tr>`;(data||[]).filter(p=>p.status!=='Completed').forEach(p=>{h+=`<tr><td>${p.id}</td><td>${escapeHtml(p.project_name)}</td><td>${escapeHtml(p.company)}</td><td>${escapeHtml(p.department)}</td><td>${escapeHtml(p.project_manager)}</td><td>${escapeHtml(p.status)}</td><td><button onclick="openProject(${p.id})">Open</button></td><td><button class="btn-po" onclick="directAddPO(${p.id},'${escapeHtml(p.project_name).replace(/'/g,"\\'")}')">Add PO</button></td><td><button onclick="editProject(${p.id})">Edit</button></td></tr>`;});el.innerHTML=h+'</table>'+(data?.length?'':'<p>No projects found.</p>');filterProjects();}
 
 function drawChart(id,labels,values,label){const el=document.getElementById(id);if(!el)return;if(typeof Chart==='undefined'){renderSvgFallbackChart(id,labels,[{label,data:values}]);return;}const fallback=el.parentElement.querySelector('.svg-chart-fallback');if(fallback)fallback.remove();el.style.display='block';if(executiveCharts[id])executiveCharts[id].destroy();executiveCharts[id]=new Chart(el,{type:'bar',data:{labels,datasets:[{label,data:values}]},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:c=>`${label}: ${moneySAR(c.raw)}`}}},scales:{y:{beginAtZero:true}},onClick:(event,elements)=>{if(elements.length)showCompanySummaryDetail(labels[elements[0].index]);}}});}
 function showDashboardChartDetail(chartId,label){const s=currentExecutiveSnapshot;if(!s)return;let rows=[],title='Details';if(chartId==='poStatusChart'){rows=s.pos.filter(p=>(String(p.status||'Open').toLowerCase()==='closed')===(label==='Closed'));title=`${label} Purchase Orders`;}else if(chartId==='poCompanyChart'){rows=s.pos.filter(p=>String(p.company||'Unassigned')===label);title=`Purchase Orders — ${label}`;}else if(chartId==='invoiceCompanyChart'){rows=s.invoices.filter(i=>{const p=s.projects.find(p=>Number(p.id)===Number(i.project_id))||s.projects.find(p=>p.project_name===i.project_name);return (p?.company||s.pomap.get(String(i.po_no))?.company||'Unassigned')===label&&i._m.outstanding>0.005;});title=`Open Invoices — ${label}`;}else if(chartId==='invoiceAgingChart'){const today=new Date().toISOString().slice(0,10);rows=s.invoices.filter(i=>{if(i._m.balance<=0.005)return false;const days=i._m.due?Math.floor((new Date(today+'T00:00:00')-new Date(i._m.due+'T00:00:00'))/86400000):0;const b=days<=0?'Not yet due':days<=30?'1–30 days':days<=60?'31–60 days':days<=90?'61–90 days':'Over 90 days';return b===label;});title=`Receivables Aging — ${label}`;}let h=`<h2>${escapeHtml(title)}</h2><table><tr><th>Reference</th><th>Company</th><th>Project</th><th>PO</th><th>Amount / Balance (SAR)</th><th>Status</th><th>Due / PO Date</th></tr>`;rows.forEach(r=>{if(chartId==='poStatusChart'||chartId==='poCompanyChart'){h+=`<tr><td>${escapeHtml(r.po_no)}</td><td>${escapeHtml(r.company)}</td><td>${escapeHtml(r.project_name||'')}</td><td>${escapeHtml(r.po_no)}</td><td>${Number(r.po_value_ex_vat||0).toLocaleString('en-SA',{minimumFractionDigits:2})}</td><td>${escapeHtml(r.status||'Open')}</td><td>${escapeHtml(r.po_date||'')}</td></tr>`;}else{h+=`<tr><td>${escapeHtml(r.invoice_no)}</td><td>${escapeHtml(s.pomap.get(String(r.po_no))?.company||'')}</td><td>${escapeHtml(r.project_name||'')}</td><td>${escapeHtml(r.po_no)}</td><td>${moneySAR(r._m.outstanding)}</td><td>${escapeHtml(r.status||'')}</td><td>${escapeHtml(r._m.due||'')}</td></tr>`;}});h+='</table><div class="modal-actions"><button onclick="document.getElementById(\'dashboardDetailModal\').style.display=\'none\'">Close</button></div>';document.getElementById('dashboardDetailContent').innerHTML=h;document.getElementById('dashboardDetailModal').style.display='block';}
@@ -1426,10 +1503,8 @@ async function initializeDashboard(){
   if(userManagementButton) userManagementButton.style.display=profile.role==='finance_manager'?'inline-block':'none';
   const signed=document.getElementById('signedInUser');if(signed)signed.textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;
   await loadExecutiveDashboard();
+  setDashboardFocus('all');
   await loadCompanies();
-  // Apply the same rendering path used by the user-facing filters on initial load.
-  const companySearch=document.getElementById('companySearch');
-  if(companySearch) companySearch.dispatchEvent(new Event('input',{bubbles:true}));
   if(isExecutiveRole()) renderExecutiveDashboard();
   // Re-render after the analytics card becomes visible; Chart.js cannot size charts inside display:none containers.
   if(isExecutiveRole()) await new Promise(resolve=>requestAnimationFrame(()=>{renderExecutiveDashboard();resolve();}));
@@ -1530,7 +1605,7 @@ Cancel
 <div id="cmDialog" class="cm-dialog" onclick="if(event.target===this)cmClose()"><div class="cm-dialog-box"><h2 id="cmDialogTitle">Customer</h2><div id="cmDialogBody"></div><div class="cm-actions"><button onclick="cmSave()" id="cmSaveButton" style="background:#0f766e">Save</button><button onclick="cmClose()" style="background:#64748b">Cancel</button></div></div></div>
 <script>
 // Customer master records are separate from the existing project-derived company financial summary.
-const cmState={customers:[],departments:[],links:[],profile:null,permissions:null,mode:null,id:null,busy:false};
+const cmState={loaded:false,customers:[],departments:[],links:[],profile:null,permissions:null,mode:null,id:null,busy:false};
 const cmById=id=>document.getElementById(id);
 const cmManager=()=>cmState.profile?.role==='finance_manager';
 const cmCanCreate=()=>cmManager()||cmState.permissions?.can_create_customers===true;
@@ -1556,23 +1631,26 @@ async function cmLoad(){
   cmState.customers=a.data||[];cmState.departments=b.data||[];cmState.links=c.data||[];
   cmById('cmAdd').style.display=cmCanCreate()?'':'none';
   status.textContent=`${cmState.customers.length} customers · ${cmState.departments.length} departments`;
-  cmRender();
- }catch(e){status.textContent='Customer records: '+e.message;cmById('cmList').textContent='';}
+  cmState.loaded=true;
+  renderCustomerFinancials();
+ }catch(e){cmState.loaded=false;cmState.customers=[];cmState.departments=[];cmState.links=[];renderCustomerFinancials();status.textContent='Customer records: '+e.message;cmById('cmList').textContent='';}
 }
-function cmRender(){
- const q=(cmById('cmSearch')?.value||'').trim().toLowerCase();
- const rows=cmState.customers.filter(c=>c.name.toLowerCase().includes(q)||cmState.links.some(l=>Number(l.customer_company_id)===Number(c.id)&&cmName(l.department_id).toLowerCase().includes(q)));
+function cmRender(rows,financialByName,assignments){
  const wrap=cmById('cmList');wrap.replaceChildren();
  const table=document.createElement('table');table.className='cm-table';
  const thead=document.createElement('thead');const hr=document.createElement('tr');for(const name of ['Customer','Departments','Purchase Orders','PO Value','Billing','Collected','Outstanding','Pending Approval','Overdue','Not Yet Due','Actions']){const th=document.createElement('th');th.textContent=name;hr.append(th);}thead.append(hr);table.append(thead);
  const body=document.createElement('tbody');
  for(const c of rows){
   const tr=document.createElement('tr');const name=document.createElement('td');name.textContent=c.name;
-  const deps=document.createElement('td');const links=cmState.links.filter(l=>Number(l.customer_company_id)===Number(c.id));deps.textContent=links.length?links.map(l=>cmName(l.department_id)).join(', '):'Not assigned';
-  const finance=document.querySelectorAll('#companiesList .company-row');
-  const financialRow=Array.from(finance).find(r=>(r.dataset.companyName||r.cells[0]?.textContent||'').trim().toLowerCase()===c.name.trim().toLowerCase());
-  const financialIndices=[2,3,5,7,8,9,10,11];
-  const financialCells=financialIndices.map(idx=>{const td=document.createElement('td');td.textContent=financialRow?.cells[idx]?.textContent?.trim()||'—';return td;});
+  const deps=document.createElement('td');
+  const departments=assignments.get(Number(c.id))||[];
+  deps.textContent=departments.join(', ')||'Not assigned';
+  const finance=financialByName.get(customerKey(c.name));
+  const financialCells=['poCount','poVal','billed','collected','out','pending','overdue','notDue'].map(key=>{
+   const td=document.createElement('td');
+   td.textContent=finance ? (key==='poCount'?finance[key]:customerMoney.format(finance[key])) : '—';
+   return td;
+  });
   const actions=document.createElement('td');const bar=document.createElement('div');bar.className='cm-actions';
   const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
   if(cmCanCreate())add('Departments',()=>cmOpenLinks(c.id));
@@ -1602,30 +1680,146 @@ async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.fin
 window.addEventListener('load',()=>cmLoad());
 </script>
 <script>
-(function(){
- const fields=[['PO Value',3],['PO Balance',4],['Total Billing',5],['Total Paid',6],['Total Collected',7],['Outstanding Balance',8],['Pending Approval',9],['Overdue Balance',10],['Not Yet Due',11],['Retention',12]];
- const fmt=n=>new Intl.NumberFormat('en-SA',{maximumFractionDigits:2,minimumFractionDigits:2}).format(n);
- const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function update(){
-  const grid=document.getElementById('customerTotalsGrid'),chart=document.getElementById('customerTotalsChart');if(!grid||!chart)return;
-  const rows=[...document.querySelectorAll('#companiesList .company-row')];
-  if(!rows.length){grid.textContent='Financial records are not loaded yet.';chart.textContent='';return;}
-  const q=(document.getElementById('cmSearch')?.value||'').trim().toLowerCase();
-  const active=rows.filter(r=>!q||r.dataset.company?.includes(q));
-  const sums=fields.map(([,col])=>active.reduce((n,r)=>{const v=(r.cells[col]?.textContent||'').replace(/[^0-9.-]/g,'');return n+(Number(v)||0);},0));
-  grid.innerHTML=fields.map(([label],i)=>`<div class="customer-total-item"><small>${esc(label)}</small><strong>${fmt(sums[i])}</strong><small>SAR</small></div>`).join('');
-  const selected=[2,4,5,6,7,8,9],max=Math.max(1,...selected.map(i=>sums[i]));
-  chart.innerHTML=selected.map(i=>`<div class="customer-chart-row"><span>${esc(fields[i][0])}</span><div class="customer-chart-track"><div class="customer-chart-fill" style="width:${Math.max(0,sums[i])/max*100}%"></div></div><span class="customer-chart-amount">${fmt(sums[i])}</span></div>`).join('');
-  document.getElementById('customerTotalsNote').textContent=`${active.length} of ${rows.length} customers with financial records. Totals follow the same calculation as the customer financial table.`;
+
+const customerMetrics = [
+ ['Purchase Order Value','poVal'], ['Purchase Order Balance','poBal'],
+ ['Billing','billed'], ['Paid','paid'], ['Collected','collected'],
+ ['Outstanding Balance','out'], ['Pending Approval','pending'],
+ ['Overdue Balance','overdue'], ['Not Yet Due','notDue'], ['Retention','ret']
+];
+const financialHeaders = ['Customer','Projects','Purchase Orders',...customerMetrics.map(([label])=>label)];
+const customerFilterIds = ['cmSearch','companySearch','customerDepartment','customerProject','customerStatus'];
+const customerMoney = new Intl.NumberFormat('en-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
+let customerFinancialRows = [];
+let customerFinanceError = null;
+let customerFinanceLoaded = false;
+let visibleCustomerFinancialRows = [];
+let visibleCustomerMasterRows = [];
+
+const customerKey = value => String(value??'').trim().toLowerCase();
+
+function customerMatches(name, projects, assignedDepartments, filters) {
+ const [search, customer, department, project, status] = filters;
+ const contains = (value, query) => customerKey(value).includes(query);
+ const departments = [...assignedDepartments,...projects.map(row=>row.department)];
+ return contains(name,customer)
+  && (!department || departments.some(value=>contains(value,department)))
+  && ((!project&&!status) || projects.some(row=>contains(row.project_name,project)&&contains(row.status,status)))
+  && (!search || contains(name,search) || departments.some(value=>contains(value,search))
+      || projects.some(row=>contains(row.project_name,search)||contains(row.status,search)));
+}
+
+function customerTotals(rows) {
+ return customerMetrics.map(([label,key])=>[label,rows.reduce((total,row)=>total+row[key],0)]);
+}
+
+function renderCustomerFinancials() {
+ const filters = customerFilterIds.map(id=>customerKey(cmById(id).value));
+ const financialByName = new Map(customerFinancialRows.map(row=>[customerKey(row.name),row]));
+ const assignedByName = new Map();
+ const departmentById = new Map(cmState.departments.map(row=>[Number(row.id),row.name]));
+ const assignments = new Map();
+ for(const link of cmState.links){
+  const id=Number(link.customer_company_id);
+  if(!assignments.has(id)) assignments.set(id,[]);
+  assignments.get(id).push(departmentById.get(Number(link.department_id)) || 'Unknown department');
  }
- let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;update();});}
- document.addEventListener('DOMContentLoaded',()=>{
-  const list=document.getElementById('companiesList');if(list)new MutationObserver(schedule).observe(list,{childList:true,subtree:false});
-  document.getElementById('cmSearch')?.addEventListener('input',schedule);
-  document.getElementById('companySearch')?.addEventListener('input',schedule);
-  schedule();
+ for(const c of cmState.customers){
+  const key=customerKey(c.name);
+  assignedByName.set(key,[...(assignedByName.get(key)||[]),...(assignments.get(Number(c.id))||[])]);
+ }
+ visibleCustomerFinancialRows = customerFinancialRows.filter(row=>customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
+ const matching = cmState.loaded ? cmState.customers.filter(c=>customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
+ visibleCustomerMasterRows = matching.map(c=>{
+  const finance=financialByName.get(customerKey(c.name));
+  return [c.name,(assignments.get(Number(c.id))||[]).join(', '),
+   finance?.poCount??null,...['poVal','billed','collected','out','pending','overdue','notDue'].map(key=>finance?.[key]??null)];
  });
-})();
+ const target = cmById('companiesList');
+ if(customerFinanceError) target.textContent = 'Financial data could not be loaded: '+customerFinanceError;
+ else if(customerFinanceLoaded){
+  const rows = visibleCustomerFinancialRows;
+  target.innerHTML = rows.length
+   ? '<div class="company-table-wrap"><table class="company-table"><thead><tr>'
+     +[...financialHeaders,'Actions'].map(label=>'<th scope="col">'+label+'</th>').join('')
+     +'</tr></thead><tbody>'+rows.map((row,index)=>
+       '<tr class="company-row"><td><b>'+escapeHtml(row.name)+'</b></td><td>'+row.projects.length+'</td><td>'+row.poCount+'</td>'
+       +customerMetrics.map(([,key])=>'<td class="num">'+customerMoney.format(row[key])+'</td>').join('')
+       +'<td><div class="company-actions"><button type="button" data-open="'+index+'">Open</button>'
+       +'<button type="button" class="btn-danger" data-delete="'+index+'">Delete</button></div></td></tr>'
+      ).join('')+'</tbody></table></div>'
+   : '<p>No financial records match the filters.</p>';
+  target.querySelectorAll('[data-open]').forEach(button=>{
+   button.onclick=()=>showCompanyProjects(rows[Number(button.dataset.open)].name);
+  });
+  target.querySelectorAll('[data-delete]').forEach(button=>{
+   const row=rows[Number(button.dataset.delete)];
+   button.onclick=()=>requestDeleteCompany(row.name,row.projects.length);
+  });
+ }
+ const totals = customerTotals(visibleCustomerFinancialRows);
+ const hasRows = visibleCustomerFinancialRows.length>0;
+ const note = customerFinanceError ? 'Financial data unavailable.' : !customerFinanceLoaded ? 'Loading financial totals…'
+  : visibleCustomerFinancialRows.length+' of '+customerFinancialRows.length+' customers with financial records · SAR';
+ cmById('customerTotalsNote').textContent = note;
+ cmById('customerFinancialCount').textContent = note;
+ cmById('customerExport').disabled = !hasRows && !matching.length;
+ cmById('customerTotalsGrid').innerHTML = hasRows
+  ? totals.map(([label,value])=>'<div class="kpi"><span class="label">'+label+'</span><strong class="value">'+customerMoney.format(value)+'</strong></div>').join('')
+  : '';
+ const chart = totals.filter((_,index)=>index>=2 && index!==3);
+ const min = Math.min(0,...chart.map(([,value])=>value));
+ const max = Math.max(0,...chart.map(([,value])=>value));
+ const range = max-min || 1;
+ cmById('customerTotalsChart').innerHTML = hasRows
+  ? chart.map(([label,value])=>
+    '<div class="customer-chart-row"><span>'+label+'</span><div class="customer-chart-track" aria-hidden="true">'
+    +'<div class="customer-chart-fill'+(value<0?' negative':'')+'" style="left:'+((Math.min(0,value)-min)/range*100)
+    +'%;width:'+(Math.abs(value)/range*100)+'%"></div></div>'
+    +'<span class="customer-chart-amount">'+customerMoney.format(value)+'</span></div>').join('')
+  : '<div class="muted">'+(customerFinanceLoaded?'No matching financial records.':'Financial amounts are unavailable.')+'</div>';
+ if(cmState.loaded){
+  cmById('cmStatus').textContent=matching.length+' of '+cmState.customers.length+' customers';
+  cmRender(matching,financialByName,assignments);
+ }
+}
+
+async function exportCustomerFinancials(){
+ const rows = visibleCustomerFinancialRows;
+ const masterRows = visibleCustomerMasterRows;
+ if(!rows.length && !masterRows.length) return;
+ const button = cmById('customerExport');
+ button.disabled = true;
+ try {
+  const xlsx = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
+  const workbook = xlsx.utils.book_new();
+  const register = xlsx.utils.aoa_to_sheet([financialHeaders,
+   ...rows.map(row=>[row.name,row.projects.length,row.poCount,...customerMetrics.map(([,key])=>row[key])])]);
+  register['!cols'] = financialHeaders.map((label,index)=>({wch:index===0?34:Math.max(13,label.length+2)}));
+  const summary = xlsx.utils.aoa_to_sheet([['Metric','Amount (SAR)'],...customerTotals(rows)]);
+  summary['!cols'] = [{wch:27},{wch:20}];
+  const masterHeaders=['Customer','Departments','Purchase Orders','PO Value','Billing','Collected','Outstanding','Pending Approval','Overdue','Not Yet Due'];
+  const master = xlsx.utils.aoa_to_sheet([masterHeaders,...masterRows]);
+  master['!cols'] = masterHeaders.map((label,index)=>({wch:index<2?34:Math.max(13,label.length+2)}));
+  xlsx.utils.book_append_sheet(workbook,master,'Customers');
+  xlsx.utils.book_append_sheet(workbook,register,'Financial Register');
+  xlsx.utils.book_append_sheet(workbook,summary,'Financial Summary');
+  xlsx.writeFileXLSX(workbook,'Customers.xlsx');
+ }catch(error){
+  alert('Excel export failed: '+error.message);
+ }finally{
+  button.disabled = !visibleCustomerFinancialRows.length && !visibleCustomerMasterRows.length;
+ }
+}
+
+cmById('customerFilters').addEventListener('input',renderCustomerFinancials);
+cmById('customerClear').addEventListener('click',()=>{
+ for(const id of customerFilterIds) cmById(id).value='';
+ renderCustomerFinancials();
+ cmById('cmSearch').focus();
+});
+cmById('customerExport').addEventListener('click',exportCustomerFinancials);
+
 </script>
 </body>
 </html>
