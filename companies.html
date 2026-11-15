@@ -159,12 +159,13 @@ onkeyup="filterProjects()">
 
 </div>
 
+<div class="card" id="customerTotalsCard"><h2>Customer Financial Totals</h2><p class="cm-muted">Consolidated amounts across the customer financial records (SAR). Search customers to update the totals and chart.</p><div id="customerTotalsGrid" class="customer-totals-grid">Loading financial totals...</div><h3>Financial Totals Comparison</h3><div id="customerTotalsChart" class="customer-totals-chart" role="img" aria-label="Financial totals bar chart"></div><p id="customerTotalsNote" class="cm-muted"></p></div>
+
 <div class="card" id="customerMasterCard">
 <h2>Customers — Master Records</h2><p class="cm-muted">Manage customer names and department assignments. Historical financial records are protected.</p>
 <div class="cm-toolbar"><input id="cmSearch" placeholder="Search customers" oninput="cmRender()"><button id="cmAdd" onclick="cmOpenCreate()" style="display:none;background:#0f766e">Add Customer</button><button onclick="cmLoad()">Refresh Customers</button></div>
 <div id="cmStatus" class="cm-muted">Loading customers...</div><div id="cmList" class="cm-scroll"></div>
 </div>
-<div class="card" id="customerTotalsCard"><h2>Customer Financial Totals</h2><p class="cm-muted">Consolidated amounts across the customer financial records (SAR). Search customers to update the totals and chart.</p><div id="customerTotalsGrid" class="customer-totals-grid">Loading financial totals...</div><h3>Financial Totals Comparison</h3><div id="customerTotalsChart" class="customer-totals-chart" role="img" aria-label="Financial totals bar chart"></div><p id="customerTotalsNote" class="cm-muted"></p></div>
 <div class="card" id="companiesCard" style="display:none"><h2>Customer Financial Summary</h2><p style="color:#64748b">Summary of projects, purchase orders, billing, collections, and retention by company.</p><div class="company-search"><input id="companySearch" type="text" placeholder="Search company name" oninput="filterCompanyTiles()"></div><div id="companiesList">Loading companies...</div></div>
 
 <div class="card" id="projectsCard" style="display:none">
