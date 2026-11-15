@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Power Energy — Companies</title>
+<title>Power Energy — Customers & Companies</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -122,6 +122,9 @@ td{
 #analyticsCard{display:none}.analytics-filters{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px;margin:12px 0}.analytics-filters label{display:block;font-size:12px;font-weight:bold;color:#475569;margin-bottom:5px}.analytics-filters select,.analytics-filters input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;margin:14px 0}.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:14px}.kpi .label{font-size:12px;color:#64748b;font-weight:bold}.kpi .value{font-size:22px;font-weight:bold;color:#0f172a;margin-top:7px;overflow-wrap:anywhere}.kpi .sub{font-size:11px;color:#64748b;margin-top:4px}.chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.chart-box{min-height:290px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:14px;position:relative}.chart-box h3{font-size:15px;margin:0 0 10px}.chart-box canvas{max-height:250px}.company-table-wrap{overflow-x:auto}.company-table{width:100%;border-collapse:collapse;min-width:1200px;background:#fff}.company-table th,.company-table td{padding:10px 9px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap}.company-table th{background:#f1f5f9;color:#334155;font-size:12px}.company-table td:first-child,.company-table th:first-child{text-align:left}.company-actions{display:flex;gap:5px;justify-content:flex-start}.company-actions button{padding:7px 10px;font-size:12px}.kpi-grid.financial-kpis{grid-template-columns:repeat(3,minmax(180px,1fr))}.kpi.financial .value{font-size:24px;color:#0f766e}.company-search{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}.company-search input{width:min(420px,100%);padding:9px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box}#companySearch{width:min(420px,100%);margin:8px 0 14px;box-sizing:border-box}#dashboardDetailModal{display:none;position:fixed;inset:0;background:#0f172a99;z-index:1300;overflow:auto;padding:18px;box-sizing:border-box}#dashboardDetailContent{background:#fff;max-width:1200px;margin:25px auto;padding:20px;border-radius:10px;overflow:auto}@media(max-width:1000px){.kpi-grid,.kpi-grid.financial-kpis{grid-template-columns:repeat(2,minmax(130px,1fr))}.analytics-filters{grid-template-columns:repeat(2,minmax(140px,1fr))}}@media(max-width:650px){.kpi-grid.financial-kpis{grid-template-columns:1fr}.chart-grid{grid-template-columns:1fr}.analytics-filters{grid-template-columns:1fr}}
 
 </style>
+<style>
+#customerMasterCard{border-top:4px solid #0f766e}#customerMasterCard h2{margin-top:0}.cm-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.cm-toolbar input{min-width:240px;flex:1}.cm-scroll{overflow:auto}.cm-table{width:100%;min-width:750px}.cm-table th{text-align:left}.cm-table td{vertical-align:top}.cm-actions{display:flex;gap:5px;flex-wrap:wrap}.cm-actions button{font-size:12px;padding:7px 9px}.cm-muted{color:#64748b;font-size:13px}.cm-dialog{display:none;position:fixed;inset:0;z-index:1600;background:#0f172aaa;overflow:auto;padding:20px;box-sizing:border-box}.cm-dialog-box{background:#fff;border-radius:12px;max-width:650px;margin:7vh auto;padding:24px}.cm-dialog label{display:block;font-weight:bold;margin-top:12px;margin-bottom:5px}.cm-dialog input,.cm-dialog select{width:100%;box-sizing:border-box;padding:10px}.cm-dialog .cm-actions{margin-top:18px}
+</style>
 </head>
 
 <body>
@@ -155,7 +158,12 @@ onkeyup="filterProjects()">
 
 </div>
 
-<div class="card" id="companiesCard"><h2>Companies</h2><p style="color:#64748b">Summary of projects, purchase orders, billing, collections, and retention by company.</p><div class="company-search"><input id="companySearch" type="text" placeholder="Search company name" oninput="filterCompanyTiles()"></div><div id="companiesList">Loading companies...</div></div>
+<div class="card" id="customerMasterCard">
+<h2>Customers — Master Records</h2><p class="cm-muted">Manage customer names and department assignments. Historical financial records are protected.</p>
+<div class="cm-toolbar"><input id="cmSearch" placeholder="Search customers" oninput="cmRender()"><button id="cmAdd" onclick="cmOpenCreate()" style="display:none;background:#0f766e">Add Customer</button><button onclick="cmLoad()">Refresh Customers</button></div>
+<div id="cmStatus" class="cm-muted">Loading customers...</div><div id="cmList" class="cm-scroll"></div>
+</div>
+<div class="card" id="companiesCard"><h2>Customer Financial Summary</h2><p style="color:#64748b">Summary of projects, purchase orders, billing, collections, and retention by company.</p><div class="company-search"><input id="companySearch" type="text" placeholder="Search company name" oninput="filterCompanyTiles()"></div><div id="companiesList">Loading companies...</div></div>
 
 <div class="card" id="projectsCard" style="display:none">
 
@@ -408,7 +416,7 @@ async function deleteInvoice(id){
   }
   const {error}=await supabaseClient.from('invoices').delete().eq('id',id);
   if(error){alert('Invoice deletion failed: '+error.message);return;}
-  try{const {data:po}=await supabaseClient.from('pos').select('po_no,po_value_ex_vat,advance_payment_percentage').eq('po_no',inv.po_no).single();if(po)await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){console.warn('Advance recalculation after invoice deletion:',e);}
+  try{const {data:po}=await supabaseClient.from('pos').select('po_no,po_value_ex_vat,advance_payment_percentage').eq('po_no',inv.po_no).single();if(po)await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){console.warn('Advance recalculation after invoice deletion:',e);}
   if(returnToPaidInvoices){returnToPaidInvoices=false;await showPaidInvoices();}
   else await openInvoices(inv.po_no);
   alert('Invoice deleted successfully.');
@@ -1085,7 +1093,7 @@ async function saveInvoiceChanges(){
     return;
   }
 
-  try{await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}
+  try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}
   catch(e){document.getElementById("invoiceEditMessage").textContent = "Invoice saved, but advance schedule recalculation failed: " + e.message;document.getElementById("invoiceEditMessage").style.color = "red";return;}
   document.getElementById("invoiceEditMessage").textContent = "Invoice updated successfully.";
   document.getElementById("invoiceEditMessage").style.color = "green";
@@ -1168,7 +1176,7 @@ async function editPO(id){
 }
 function updatePOAdvancePreview(){const v=Number(document.getElementById('poe_value')?.value||0),p=Number(document.getElementById('poe_advance_pct')?.value||0);const e=document.getElementById('poe_advance_amount');if(e)e.value=(v*p/100).toFixed(2);}
 
-async function recalculatePOAdvanceAmortisations(poNo, poValue, advancePct){
+async function rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(poNo, poValue, advancePct){
  const {data:invs,error}=await supabaseClient.from('invoices').select('id,invoice_amount,start_date').eq('po_no',poNo).order('start_date',{ascending:true}).order('id',{ascending:true});
  if(error) throw error;
  let remaining=Math.max(0,Number(poValue||0)*Number(advancePct||0)/100);
@@ -1202,7 +1210,7 @@ async function savePOChanges(){
  const {data:oldPO}=await supabaseClient.from('pos').select('po_no').eq('id',currentPOEditId).single();
  const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}
  if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
- try{await recalculatePOAdvanceAmortisations(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
+ try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
  closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }
 
@@ -1246,7 +1254,7 @@ async function saveNewInvoice(){
  let availability;try{availability=await getAdvanceAvailability(po);}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}const advanceAmortisation=calculateAdvanceAmortisation(amount,po,availability.available);
  const rb=po.retention_applicable?amount*Number(po.retention_percentage||0)/100:0,rv=currentInvoiceVat?rb*.15:0;
  const payload={invoice_no:invoiceNo,status:document.getElementById('new_inv_status').value,po_no:currentInvoicePoNo,project_id:currentProjectId,project_name:pr.project_name,invoice_amount:amount,paid_amount:paid,advance_amortisation:advanceAmortisation,start_date:document.getElementById('new_inv_start_date').value||null,approval_date:document.getElementById('new_inv_approval_date').value||null,completed_date:document.getElementById('new_inv_completed_date').value||null,payment_terms:terms,description:document.getElementById('new_inv_description').value.trim(),erp:false,retention_amount:rb,retention_vat:rv,retention_due_date:(document.getElementById('new_inv_retention_due').value||null)};
- const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}try{await recalculatePOAdvanceAmortisations(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){alert('Invoice saved, but advance schedule recalculation failed: '+e.message);return;}closeInvoiceModal();await openInvoices(currentInvoicePoNo);
+ const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){alert('Invoice saved, but advance schedule recalculation failed: '+e.message);return;}closeInvoiceModal();await openInvoices(currentInvoicePoNo);
 }
 async function openInvoices(poNo){
  currentInvoicePoNo=poNo;const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*').eq('po_no',poNo);if(error){alert(error.message);return;}const {data:po}=await supabaseClient.from('pos').select('*').eq('po_no',poNo).single();
@@ -1510,5 +1518,75 @@ Cancel
   <div id="invoiceModalContent"></div>
 </div>
 
+<div id="cmDialog" class="cm-dialog" onclick="if(event.target===this)cmClose()"><div class="cm-dialog-box"><h2 id="cmDialogTitle">Customer</h2><div id="cmDialogBody"></div><div class="cm-actions"><button onclick="cmSave()" id="cmSaveButton" style="background:#0f766e">Save</button><button onclick="cmClose()" style="background:#64748b">Cancel</button></div></div></div>
+<script>
+// Customer master records are separate from the existing project-derived company financial summary.
+const cmState={customers:[],departments:[],links:[],profile:null,permissions:null,mode:null,id:null,busy:false};
+const cmById=id=>document.getElementById(id);
+const cmManager=()=>cmState.profile?.role==='finance_manager';
+const cmCanCreate=()=>cmManager()||cmState.permissions?.can_create_customers===true;
+const cmName=id=>cmState.departments.find(d=>Number(d.id)===Number(id))?.name||'Unknown department';
+async function cmLoad(){
+ const status=cmById('cmStatus');status.textContent='Loading customers...';
+ try{
+  const {data:{user},error:authErr}=await supabaseClient.auth.getUser();if(authErr||!user)throw new Error('Sign in is required');
+  const {data:profile,error:profileErr}=await supabaseClient.from('users_profile').select('id,role,active,must_change_password').eq('auth_user_id',user.id).single();
+  if(profileErr||!profile?.active||profile.must_change_password)throw new Error('Your account is not authorized for customer management');
+  cmState.profile=profile;
+  cmState.permissions=null;
+  if(!cmManager()){
+   const r=await supabaseClient.from('user_permissions').select('can_create_customers').eq('user_id',profile.id).maybeSingle();
+   if(!r.error)cmState.permissions=r.data;
+  }
+  const [a,b,c]=await Promise.all([
+   supabaseClient.from('customer_companies').select('id,name').order('name'),
+   supabaseClient.from('departments').select('id,name').order('name'),
+   supabaseClient.from('department_customer_companies').select('id,customer_company_id,department_id')
+  ]);
+  for(const r of [a,b,c])if(r.error)throw r.error;
+  cmState.customers=a.data||[];cmState.departments=b.data||[];cmState.links=c.data||[];
+  cmById('cmAdd').style.display=cmCanCreate()?'':'none';
+  status.textContent=`${cmState.customers.length} customers · ${cmState.departments.length} departments`;
+  cmRender();
+ }catch(e){status.textContent='Customer records: '+e.message;cmById('cmList').textContent='';}
+}
+function cmRender(){
+ const q=(cmById('cmSearch')?.value||'').trim().toLowerCase();
+ const rows=cmState.customers.filter(c=>c.name.toLowerCase().includes(q)||cmState.links.some(l=>Number(l.customer_company_id)===Number(c.id)&&cmName(l.department_id).toLowerCase().includes(q)));
+ const wrap=cmById('cmList');wrap.replaceChildren();
+ const table=document.createElement('table');table.className='cm-table';
+ const thead=document.createElement('thead');const hr=document.createElement('tr');for(const name of ['Customer','Departments','Actions']){const th=document.createElement('th');th.textContent=name;hr.append(th);}thead.append(hr);table.append(thead);
+ const body=document.createElement('tbody');
+ for(const c of rows){
+  const tr=document.createElement('tr');const name=document.createElement('td');name.textContent=c.name;
+  const deps=document.createElement('td');const links=cmState.links.filter(l=>Number(l.customer_company_id)===Number(c.id));deps.textContent=links.length?links.map(l=>cmName(l.department_id)).join(', '):'Not assigned';
+  const actions=document.createElement('td');const bar=document.createElement('div');bar.className='cm-actions';
+  const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
+  if(cmCanCreate())add('Departments',()=>cmOpenLinks(c.id));
+  if(cmManager()){add('Rename',()=>cmOpenRename(c.id));add('Delete',()=>cmDelete(c.id),true);}
+  if(!bar.children.length)bar.textContent='View only';actions.append(bar);tr.append(name,deps,actions);body.append(tr);
+ }
+ table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
+}
+function cmClose(){cmById('cmDialog').style.display='none';cmState.mode=null;cmState.id=null;}
+function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;}
+function cmField(label,type,value='',options=[]){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent=label;body.append(l);let input;if(type==='select'){input=document.createElement('select');for(const opt of options){const o=document.createElement('option');o.value=String(opt.id);o.textContent=opt.name;input.append(o);}}else{input=document.createElement('input');input.type='text';input.value=value;}input.id='cmField';body.append(input);return input;}
+function cmOpenCreate(){if(!cmCanCreate())return;cmDialog('Add Customer','create',null);cmField('Customer name','text');cmFieldDepartment();}
+function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
+function cmOpenRename(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Rename Customer','rename',id);cmField('Customer name','text',c.name);}
+function cmOpenLinks(id){if(!cmCanCreate())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments);const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmManager()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
+async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmState.id,field=cmById('cmField');if(!field)return;const name=field.value.trim();let fn,args;
+ if(mode==='create'){if(name.length<2){alert('Enter a customer name');return;}const dep=Number(cmById('cmDepartment')?.value);if(!dep){alert('Select a department');return;}fn='create_customer_for_department';args={p_customer_name:name,p_department_id:dep};}
+ else if(mode==='rename'){if(name.length<2){alert('Enter a customer name');return;}fn='rename_customer_company';args={p_customer_company_id:id,p_new_name:name};}
+ else if(mode==='link'){fn='link_existing_customer_to_department';args={p_customer_company_id:id,p_department_id:Number(field.value)};if(!args.p_department_id){alert('Select a department');return;}}
+ else return;
+ cmState.busy=true;cmById('cmSaveButton').disabled=true;
+ try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
+}
+async function cmUnlink(id,dep){if(!cmManager())return;if(!confirm('Remove this customer department assignment?'))return;const r=await supabaseClient.rpc('unlink_customer_from_department',{p_customer_company_id:id,p_department_id:dep});if(r.error){alert('Unlink failed: '+r.error.message);return;}cmClose();await cmLoad();}
+async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
+// Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
+window.addEventListener('load',()=>cmLoad());
+</script>
 </body>
 </html>
