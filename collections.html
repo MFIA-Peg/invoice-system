@@ -16,14 +16,20 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:1150px;font-size:12px}thead{background:var(--navy);color:#fff}th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{font-size:10px;letter-spacing:.45px;text-transform:uppercase;position:sticky;top:0;z-index:1}td.num{text-align:right;font-variant-numeric:tabular-nums}tbody tr:hover{background:#f8fafc}.empty{text-align:center;padding:35px;color:var(--muted)}.error{display:none;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;padding:12px;border-radius:9px;margin-bottom:14px}.chart{width:100%;min-height:250px;overflow:auto}.chart svg{display:block;width:100%;min-width:650px;height:auto}.footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:12px;color:var(--muted);font-size:11px}
 @media(max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:650px){.form-grid{grid-template-columns:1fr}.span-2{grid-column:auto}.page{padding:12px}.navin{padding:10px}.links{order:3;flex-basis:100%;overflow:auto;flex-wrap:nowrap}.links a{white-space:nowrap}.user{display:none}.hero{padding:18px}.hero h1{font-size:22px}.kpis,.filters{grid-template-columns:1fr 1fr}}@media(max-width:420px){.kpis,.filters{grid-template-columns:1fr}}
 </style>
+<style id="pe-navigation-style">
+#pe-global-nav{position:sticky;top:0;z-index:20;background:#14263d;color:white;box-shadow:0 3px 16px #14263d20}
+#pe-global-nav .pe-nav-inner{max-width:1600px;margin:auto;padding:10px 22px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;box-sizing:border-box}
+#pe-global-nav .pe-nav-links{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:1 1 760px}
+#pe-global-nav a{display:inline-block;white-space:nowrap;padding:8px 10px;border-radius:7px;text-decoration:none;color:#dbeafe;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav a[hidden]{display:none}
+#pe-global-nav a:hover,#pe-global-nav a[aria-current="page"]{background:#ffffff20;color:white}
+#pe-global-nav .pe-nav-account{display:flex;align-items:center;gap:9px;color:#cbd5e1;font:12px/1.4 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav .pe-nav-account button{white-space:nowrap;border:0;border-radius:8px;padding:8px 10px;background:#475569;color:white;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}
+@media(max-width:760px){#pe-global-nav .pe-nav-inner{padding:8px 12px}#pe-global-nav .pe-nav-links{flex-wrap:nowrap;overflow:auto;min-width:0}#pe-global-nav .pe-nav-account{margin-left:auto}}
+</style>
 </head>
 <body>
-<header class="nav"><div class="navin">
-<div class="brand">POWER ENERGY<small>INVOICE MANAGEMENT</small></div>
-<nav class="links" aria-label="Main navigation">
-<a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a class="active" href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a>
-</nav><div class="navright"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div>
-</div></header>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
 <section class="hero"><div><h1>Collections</h1><p>Collection transactions, receivables performance and payment tracking</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button></div></section>
 <div id="errorBox" class="error" role="alert"></div>

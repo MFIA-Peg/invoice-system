@@ -159,21 +159,29 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,Segoe UI,Arial,sa
 @media(max-width:650px){.container.page{padding:12px}.hero{padding:18px}.hero h1{font-size:22px}.customer-chart-row{grid-template-columns:minmax(90px,110px) 1fr minmax(65px,auto);font-size:11px}}
 @media(max-width:420px){.filters{grid-template-columns:1fr}}
 </style>
+<style id="pe-navigation-style">
+#pe-global-nav{position:sticky;top:0;z-index:20;background:#14263d;color:white;box-shadow:0 3px 16px #14263d20}
+#pe-global-nav .pe-nav-inner{max-width:1600px;margin:auto;padding:10px 22px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;box-sizing:border-box}
+#pe-global-nav .pe-nav-links{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:1 1 760px}
+#pe-global-nav a{display:inline-block;white-space:nowrap;padding:8px 10px;border-radius:7px;text-decoration:none;color:#dbeafe;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav a[hidden]{display:none}
+#pe-global-nav a:hover,#pe-global-nav a[aria-current="page"]{background:#ffffff20;color:white}
+#pe-global-nav .pe-nav-account{display:flex;align-items:center;gap:9px;color:#cbd5e1;font:12px/1.4 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav .pe-nav-account button{white-space:nowrap;border:0;border-radius:8px;padding:8px 10px;background:#475569;color:white;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}
+@media(max-width:760px){#pe-global-nav .pe-nav-inner{padding:8px 12px}#pe-global-nav .pe-nav-links{flex-wrap:nowrap;overflow:auto;min-width:0}#pe-global-nav .pe-nav-account{margin-left:auto}}
+</style>
 </head>
 
 <body>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html" aria-current="page">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="userManagementButton" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span id="signedInUser"></span><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header>
 
 
 <main class="container page">
 <section class="hero" id="dashboardHeaderCard">
-<div><h1>Customers</h1><div id="signedInUser"></div></div>
+<h1>Customers</h1>
 <div class="actions">
-<button type="button" onclick="location.href='dashboard.html'" class="secondary">Dashboard</button>
 <button type="button" id="refreshButton" onclick="refreshDashboard()" class="teal">Refresh</button>
 <button type="button" id="customerExport" disabled>↓ Export to Excel</button>
-<button type="button" onclick="location.href='reports.html'" class="secondary">Reports</button>
-<button type="button" id="userManagementButton" onclick="location.href='user-management.html'" style="display:none">User Management</button>
-<button type="button" onclick="logoutUser()" class="secondary">Sign Out</button>
 </div>
 </section>
 
@@ -1538,7 +1546,7 @@ async function initializeDashboard(){
   sessionStorage.setItem('pe_username',profile.username||'');
   sessionStorage.setItem('pe_full_name',profile.full_name||'');
   const userManagementButton=document.getElementById('userManagementButton');
-  if(userManagementButton) userManagementButton.style.display=profile.role==='finance_manager'?'inline-block':'none';
+  if(userManagementButton) userManagementButton.hidden=profile.role!=='finance_manager';
   const signed=document.getElementById('signedInUser');if(signed)signed.textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;
   await loadExecutiveDashboard();
   setDashboardFocus('all');

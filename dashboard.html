@@ -14,14 +14,26 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 .kpi,.chart-card{border-radius:12px}.kpi .value{color:var(--navy)}
 #pe-global-nav{font-family:Inter,Segoe UI,Arial,sans-serif}
 @media(max-width:560px){.wrap{padding:16px 12px 50px}.top h1{font-size:23px}}
-</style></head><body><main class="wrap">
+</style><style id="pe-navigation-style">
+#pe-global-nav{position:sticky;top:0;z-index:20;background:#14263d;color:white;box-shadow:0 3px 16px #14263d20}
+#pe-global-nav .pe-nav-inner{max-width:1600px;margin:auto;padding:10px 22px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;box-sizing:border-box}
+#pe-global-nav .pe-nav-links{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:1 1 760px}
+#pe-global-nav a{display:inline-block;white-space:nowrap;padding:8px 10px;border-radius:7px;text-decoration:none;color:#dbeafe;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav a[hidden]{display:none}
+#pe-global-nav a:hover,#pe-global-nav a[aria-current="page"]{background:#ffffff20;color:white}
+#pe-global-nav .pe-nav-account{display:flex;align-items:center;gap:9px;color:#cbd5e1;font:12px/1.4 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav .pe-nav-account button{white-space:nowrap;border:0;border-radius:8px;padding:8px 10px;background:#475569;color:white;font:650 12px/1.3 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}
+@media(max-width:760px){#pe-global-nav .pe-nav-inner{padding:8px 12px}#pe-global-nav .pe-nav-links{flex-wrap:nowrap;overflow:auto;min-width:0}#pe-global-nav .pe-nav-account{margin-left:auto}}
+</style>
+</head><body>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap">
 <section class="top"><div><h1>Power Energy — Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
 <section class="panel"><h2 style="margin:0 0 8px;font-size:18px">Financial Filters</h2><div class="muted">Date filters are applied using invoice Due Date.</div>
 <div class="filters"><div><label for="company">Company</label><select id="company"><option value="">All companies</option></select></div><div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div><div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div><div><label for="fromDate">From Date (Due Date)</label><input type="date" id="fromDate"></div><div><label for="toDate">To Date (Due Date)</label><input type="date" id="toDate"></div></div>
 <div class="actions"><button onclick="renderKPIs()">Apply Filters</button><button class="secondary" onclick="clearFilters()">Clear Filters</button></div></section>
 <section class="panel"><h2 style="margin:0 0 14px;font-size:18px">Financial KPIs</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
 <section class="panel"><h2 style="margin:0 0 14px;font-size:18px">Financial Analysis</h2><div class="charts"><article class="chart-card"><h3>Collection Position</h3><div class="note">Collected amount versus current open balance. Collected is not restricted by Due Date.</div><div class="chart-box"><canvas id="collectionChart"></canvas></div></article><article class="chart-card"><h3>Overdue Analysis</h3><div class="note">Overdue collection balance versus the remaining open balance.</div><div class="chart-box"><canvas id="overdueChart"></canvas></div></article><article class="chart-card"><h3>Purchase Order Coverage</h3><div class="note">Invoiced PO value versus the remaining uninvoiced PO value, before VAT.</div><div class="chart-box"><canvas id="poChart"></canvas></div></article></div></section>
-</main><script src="shared-nav.js" defer></script><script>
+</main><script>
 const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
 const SUPABASE_KEY="sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -73,6 +85,6 @@ function exportToExcel(){
 window.exportToExcel=exportToExcel;
 
 async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert('Sign out failed: '+error.message);return;}sessionStorage.clear();location.replace('login.html');}
-async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
+async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script></body></html>
