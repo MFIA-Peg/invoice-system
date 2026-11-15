@@ -33,7 +33,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 
 <section class="panel"><div class="panelhead"><div><h2>Record New Collection</h2><div class="muted">Select an open invoice and record the received payment.</div></div></div>
 <div class="form-grid">
-<div class="field span-2"><label for="invoiceSelect">Invoice</label><select id="invoiceSelect"><option value="">Loading invoices...</option></select></div>
+<div class="field span-2"><label for="invoiceSearch">Invoice (type to search and select)</label><input id="invoiceSearch" type="search" list="invoiceEntryOptions" placeholder="Type invoice number, PO number or project..." autocomplete="off"><datalist id="invoiceEntryOptions"></datalist><select id="invoiceSelect" hidden><option value="">Select an open invoice</option></select><div class="muted" style="margin-top:5px">Start typing to narrow the open invoices, then choose the matching result.</div></div>
 <div class="field"><label for="collectionDate">Collection Date</label><input type="date" id="collectionDate" required></div>
 <div class="field"><label for="collectionAmount">Amount (SAR)</label><input type="number" id="collectionAmount" min="0.01" step="0.01" required></div>
 <div class="field"><label for="paymentMethod">Payment Method</label><select id="paymentMethod"><option value="">Select method</option><option>Bank Transfer</option><option>Cheque</option><option>Cash</option><option>Other</option></select></div>
@@ -105,11 +105,29 @@ function populateFilters(){
  setOptions('filterMethod',transactions.map(x=>x.payment_method));
  setOptions('filterReference',transactions.map(x=>x.reference_no));
 }
-function fillInvoices(){const old=$('invoiceSelect').value,open=invoices.filter(i=>invMetrics(i).balance>.005);$('invoiceSelect').innerHTML='<option value="">Select an open invoice</option>'+open.map(i=>{const m=invMetrics(i);return `<option value="${i.id}">${esc(i.invoice_no||'No Invoice No.')} · ${esc(i.po_no)} · ${esc(m.pr?.project_name||i.project_name||'')} · ${money(m.balance)}</option>`}).join('');if(open.some(i=>String(i.id)===old))$('invoiceSelect').value=old;updateBalance()}
+function invoiceEntryLabel(i){
+ const m=invMetrics(i);
+ return `${i.invoice_no||'No Invoice No.'} · PO ${i.po_no||'—'} · ${m.pr?.project_name||i.project_name||'—'} · Balance ${money(m.balance)} · ID ${i.id}`;
+}
+function fillInvoices(){
+ const old=$('invoiceSelect').value,open=invoices.filter(i=>invMetrics(i).balance>.005);
+ $('invoiceSelect').innerHTML='<option value="">Select an open invoice</option>'+open.map(i=>`<option value="${i.id}">${esc(invoiceEntryLabel(i))}</option>`).join('');
+ $('invoiceEntryOptions').innerHTML=open.map(i=>`<option value="${esc(invoiceEntryLabel(i))}"></option>`).join('');
+ if(open.some(i=>String(i.id)===old))$('invoiceSelect').value=old;else $('invoiceSelect').value='';
+ const selected=open.find(i=>String(i.id)===$('invoiceSelect').value);
+ $('invoiceSearch').value=selected?invoiceEntryLabel(selected):'';
+ updateBalance();
+}
+function syncInvoiceSearch(){
+ const typed=$('invoiceSearch').value.trim();
+ const match=invoices.filter(i=>invMetrics(i).balance>.005).find(i=>invoiceEntryLabel(i)===typed);
+ $('invoiceSelect').value=match?String(match.id):'';
+ updateBalance();
+}
 function updateBalance(){const i=invoices.find(x=>String(x.id)===$('invoiceSelect').value);if(!i){$('invoiceBalanceInfo').textContent='Select an invoice to view its current balance.';return}const m=invMetrics(i);$('invoiceBalanceInfo').textContent=`${m.pr?.company||''} · ${m.pr?.project_name||i.project_name||''} · Invoice total ${money(m.gross)} · Previously collected ${money(m.col)} · Current balance ${money(m.balance)}`}
 async function saveCollection(){if(!canAdd())return status('No Add permission.',true);const id=Number($('invoiceSelect').value),i=invoices.find(x=>Number(x.id)===id),amount=Number($('collectionAmount').value);if(!i)return status('Select an invoice.',true);if(!$('collectionDate').value||!Number.isFinite(amount)||amount<=0)return status('Enter a valid date and amount.',true);const m=invMetrics(i);if(amount>m.balance+.005)return status(`Amount exceeds balance ${money(m.balance)}.`,true);
  const b=$('saveCollectionButton');b.disabled=true;try{const {error}=await client.from('invoice_collections').insert({invoice_id:id,collection_date:$('collectionDate').value,amount,payment_method:$('paymentMethod').value||null,reference_no:$('referenceNo').value.trim()||null,notes:$('collectionNotes').value.trim()||null});if(error)throw error;status('Collection saved.');resetForm(false);await loadCollections()}catch(e){status('Save failed: '+e.message,true)}finally{b.disabled=!canAdd()}}
-function resetForm(date=true){$('invoiceSelect').value='';$('collectionAmount').value='';$('paymentMethod').value='';$('referenceNo').value='';$('collectionNotes').value='';if(date)$('collectionDate').value=today();updateBalance()}
+function resetForm(date=true){$('invoiceSelect').value='';$('invoiceSearch').value='';$('collectionAmount').value='';$('paymentMethod').value='';$('referenceNo').value='';$('collectionNotes').value='';if(date)$('collectionDate').value=today();updateBalance()}
 function applyFilters(){
  const im=new Map(invoices.map(i=>[Number(i.id),i]));
  const co=$('filterCompany').value.trim().toLowerCase(),dept=$('filterDepartment').value.trim().toLowerCase();
@@ -147,7 +165,7 @@ function renderChart(a,im){const total=a.reduce((s,x)=>s+num(x.amount),0),byMeth
 function exportCSV(){const im=new Map(invoices.map(i=>[Number(i.id),i])),headers=['Collection Date','Company','Department','Project','PO Number','Invoice Number','Payment Method','Reference Number','Amount SAR','Notes'];const rows=filteredTransactions.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return[c.collection_date,m.pr?.company,m.pr?.department,m.pr?.project_name||i.project_name,i.po_no,i.invoice_no,c.payment_method,c.reference_no,c.amount,c.notes]});const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='collections-'+today()+'.csv';a.click();URL.revokeObjectURL(url)}
 function clearFilters(){['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(x=>$(x).value='');applyFilters()}
 async function logoutUser(){const {error}=await client.auth.signOut();if(error)return alert(error.message);sessionStorage.clear();location.replace('login.html')}
-$('refresh').addEventListener('click',loadCollections);$('export').addEventListener('click',exportCSV);$('clearFilters').addEventListener('click',clearFilters);$('saveCollectionButton').addEventListener('click',saveCollection);$('clearForm').addEventListener('click',()=>resetForm());$('invoiceSelect').addEventListener('change',updateBalance);['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('input',applyFilters));$('signOut').addEventListener('click',logoutUser);
+$('refresh').addEventListener('click',loadCollections);$('export').addEventListener('click',exportCSV);$('clearFilters').addEventListener('click',clearFilters);$('saveCollectionButton').addEventListener('click',saveCollection);$('clearForm').addEventListener('click',()=>resetForm());$('invoiceSearch').addEventListener('input',syncInvoiceSearch);$('invoiceSearch').addEventListener('change',syncInvoiceSearch);$('invoiceSelect').addEventListener('change',updateBalance);['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('input',applyFilters));$('signOut').addEventListener('click',logoutUser);
 initialize();
 </script>
 </body></html>
