@@ -6,11 +6,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--navy:#14263d;--navy2:#1d3653;--blue:#2563eb;--teal:#0f766e;--ink:#18283d;--muted:#64748b;--line:#e2e8f0;--bg:#f3f6fb;--white:#fff;--red:#b42318;--shadow:0 8px 32px rgba(19,38,61,.06)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,Segoe UI,Arial,sans-serif}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.nav{background:var(--navy);color:white;position:sticky;top:0;z-index:20;box-shadow:0 3px 16px #14263d20}.navin{max-width:1600px;margin:auto;display:flex;align-items:center;gap:18px;padding:12px 25px;flex-wrap:wrap}.brand{font-weight:800;font-size:16px;white-space:nowrap;letter-spacing:.1px}.brand small{display:block;color:#9fb4cf;font-size:10px;letter-spacing:1.6px}.navlinks{display:flex;gap:4px;flex:1;flex-wrap:wrap}.navlinks a{padding:9px 11px;border-radius:7px;color:#d7e4f2;text-decoration:none;font-size:12px;font-weight:650}.navlinks a:hover,.navlinks a.active{background:#ffffff1b;color:#fff}.navright{display:flex;align-items:center;gap:10px}.navuser{font-size:12px;color:#cbd5e1}.page{max-width:1480px;margin:0 auto;padding:30px 26px 70px}.crumb{font-size:12px;color:var(--muted);margin-bottom:13px}.crumb strong{color:var(--navy)}.heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}.heading h1{font-size:29px;letter-spacing:-.8px;margin:0}.heading p{color:var(--muted);margin:5px 0 0}.actions{display:flex;gap:9px;flex-wrap:wrap}.btn{border:1px solid transparent;background:var(--blue);color:#fff;border-radius:9px;padding:10px 15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px}.btn:hover:not(:disabled){filter:brightness(.95)}.btn.secondary{background:#fff;border-color:#cbd5e1;color:var(--ink)}.btn.danger{background:#fff;border-color:#fecaca;color:var(--red)}.btn.small{font-size:12px;padding:7px 10px;min-height:32px}.btn.ghost{background:transparent;color:#dbeafe;border-color:#ffffff38}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:20px}.kpi,.panel{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}.kpi{padding:20px 22px;position:relative;overflow:hidden}.kpi:after{content:'';position:absolute;right:-24px;top:-24px;width:90px;height:90px;border-radius:50%;background:#eaf2ff}.kpi .label{font-size:12px;font-weight:650;color:var(--muted)}.kpi .value{font-size:31px;letter-spacing:-1px;font-weight:800;margin-top:6px;color:var(--navy)}.kpi .sub{font-size:12px;color:var(--muted);margin-top:3px}.panel{overflow:hidden}.panelhead{padding:19px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.panelhead h2{font-size:17px;margin:0}.panelhead p{font-size:12px;color:var(--muted);margin:3px 0 0}.filters{display:flex;gap:10px;flex-wrap:wrap}.search{border:1px solid #cbd5e1;border-radius:9px;padding:10px 12px;width:min(330px,100%);background:white;outline:none}.search:focus,input:focus,select:focus{border-color:#60a5fa;outline:3px solid #dbeafe}.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;min-width:760px}thead{background:#f8fafc}th{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:#64748b;font-weight:800;padding:14px 22px;border-bottom:1px solid var(--line)}td{padding:17px 22px;border-bottom:1px solid #edf0f5;vertical-align:middle}tr:hover td{background:#fbfdff}.name{font-weight:750;color:var(--navy)}.name small{display:block;color:var(--muted);font-weight:400;margin-top:3px}.pill{display:inline-block;border-radius:20px;background:#eaf5f2;color:#08674d;padding:4px 10px;font-weight:700;font-size:11px}.pill.muted{background:#eef2f7;color:#64748b}.right{text-align:right}.empty{text-align:center;padding:65px 20px;color:var(--muted)}.empty strong{display:block;color:var(--navy);font-size:17px;margin-bottom:5px}.footer{padding:14px 22px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}.banner{padding:13px 17px;border-radius:10px;margin-bottom:18px;display:none}.banner.error{display:block;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.banner.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}.toast{position:fixed;right:22px;bottom:22px;background:#143a32;color:#fff;border-radius:10px;padding:13px 18px;box-shadow:var(--shadow);z-index:50;display:none}.overlay{position:fixed;inset:0;background:#0f172a99;display:none;align-items:center;justify-content:center;padding:20px;z-index:40}.overlay.open{display:flex}.modal{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 80px #0f172a45}.modalhead{padding:23px 25px 17px;border-bottom:1px solid var(--line);display:flex;align-items:start;justify-content:space-between}.modalhead h2{margin:0;font-size:21px}.modalhead p{color:var(--muted);margin:4px 0 0;font-size:13px}.close{border:0;background:transparent;font-size:25px;color:var(--muted)}.modalbody{padding:23px 25px}.field{margin-bottom:17px}.field label{display:block;font-weight:700;font-size:12px;margin-bottom:7px}.field input,.field select{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink)}.hint{color:var(--muted);font-size:12px;margin-top:6px}.modalfoot{display:flex;justify-content:flex-end;gap:9px;padding:17px 25px;border-top:1px solid var(--line)}.detailhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px}.detailhead h3{margin:0;font-size:16px}.customerrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.customerrow:last-child{border:0}.customerrow span{overflow-wrap:anywhere}.inlineerror{color:var(--red);font-size:12px;margin-top:8px;display:none}.loading{padding:60px;text-align:center;color:var(--muted)}@media(max-width:800px){.page{padding:20px 13px 45px}.navin{padding:12px}.kpis{grid-template-columns:1fr}.heading h1{font-size:24px}.panelhead{padding:15px}.navlinks{order:3;flex-basis:100%;overflow-x:auto;flex-wrap:nowrap}.navlinks a{white-space:nowrap}.navuser{display:none}th,td{padding:12px}.modalbody{padding:18px}.modalhead,.modalfoot{padding:16px}}@media(prefers-reduced-motion:no-preference){.btn,.navlinks a{transition:.15s ease}}
+
+/* Department financial dashboard */
+.financial-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.financial-kpis .kpi .value{font-size:23px}.financial-kpis .kpi .sub{font-size:11px}.chart-panel{margin-bottom:20px}.chart-body{padding:20px 24px}.chart-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:15px;color:var(--muted);font-size:12px}.chart-legend span:before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;background:var(--blue)}.chart-legend span:nth-child(2):before{background:var(--teal)}.chart-legend span:nth-child(3):before{background:#e09a32}.chart-legend span:nth-child(4):before{background:#b42318}.chart-bars{display:grid;gap:14px}.chart-line{display:grid;grid-template-columns:minmax(140px,210px) minmax(0,1fr) 125px;gap:12px;align-items:center}.chart-track{height:16px;background:#edf2f7;border-radius:5px;overflow:hidden}.chart-fill{height:100%;border-radius:5px}.chart-number{text-align:right;font-variant-numeric:tabular-nums}.chart-note{color:var(--muted);font-size:12px;margin-top:14px}.finance-table{min-width:1600px}.finance-table th,.finance-table td{padding:12px 13px}.finance-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.finance-table th.num{text-align:right}.finance-table .name{min-width:170px}@media(max-width:1100px){.financial-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.financial-kpis{grid-template-columns:1fr}.chart-line{grid-template-columns:95px 1fr 85px;gap:6px;font-size:11px}.chart-body{padding:14px}}
 </style>
 </head>
 <body>
 <header class="nav"><div class="navin"><div class="brand">POWER ENERGY<small>INVOICE MANAGEMENT</small></div><nav class="navlinks" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a class="active" href="departments.html" aria-current="page">Departments</a><a href="customers.html">Customers</a><a href="companies.html">Projects</a><a href="reports.html?report=pos">Purchase Orders</a><a href="reports.html?report=open">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a href="user-management.html" id="usersNav" hidden>User Management</a></nav><div class="navright"><span class="navuser" id="username"></span><button class="btn ghost small" id="signout">Sign Out</button></div></div></header>
-<main class="page"><div class="crumb">Master Data / <strong>Departments</strong></div><div class="heading"><div><h1>Department Management</h1><p>Manage departments, customer assignments, and authorized relationships.</p></div><div class="actions"><button class="btn secondary" id="refresh">↻ Refresh</button><button class="btn" id="addDepartment" hidden>＋ New Department</button></div></div><div id="banner" class="banner" role="alert"></div><section class="kpis"><div class="kpi"><div class="label">Accessible Departments</div><div class="value" id="statDepartments">—</div><div class="sub">Departments available to your account</div></div><div class="kpi"><div class="label">Linked Customers</div><div class="value" id="statCustomers">—</div><div class="sub">Distinct customers across accessible departments</div></div><div class="kpi"><div class="label">Customer Assignments</div><div class="value" id="statLinks">—</div><div class="sub">Active department–customer relationships</div></div></section><section class="panel"><div class="panelhead"><div><h2>Department Directory</h2><p>Select a department to review or manage its customers.</p></div><div class="filters"><input id="search" class="search" type="search" placeholder="Search departments or customers..." aria-label="Search departments or customers"></div></div><div class="tablewrap"><table><thead><tr><th>Department</th><th>Linked Customers</th><th>Relationship Status</th><th class="right">Actions</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="loading">Loading departments...</td></tr></tbody></table></div><div class="footer" id="recordCount">—</div></section></main>
+<main class="page"><div class="crumb">Master Data / <strong>Departments</strong></div><div class="heading"><div><h1>Department Management</h1><p>Manage departments, customer assignments, and authorized relationships.</p></div><div class="actions"><button class="btn secondary" id="refresh">↻ Refresh</button><button class="btn" id="addDepartment" hidden>＋ New Department</button></div></div><div id="banner" class="banner" role="alert"></div><section class="kpis"><div class="kpi"><div class="label">Accessible Departments</div><div class="value" id="statDepartments">—</div><div class="sub">Departments available to your account</div></div><div class="kpi"><div class="label">Linked Customers</div><div class="value" id="statCustomers">—</div><div class="sub">Distinct customers across accessible departments</div></div><div class="kpi"><div class="label">Customer Assignments</div><div class="value" id="statLinks">—</div><div class="sub">Active department–customer relationships</div></div></section><section class="kpis financial-kpis" id="financeKpis" aria-label="Department financial totals"></section><section class="panel chart-panel"><div class="panelhead"><div><h2>Department Financial Overview</h2><p>Financial totals for the departments matching the current search (SAR).</p></div></div><div class="chart-body"><div class="chart-legend"><span>Billing</span><span>Collected</span><span>Outstanding</span><span>Overdue</span></div><div class="chart-bars" id="financeChart"></div><p class="chart-note" id="financeNote">Loading financial information...</p></div></section><section class="panel"><div class="panelhead"><div><h2>Department Directory</h2><p>Select a department to review or manage its customers.</p></div><div class="filters"><input id="search" class="search" type="search" placeholder="Search departments or customers..." aria-label="Search departments or customers"></div></div><div class="tablewrap"><table class="finance-table"><thead><tr><th>Department</th><th>Linked Customers</th><th class="num">PO Value</th><th class="num">Billing</th><th class="num">Collected</th><th class="num">Outstanding</th><th class="num">Pending Approval</th><th class="num">Overdue</th><th class="num">Not Yet Due</th><th class="num">Retention</th><th>Relationship Status</th><th class="right">Actions</th></tr></thead><tbody id="rows"><tr><td colspan="12" class="loading">Loading departments...</td></tr></tbody></table></div><div class="footer" id="recordCount">—</div></section></main>
 <div id="overlay" class="overlay" role="presentation"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modalhead"><div><h2 id="modalTitle"></h2><p id="modalSubtitle"></p></div><button class="close" id="closeModal" aria-label="Close">×</button></div><div class="modalbody" id="modalBody"></div><div class="modalfoot" id="modalFoot"></div></section></div><div class="toast" id="toast" role="status"></div>
 <script>
 'use strict';
@@ -18,7 +21,7 @@ const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
 const SUPABASE_KEY='sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
-const state={departments:[],customers:[],links:[],profile:null,permissions:null,selected:null,busy:false};
+const state={departments:[],customers:[],links:[],profile:null,permissions:null,selected:null,busy:false,financial:new Map(),financeError:null};
 function textNode(s){return document.createTextNode(String(s??''))}
 function el(tag,cls,content){const n=document.createElement(tag);if(cls)n.className=cls;if(content!==undefined)n.append(textNode(content));return n}
 function btn(label,cls,handler){const b=el('button','btn '+(cls||''),label);b.type='button';b.addEventListener('click',handler);return b}
@@ -39,8 +42,35 @@ function busy(button,on){state.busy=on;button.disabled=on;button.dataset.label??
 async function rpc(name,args){const {data,error}=await db.rpc(name,args);if(error)throw error;return data}
 function friendly(e){const s=String(e?.message||e||'Unexpected error');if(/permission denied|not authorized|not allowed|access denied|insufficient privilege/i.test(s))return 'You do not have permission to complete this action.';return s}
 async function checkLogin(){const {data:{user},error}=await db.auth.getUser();if(error||!user){location.replace('login.html');return false}const r=await db.from('users_profile').select('id,role,active,must_change_password,full_name,username').eq('auth_user_id',user.id).maybeSingle();if(r.error)throw r.error;if(!r.data||!r.data.active){await db.auth.signOut();location.replace('login.html');return false}if(r.data.must_change_password){location.replace('change-password.html');return false}state.profile=r.data;$('username').textContent=r.data.full_name||r.data.username||'Account';$('usersNav').hidden=!isManager();if(!isManager()){const p=await db.from('user_permissions').select('can_create_departments,can_create_customers').eq('user_id',r.data.id).maybeSingle();if(!p.error)state.permissions=p.data||null} $('addDepartment').hidden=!canCreateDepartment();return true}
-async function fetchAll(){clearMessage();$('refresh').disabled=true;try{const [d,c,l]=await Promise.all([db.from('departments').select('id,name').order('name'),db.from('customer_companies').select('id,name').order('name'),db.from('department_customer_companies').select('id,department_id,customer_company_id')]);for(const r of [d,c,l])if(r.error)throw r.error;state.departments=d.data||[];state.customers=c.data||[];state.links=l.data||[];render()}catch(e){message('Unable to load department records: '+friendly(e));$('rows').replaceChildren(el('tr'));const td=el('td','loading','Unable to load records. Please refresh.');td.colSpan=4;$('rows').firstChild.append(td)}finally{$('refresh').disabled=false}}
-function render(){const ds=state.departments,cm=customerMap(),q=$('search').value.toLocaleLowerCase();$('statDepartments').textContent=ds.length;$('statCustomers').textContent=new Set(state.links.map(x=>x.customer_company_id)).size;$('statLinks').textContent=state.links.length;const filtered=ds.filter(d=>d.name.toLocaleLowerCase().includes(q)||linked(d.id).some(x=>(cm.get(x.customer_company_id)?.name||'').toLocaleLowerCase().includes(q)));const body=$('rows');body.replaceChildren();if(!filtered.length){const tr=el('tr'),td=el('td','empty');td.colSpan=4;td.append(el('strong','',q?'No matching departments':'No departments available'),el('span','',q?'Try another search.':'Departments will appear when your account has access.'));tr.append(td);body.append(tr)}for(const d of filtered){const n=linked(d.id).length,tr=el('tr'),name=el('td'),label=el('div','name',d.name);label.append(el('small','',`Department ID · ${d.id}`));name.append(label);const count=el('td','',n.toLocaleString());const status=el('td');status.append(el('span','pill'+(n?'':' muted'),n?'Customers linked':'No customers linked'));const actions=el('td','right');actions.append(btn('Manage Customers','secondary small',()=>showDepartment(d.id)));tr.append(name,count,status,actions);body.append(tr)}$('recordCount').textContent=`Showing ${filtered.length} of ${ds.length} accessible departments`}
+async function fetchAll(){clearMessage();$('refresh').disabled=true;try{const [d,c,l]=await Promise.all([db.from('departments').select('id,name').order('name'),db.from('customer_companies').select('id,name').order('name'),db.from('department_customer_companies').select('id,department_id,customer_company_id')]);for(const r of [d,c,l])if(r.error)throw r.error;state.departments=d.data||[];state.customers=c.data||[];state.links=l.data||[];await loadDepartmentFinancials();render()}catch(e){message('Unable to load department records: '+friendly(e));$('rows').replaceChildren(el('tr'));const td=el('td','loading','Unable to load records. Please refresh.');td.colSpan=12;$('rows').firstChild.append(td)}finally{$('refresh').disabled=false}}
+const money=v=>new Intl.NumberFormat('en-SA',{maximumFractionDigits:0}).format(Number(v||0));
+const num=v=>Number(v||0)||0;
+const norm=v=>String(v??'').trim().toLocaleLowerCase();
+async function allFinancialRows(table){let result=[],from=0;for(;;){const {data,error}=await db.from(table).select('*').order('id').range(from,from+999);if(error)throw new Error(table+': '+error.message);result.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error(table+': pagination limit exceeded');}return result;}
+function invoiceFinance(i,po){const base=Math.max(0,num(i.invoice_amount)-num(i.advance_amortisation));const total=base*(po?.vat?1.15:1);const retention=num(i.retention_amount)+num(i.retention_vat);const retentionBalance=Math.max(0,retention-num(i.retention_released_amount));const collected=Math.max(0,num(i.paid_amount));const balance=Math.max(0,total-retention-collected);let due=String(i.due_date||'').slice(0,10);if(!due&&i.approval_date&&i.payment_terms!=null){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00Z');if(!Number.isNaN(d.getTime())){d.setUTCDate(d.getUTCDate()+num(i.payment_terms));due=d.toISOString().slice(0,10);}}return{total,collected,balance,retentionBalance,due};}
+function emptyFinance(){return{po:0,billing:0,collected:0,outstanding:0,pending:0,overdue:0,notDue:0,retention:0,unclassified:0};}
+async function loadDepartmentFinancials(){state.financeError=null;state.financial=new Map(state.departments.map(d=>[d.id,emptyFinance()]));try{
+ const [projects,pos,invoices]=await Promise.all(['projects','pos','invoices'].map(allFinancialRows));
+ const deptById=new Map(state.departments.map(d=>[Number(d.id),d.id]));const deptByName=new Map(state.departments.map(d=>[norm(d.name),d.id]));
+ const customersById=new Map(state.customers.map(c=>[Number(c.id),c]));const customerByName=new Map(state.customers.map(c=>[norm(c.name),c]));
+ const linksByCustomer=new Map();for(const l of state.links){const id=Number(l.customer_company_id);if(!linksByCustomer.has(id))linksByCustomer.set(id,new Set());linksByCustomer.get(id).add(Number(l.department_id));}
+ const projectById=new Map(projects.map(p=>[Number(p.id),p]));const poById=new Map(pos.map(p=>[Number(p.id),p]));const poByNo=new Map();for(const po of pos){const key=norm(po.po_no);if(key&&!poByNo.has(key))poByNo.set(key,po);}
+ function resolve(row,project,po){for(const obj of [row,po,project]){if(!obj)continue;const id=Number(obj.department_id);if(deptById.has(id))return deptById.get(id);const name=norm(obj.department);if(name&&deptByName.has(name))return deptByName.get(name);}
+ // A customer can belong to multiple departments: never allocate its amounts arbitrarily.
+ for(const obj of [row,po,project]){if(!obj)continue;const customer=customersById.get(Number(obj.customer_company_id))||customerByName.get(norm(obj.company));if(!customer)continue;const matches=linksByCustomer.get(Number(customer.id));if(matches?.size===1){const only=[...matches][0];if(deptById.has(only))return only;}}
+ return null;}
+ const today=new Date().toISOString().slice(0,10);
+ for(const po of pos){const project=projectById.get(Number(po.project_id));const id=resolve(po,project,null);if(id==null)continue;state.financial.get(id).po+=num(po.po_value_ex_vat||po.po_value);state.financial.get(id).collected+=num(po.advance_received_amount);}
+ for(const i of invoices){if(['cancelled','canceled','void'].includes(norm(i.status)))continue;const po=poById.get(Number(i.pos_id))||poByNo.get(norm(i.po_no));const project=projectById.get(Number(i.project_id||po?.project_id));const id=resolve(i,project,po);if(id==null)continue;const f=state.financial.get(id),m=invoiceFinance(i,po);f.billing+=m.total;f.collected+=m.collected;f.outstanding+=m.balance+m.retentionBalance;f.retention+=m.retentionBalance;
+ if(!i.approval_date||['draft','pending approval','submitted'].includes(norm(i.status)))f.pending+=m.total;
+ if(m.balance>0.005){if(!m.due)f.unclassified+=m.balance;else if(m.due<today)f.overdue+=m.balance;else f.notDue+=m.balance;}
+ }
+ }catch(e){state.financeError=String(e.message||e);console.error('Department finance:',e);message('Department records loaded, but financial data could not be loaded: '+state.financeError);}}
+function renderFinance(filtered){const fields=[['po','PO Value'],['billing','Total Billing'],['collected','Total Collected'],['outstanding','Outstanding Balance'],['pending','Pending Approval'],['overdue','Overdue Balance'],['notDue','Not Yet Due'],['retention','Retention Balance']];const totals=emptyFinance();for(const d of filtered){const f=state.financial.get(d.id)||emptyFinance();for(const k of Object.keys(totals))totals[k]+=f[k]||0;}
+ const grid=$('financeKpis');grid.replaceChildren();for(const [key,title] of fields){const card=el('div','kpi');card.append(el('div','label',title),el('div','value',state.financeError?'—':money(totals[key])),el('div','sub','SAR · filtered departments'));grid.append(card);}
+ const chart=$('financeChart');chart.replaceChildren();const series=[['billing','Billing','#2563eb'],['collected','Collected','#0f766e'],['outstanding','Outstanding','#e09a32'],['overdue','Overdue','#b42318']];const max=Math.max(1,...series.map(([k])=>totals[k]));for(const [key,title,color] of series){const line=el('div','chart-line');line.append(el('span','',title));const track=el('div','chart-track'),bar=el('div','chart-fill');bar.style.width=(100*totals[key]/max)+'%';bar.style.background=color;track.append(bar);line.append(track,el('span','chart-number',state.financeError?'—':money(totals[key])));chart.append(line);}
+ $('financeNote').textContent=state.financeError?'Financial figures unavailable: '+state.financeError:`${filtered.length} department(s) included · Amounts in SAR${totals.unclassified?' · '+money(totals.unclassified)+' outstanding without a due date (not classified as overdue/not yet due)':''}.`;}
+function render(){const ds=state.departments,cm=customerMap(),q=$('search').value.toLocaleLowerCase();$('statDepartments').textContent=ds.length;$('statCustomers').textContent=new Set(state.links.map(x=>x.customer_company_id)).size;$('statLinks').textContent=state.links.length;const filtered=ds.filter(d=>d.name.toLocaleLowerCase().includes(q)||linked(d.id).some(x=>(cm.get(x.customer_company_id)?.name||'').toLocaleLowerCase().includes(q)));renderFinance(filtered);const body=$('rows');body.replaceChildren();if(!filtered.length){const tr=el('tr'),td=el('td','empty');td.colSpan=12;td.append(el('strong','',q?'No matching departments':'No departments available'),el('span','',q?'Try another search.':'Departments will appear when your account has access.'));tr.append(td);body.append(tr)}for(const d of filtered){const n=linked(d.id).length,tr=el('tr'),name=el('td'),label=el('div','name',d.name);label.append(el('small','',`Department ID · ${d.id}`));name.append(label);const count=el('td','',n.toLocaleString());const status=el('td');status.append(el('span','pill'+(n?'':' muted'),n?'Customers linked':'No customers linked'));const actions=el('td','right');actions.append(btn('Manage Customers','secondary small',()=>showDepartment(d.id)));tr.append(name,count);const f=state.financial.get(d.id)||emptyFinance();for(const k of ['po','billing','collected','outstanding','pending','overdue','notDue','retention'])tr.append(el('td','num',state.financeError?'—':money(f[k])));tr.append(status,actions);body.append(tr)}$('recordCount').textContent=`Showing ${filtered.length} of ${ds.length} accessible departments`}
 function showNewDepartment(){openModal('New Department','Create a department using its exact registered name.');const f=field('Department Name *','Enter department name');const note=el('div','hint','Names are preserved exactly, including spelling and capitalization.');const err=el('div','inlineerror');$('modalBody').append(f.wrap,note,err);$('modalFoot').append(btn('Cancel','secondary',closeModal));const save=btn('Create Department','',async()=>{const name=f.input.value;if(!name.trim()){showInlineError(err,'Enter a department name.');return}busy(save,true);try{await rpc('create_department',{p_name:name});closeModal();toast('Department created successfully.');await fetchAll()}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});$('modalFoot').append(save);f.input.focus()}
 function showDepartment(id){const d=state.departments.find(x=>x.id===id);if(!d)return;state.selected=id;openModal(d.name,'Department customer assignments');const heading=el('div','detailhead');heading.append(el('h3','',`Linked Customers (${linked(id).length})`));heading.append(btn('＋ Link Customer','small',()=>showLinkCustomer(id)));$('modalBody').append(heading);const cm=customerMap(),links=linked(id);if(!links.length)$('modalBody').append(el('div','hint','No customers are linked to this department yet.'));for(const x of links){const row=el('div','customerrow');row.append(el('span','',cm.get(x.customer_company_id)?.name||`Customer #${x.customer_company_id}`));if(isManager())row.append(btn('Unlink','danger small',()=>confirmUnlink(id,x.customer_company_id)));$('modalBody').append(row)}$('modalFoot').append(btn('Close','secondary',closeModal));if(canCreateCustomer())$('modalFoot').append(btn('＋ New Customer','',()=>showNewCustomer(id)))}
 function selectField(label,items,placeholder){const wrap=el('div','field'),lab=el('label','',label),select=el('select');select.required=true;const first=el('option','',placeholder);first.value='';select.append(first);for(const x of items){const opt=el('option','',x.name);opt.value=String(x.id);select.append(opt)}wrap.append(lab,select);return {wrap,select}}
@@ -49,157 +79,5 @@ function showNewCustomer(deptId){const d=state.departments.find(x=>x.id===deptId
 function confirmUnlink(deptId,customerId){if(!isManager())return;const d=state.departments.find(x=>x.id===deptId),c=state.customers.find(x=>x.id===customerId);openModal('Unlink Customer','Finance Manager approval required');$('modalBody').append(el('p','',`Remove the relationship between "${c?.name||customerId}" and "${d?.name||deptId}"?`),el('p','hint','This action is blocked by the database when related purchase orders exist. It does not delete the customer.'));const err=el('div','inlineerror');$('modalBody').append(err);$('modalFoot').append(btn('Cancel','secondary',()=>showDepartment(deptId)));const save=btn('Unlink Customer','danger',async()=>{busy(save,true);try{const result=await rpc('unlink_customer_from_department',{p_customer_company_id:customerId,p_department_id:deptId});if(result!==true)throw new Error('Relationship was not removed.');await fetchAll();toast('Customer relationship removed.');showDepartment(deptId)}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});$('modalFoot').append(save)}
 $('search').addEventListener('input',render);$('refresh').onclick=fetchAll;$('addDepartment').onclick=showNewDepartment;$('signout').onclick=async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')};
 (async()=>{try{if(await checkLogin())await fetchAll()}catch(e){message('Unable to verify account or load data: '+friendly(e));$('rows').replaceChildren();}})();
-
-/* Finance Manager: Edit and Delete Departments */
-const originalRenderDepartments = render;
-
-render = function () {
-  originalRenderDepartments();
-
-  if (!isManager()) return;
-
-  const visibleDepartments = state.departments.filter(d => {
-    const q = $('search').value.toLocaleLowerCase();
-    const cm = customerMap();
-    return d.name.toLocaleLowerCase().includes(q) ||
-      linked(d.id).some(x =>
-        (cm.get(x.customer_company_id)?.name || '')
-          .toLocaleLowerCase().includes(q)
-      );
-  });
-
-  const tableRows = [...$('rows').querySelectorAll('tr')];
-
-  visibleDepartments.forEach((department, index) => {
-    const actions = tableRows[index]?.lastElementChild;
-    if (!actions) return;
-
-    actions.append(
-      document.createTextNode(' '),
-      btn('Edit', 'secondary small',
-        () => editDepartment(department.id)),
-      document.createTextNode(' '),
-      btn('Delete', 'danger small',
-        () => deleteDepartment(department.id))
-    );
-  });
-};
-
-function editDepartment(id) {
-  if (!isManager()) return;
-
-  const department = state.departments.find(d => d.id === id);
-  if (!department) return;
-
-  openModal('Edit Department', 'Finance Manager authorization required');
-
-  const f = field(
-    'Department Name *',
-    'Enter department name',
-    department.name
-  );
-
-  const err = el('div', 'inlineerror');
-
-  $('modalBody').append(
-    f.wrap,
-    el('p', 'hint',
-      'Renaming is blocked when purchase orders, projects, or user access reference this department.'),
-    err
-  );
-
-  $('modalFoot').append(
-    btn('Cancel', 'secondary', closeModal)
-  );
-
-  const save = btn('Save Changes', '', async () => {
-    const newName = f.input.value;
-
-    if (!newName.trim()) {
-      showInlineError(err, 'Department name is required.');
-      return;
-    }
-
-    if (newName === department.name) {
-      closeModal();
-      return;
-    }
-
-    busy(save, true);
-
-    try {
-      const result = await rpc('rename_department', {
-        p_department_id: id,
-        p_new_name: newName
-      });
-
-      if (result !== true) {
-        throw new Error('Department was not updated.');
-      }
-
-      closeModal();
-      await fetchAll();
-      toast('Department updated successfully.');
-    } catch (error) {
-      showInlineError(err, friendly(error));
-    } finally {
-      busy(save, false);
-    }
-  });
-
-  $('modalFoot').append(save);
-  f.input.focus();
-}
-
-function deleteDepartment(id) {
-  if (!isManager()) return;
-
-  const department = state.departments.find(d => d.id === id);
-  if (!department) return;
-
-  openModal(
-    'Delete Department',
-    'Finance Manager authorization required'
-  );
-
-  $('modalBody').append(
-    el('p', '',
-      `Are you sure you want to delete "${department.name}"?`),
-    el('p', 'hint',
-      'Deletion is permanent. Departments linked to purchase orders, projects, user access, or customers cannot be deleted.')
-  );
-
-  const err = el('div', 'inlineerror');
-  $('modalBody').append(err);
-
-  $('modalFoot').append(
-    btn('Cancel', 'secondary', closeModal)
-  );
-
-  const remove = btn('Delete Department', 'danger', async () => {
-    busy(remove, true);
-
-    try {
-      const result = await rpc('delete_department_safe', {
-        p_department_id: id
-      });
-
-      if (result !== true) {
-        throw new Error('Department was not deleted.');
-      }
-
-      closeModal();
-      await fetchAll();
-      toast('Department deleted successfully.');
-    } catch (error) {
-      showInlineError(err, friendly(error));
-    } finally {
-      busy(remove, false);
-    }
-  });
-
-  $('modalFoot').append(remove);
-}
-
 </script>
 </body></html>
