@@ -125,6 +125,7 @@ td{
 <style>
 #customerMasterCard{border-top:4px solid #0f766e}#customerMasterCard h2{margin-top:0}.cm-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.cm-toolbar input{min-width:240px;flex:1}.cm-scroll{overflow:auto}.cm-table{width:100%;min-width:1500px}.cm-table th{text-align:left}.cm-table td{vertical-align:top}.cm-actions{display:flex;gap:5px;flex-wrap:wrap}.cm-actions button{font-size:12px;padding:7px 9px}.cm-muted{color:#64748b;font-size:13px}.cm-dialog{display:none;position:fixed;inset:0;z-index:1600;background:#0f172aaa;overflow:auto;padding:20px;box-sizing:border-box}.cm-dialog-box{background:#fff;border-radius:12px;max-width:650px;margin:7vh auto;padding:24px}.cm-dialog label{display:block;font-weight:bold;margin-top:12px;margin-bottom:5px}.cm-dialog input,.cm-dialog select{width:100%;box-sizing:border-box;padding:10px}.cm-dialog .cm-actions{margin-top:18px}
 </style>
+<style>.customer-totals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:15px 0 22px}.customer-total-item{padding:15px;border:1px solid #dbe4ee;border-radius:10px;background:#f8fafc}.customer-total-item small{display:block;color:#64748b;margin-bottom:8px}.customer-total-item strong{font-size:19px;color:#0f172a;overflow-wrap:anywhere}.customer-totals-chart{display:grid;gap:12px;margin:16px 0}.customer-chart-row{display:grid;grid-template-columns:minmax(140px,200px) 1fr minmax(100px,150px);gap:10px;align-items:center;font-size:13px}.customer-chart-track{height:19px;background:#e2e8f0;border-radius:5px;overflow:hidden}.customer-chart-fill{height:100%;background:#0f766e;border-radius:5px}.customer-chart-amount{text-align:right;font-variant-numeric:tabular-nums}@media(max-width:600px){.customer-chart-row{grid-template-columns:110px 1fr 100px;font-size:11px}}</style>
 </head>
 
 <body>
@@ -163,6 +164,7 @@ onkeyup="filterProjects()">
 <div class="cm-toolbar"><input id="cmSearch" placeholder="Search customers" oninput="cmRender()"><button id="cmAdd" onclick="cmOpenCreate()" style="display:none;background:#0f766e">Add Customer</button><button onclick="cmLoad()">Refresh Customers</button></div>
 <div id="cmStatus" class="cm-muted">Loading customers...</div><div id="cmList" class="cm-scroll"></div>
 </div>
+<div class="card" id="customerTotalsCard"><h2>Customer Financial Totals</h2><p class="cm-muted">Consolidated amounts across the customer financial records (SAR). Search customers to update the totals and chart.</p><div id="customerTotalsGrid" class="customer-totals-grid">Loading financial totals...</div><h3>Financial Totals Comparison</h3><div id="customerTotalsChart" class="customer-totals-chart" role="img" aria-label="Financial totals bar chart"></div><p id="customerTotalsNote" class="cm-muted"></p></div>
 <div class="card" id="companiesCard" style="display:none"><h2>Customer Financial Summary</h2><p style="color:#64748b">Summary of projects, purchase orders, billing, collections, and retention by company.</p><div class="company-search"><input id="companySearch" type="text" placeholder="Search company name" oninput="filterCompanyTiles()"></div><div id="companiesList">Loading companies...</div></div>
 
 <div class="card" id="projectsCard" style="display:none">
@@ -1597,6 +1599,32 @@ async function cmUnlink(id,dep){if(!cmManager())return;if(!confirm('Remove this 
 async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
 // Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
 window.addEventListener('load',()=>cmLoad());
+</script>
+<script>
+(function(){
+ const fields=[['PO Value',3],['PO Balance',4],['Total Billing',5],['Total Paid',6],['Total Collected',7],['Outstanding Balance',8],['Pending Approval',9],['Overdue Balance',10],['Not Yet Due',11],['Retention',12]];
+ const fmt=n=>new Intl.NumberFormat('en-SA',{maximumFractionDigits:2,minimumFractionDigits:2}).format(n);
+ const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function update(){
+  const grid=document.getElementById('customerTotalsGrid'),chart=document.getElementById('customerTotalsChart');if(!grid||!chart)return;
+  const rows=[...document.querySelectorAll('#companiesList .company-row')];
+  if(!rows.length){grid.textContent='Financial records are not loaded yet.';chart.textContent='';return;}
+  const q=(document.getElementById('cmSearch')?.value||'').trim().toLowerCase();
+  const active=rows.filter(r=>!q||r.dataset.company?.includes(q));
+  const sums=fields.map(([,col])=>active.reduce((n,r)=>{const v=(r.cells[col]?.textContent||'').replace(/[^0-9.-]/g,'');return n+(Number(v)||0);},0));
+  grid.innerHTML=fields.map(([label],i)=>`<div class="customer-total-item"><small>${esc(label)}</small><strong>${fmt(sums[i])}</strong><small>SAR</small></div>`).join('');
+  const selected=[2,4,5,6,7,8,9],max=Math.max(1,...selected.map(i=>sums[i]));
+  chart.innerHTML=selected.map(i=>`<div class="customer-chart-row"><span>${esc(fields[i][0])}</span><div class="customer-chart-track"><div class="customer-chart-fill" style="width:${Math.max(0,sums[i])/max*100}%"></div></div><span class="customer-chart-amount">${fmt(sums[i])}</span></div>`).join('');
+  document.getElementById('customerTotalsNote').textContent=`${active.length} of ${rows.length} customers with financial records. Totals follow the same calculation as the customer financial table.`;
+ }
+ let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;update();});}
+ document.addEventListener('DOMContentLoaded',()=>{
+  const list=document.getElementById('companiesList');if(list)new MutationObserver(schedule).observe(list,{childList:true,subtree:false});
+  document.getElementById('cmSearch')?.addEventListener('input',schedule);
+  document.getElementById('companySearch')?.addEventListener('input',schedule);
+  schedule();
+ });
+})();
 </script>
 </body>
 </html>
