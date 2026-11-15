@@ -3,17 +3,17 @@
 (function () {
   'use strict';
 
-  const items = [
-    ['Dashboard', 'dashboard.html'],
-    ['Customers', 'companies.html'],
-    ['Departments', 'departments.html'],
-    ['Projects', 'projects.html'],
-   ['Purchase Orders', 'purchase-orders.html'],
-    ['Invoices', 'reports.html?report=open'],
-    ['Collections', 'collections.html'],
-    ['Reports', 'reports.html'],
-    ['User Management', 'user-management.html', 'finance_manager']
-  ];
+ const items = [
+  ['Dashboard', 'dashboard.html'],
+  ['Customers', 'companies.html'],
+  ['Departments', 'departments.html'],
+  ['Projects', 'projects.html'],
+  ['Purchase Orders', 'purchase-orders.html'],
+  ['Invoices', 'invoices.html'],
+  ['Collections', 'collections.html'],
+  ['Reports', 'reports.html'],
+  ['User Management', 'user-management.html', 'finance_manager']
+];
 
   function role() {
     return String(sessionStorage.getItem('pe_user_role') || '')
