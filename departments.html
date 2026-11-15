@@ -49,5 +49,157 @@ function showNewCustomer(deptId){const d=state.departments.find(x=>x.id===deptId
 function confirmUnlink(deptId,customerId){if(!isManager())return;const d=state.departments.find(x=>x.id===deptId),c=state.customers.find(x=>x.id===customerId);openModal('Unlink Customer','Finance Manager approval required');$('modalBody').append(el('p','',`Remove the relationship between "${c?.name||customerId}" and "${d?.name||deptId}"?`),el('p','hint','This action is blocked by the database when related purchase orders exist. It does not delete the customer.'));const err=el('div','inlineerror');$('modalBody').append(err);$('modalFoot').append(btn('Cancel','secondary',()=>showDepartment(deptId)));const save=btn('Unlink Customer','danger',async()=>{busy(save,true);try{const result=await rpc('unlink_customer_from_department',{p_customer_company_id:customerId,p_department_id:deptId});if(result!==true)throw new Error('Relationship was not removed.');await fetchAll();toast('Customer relationship removed.');showDepartment(deptId)}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});$('modalFoot').append(save)}
 $('search').addEventListener('input',render);$('refresh').onclick=fetchAll;$('addDepartment').onclick=showNewDepartment;$('signout').onclick=async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')};
 (async()=>{try{if(await checkLogin())await fetchAll()}catch(e){message('Unable to verify account or load data: '+friendly(e));$('rows').replaceChildren();}})();
+
+/* Finance Manager: Edit and Delete Departments */
+const originalRenderDepartments = render;
+
+render = function () {
+  originalRenderDepartments();
+
+  if (!isManager()) return;
+
+  const visibleDepartments = state.departments.filter(d => {
+    const q = $('search').value.toLocaleLowerCase();
+    const cm = customerMap();
+    return d.name.toLocaleLowerCase().includes(q) ||
+      linked(d.id).some(x =>
+        (cm.get(x.customer_company_id)?.name || '')
+          .toLocaleLowerCase().includes(q)
+      );
+  });
+
+  const tableRows = [...$('rows').querySelectorAll('tr')];
+
+  visibleDepartments.forEach((department, index) => {
+    const actions = tableRows[index]?.lastElementChild;
+    if (!actions) return;
+
+    actions.append(
+      document.createTextNode(' '),
+      btn('Edit', 'secondary small',
+        () => editDepartment(department.id)),
+      document.createTextNode(' '),
+      btn('Delete', 'danger small',
+        () => deleteDepartment(department.id))
+    );
+  });
+};
+
+function editDepartment(id) {
+  if (!isManager()) return;
+
+  const department = state.departments.find(d => d.id === id);
+  if (!department) return;
+
+  openModal('Edit Department', 'Finance Manager authorization required');
+
+  const f = field(
+    'Department Name *',
+    'Enter department name',
+    department.name
+  );
+
+  const err = el('div', 'inlineerror');
+
+  $('modalBody').append(
+    f.wrap,
+    el('p', 'hint',
+      'Renaming is blocked when purchase orders, projects, or user access reference this department.'),
+    err
+  );
+
+  $('modalFoot').append(
+    btn('Cancel', 'secondary', closeModal)
+  );
+
+  const save = btn('Save Changes', '', async () => {
+    const newName = f.input.value;
+
+    if (!newName.trim()) {
+      showInlineError(err, 'Department name is required.');
+      return;
+    }
+
+    if (newName === department.name) {
+      closeModal();
+      return;
+    }
+
+    busy(save, true);
+
+    try {
+      const result = await rpc('rename_department', {
+        p_department_id: id,
+        p_new_name: newName
+      });
+
+      if (result !== true) {
+        throw new Error('Department was not updated.');
+      }
+
+      closeModal();
+      await fetchAll();
+      toast('Department updated successfully.');
+    } catch (error) {
+      showInlineError(err, friendly(error));
+    } finally {
+      busy(save, false);
+    }
+  });
+
+  $('modalFoot').append(save);
+  f.input.focus();
+}
+
+function deleteDepartment(id) {
+  if (!isManager()) return;
+
+  const department = state.departments.find(d => d.id === id);
+  if (!department) return;
+
+  openModal(
+    'Delete Department',
+    'Finance Manager authorization required'
+  );
+
+  $('modalBody').append(
+    el('p', '',
+      `Are you sure you want to delete "${department.name}"?`),
+    el('p', 'hint',
+      'Deletion is permanent. Departments linked to purchase orders, projects, user access, or customers cannot be deleted.')
+  );
+
+  const err = el('div', 'inlineerror');
+  $('modalBody').append(err);
+
+  $('modalFoot').append(
+    btn('Cancel', 'secondary', closeModal)
+  );
+
+  const remove = btn('Delete Department', 'danger', async () => {
+    busy(remove, true);
+
+    try {
+      const result = await rpc('delete_department_safe', {
+        p_department_id: id
+      });
+
+      if (result !== true) {
+        throw new Error('Department was not deleted.');
+      }
+
+      closeModal();
+      await fetchAll();
+      toast('Department deleted successfully.');
+    } catch (error) {
+      showInlineError(err, friendly(error));
+    } finally {
+      busy(remove, false);
+    }
+  });
+
+  $('modalFoot').append(remove);
+}
+
 </script>
 </body></html>
