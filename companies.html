@@ -481,6 +481,7 @@ async function deletePO(id){
   }
   const {error}=await supabaseClient.from('pos').delete().eq('id',id);
   if(error){alert('Purchase order deletion failed: '+error.message);return;}
+  if(registerRecord?.type==='po'){returnToRecordRegister();return;}
   if(currentInvoicePoNo===poNo) currentInvoicePoNo=null;
   if(Number(currentProjectId)===Number(poRecord.project_id)) await openProject(currentProjectId);
   else await showClosedPurchaseOrders();
@@ -506,6 +507,7 @@ async function deleteInvoice(id){
   const {error}=await supabaseClient.from('invoices').delete().eq('id',id);
   if(error){alert('Invoice deletion failed: '+error.message);return;}
   try{const {data:po}=await supabaseClient.from('pos').select('po_no,po_value_ex_vat,advance_payment_percentage').eq('po_no',inv.po_no).single();if(po)await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){console.warn('Advance recalculation after invoice deletion:',e);}
+  if(registerRecord?.type==='invoice'){returnToRecordRegister();return;}
   if(returnToPaidInvoices){returnToPaidInvoices=false;await showPaidInvoices();}
   else await openInvoices(inv.po_no);
   alert('Invoice deleted successfully.');
@@ -1071,7 +1073,8 @@ async function showInvoiceDetails(invoiceId){
 
   document.getElementById("invoiceModalContent").innerHTML = formHtml;
   document.getElementById("invoiceModal").style.display = "block";
-  const attachBtn=document.createElement("button"); attachBtn.textContent="Attachments"; attachBtn.onclick=()=>manageAttachments('invoice',invoiceId); document.querySelector("#invoiceModalContent .modal-actions")?.appendChild(attachBtn);
+  if(registerRecord?.type==='invoice') recordDetailActions();
+  else {const attachBtn=document.createElement("button"); attachBtn.textContent="Attachments"; attachBtn.onclick=()=>manageAttachments('invoice',invoiceId); document.querySelector("#invoiceModalContent .modal-actions")?.appendChild(attachBtn);}
   updateExistingInvoiceTotals();
   ["inv_approval_date", "inv_payment_terms", "inv_invoice_amount", "inv_paid_amount"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", updateExistingInvoiceTotals);
@@ -1127,11 +1130,17 @@ function enableInvoiceEdit(){
     .forEach(el => el.disabled = false);
   document.getElementById("invoiceEditButton").style.display = "none";
   document.getElementById("invoiceSaveButton").style.display = "inline-block";
+  if(registerRecord?.type==='invoice'){
+   const actions=document.querySelector('#invoiceModalContent .modal-actions');
+   actions.querySelectorAll('button:not(#invoiceSaveButton)').forEach(button=>button.remove());
+   addRecordAction('Back',showRegisterRecord);
+  }
 }
 
 function closeInvoiceModal(){
   document.getElementById("invoiceModal").style.display = "none";
   currentInvoiceId = null;
+  if(registerRecord)returnToRecordRegister();
 }
 
 async function saveInvoiceChanges(){
@@ -1186,6 +1195,7 @@ async function saveInvoiceChanges(){
   catch(e){document.getElementById("invoiceEditMessage").textContent = "Invoice saved, but advance schedule recalculation failed: " + e.message;document.getElementById("invoiceEditMessage").style.color = "red";return;}
   document.getElementById("invoiceEditMessage").textContent = "Invoice updated successfully.";
   document.getElementById("invoiceEditMessage").style.color = "green";
+  if(registerRecord?.type==='invoice'){await showRegisterRecord();return;}
   const poNo = currentInvoicePoNo;
   closeInvoiceModal();
   if(returnToPaidInvoices){returnToPaidInvoices=false;await showPaidInvoices();}else{await openInvoices(poNo);}
@@ -1242,14 +1252,14 @@ saveProject=async function(){
  const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
 };
 
-async function editPO(id){
+async function editPO(id,viewOnly=false){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}currentPOEditId=id;
  const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
  const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
- renderPOForm(data,projects,advanceAmount,advanceUsed,false,id);
+ renderPOForm(data,projects,advanceAmount,advanceUsed,false,id,viewOnly);
 }
-function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id){
- const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>${creating?'Add':'Edit'} Purchase Order</h2>
+function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOnly=false){
+ const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>${creating?'Add':viewOnly?'View':'Edit'} Purchase Order</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
  <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company / Customer</label><input id="poe_company" value="${escapeHtml(data.company)}"></div>
  <div class="invoice-field"><label>Department</label><input id="poe_department" value="${escapeHtml(data.department)}"></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
@@ -1265,6 +1275,16 @@ function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id){
  <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
  </div></section><div class="modal-actions"><button id="savePOButton" class="btn-po" onclick="savePOChanges(${creating})">${creating?'Save Purchase Order':'Save Changes'}</button>${creating?'':`<button onclick="manageAttachments('po',${id})">Attachments</button>`}<button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
+ if(viewOnly){
+  box.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=true);
+  box.querySelector('.modal-actions').replaceChildren();
+  addRecordAction('Edit',()=>editPO(id));
+  recordDetailActions();
+ }else if(registerRecord?.type==='po'&&!creating){
+  const actions=box.querySelector('.modal-actions');
+  actions.querySelectorAll('button:not(#savePOButton)').forEach(button=>button.remove());
+  addRecordAction('Back',showRegisterRecord);
+ }
 }
 function updatePOAdvancePreview(){const v=Number(document.getElementById('poe_value')?.value||0),p=Number(document.getElementById('poe_advance_pct')?.value||0);const e=document.getElementById('poe_advance_amount');if(e)e.value=(v*p/100).toFixed(2);}
 
@@ -1316,6 +1336,7 @@ async function savePOChanges(creating=false){
  const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}
  if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
  try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
+ if(registerRecord?.type==='po'){await showRegisterRecord();return;}
  closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }
 
@@ -1425,6 +1446,11 @@ async function manageAttachments(type,id){
  currentAttachmentType=type;currentAttachmentId=id;
  document.getElementById('invoiceModalContent').innerHTML=`<h2>${type==='po'?'Purchase Order':'Invoice'} Attachments</h2><div id="attachmentAuth"></div><div id="attachmentWorkspace" style="display:none"><input id="attachmentFiles" type="file" multiple><button class="btn-po" onclick="uploadAttachments()">Upload</button><div id="attachmentList">Loading attachments...</div></div><div class="modal-actions"><button onclick="closeInvoiceModal()">Close</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
+ if(registerRecord){
+  document.querySelector('#invoiceModalContent .modal-actions').replaceChildren();
+  addRecordAction('Back to Record',showRegisterRecord);
+  addRecordAction('Back to Register',returnToRecordRegister);
+ }
  const {data:{session}}=await attachmentClient.auth.getSession();
  if(!session){document.getElementById('attachmentAuth').innerHTML=`<div class="warning-panel">Sign in to upload or view confidential attachments. Create an authorized user first in Supabase Authentication → Users.</div><div class="invoice-fields"><div class="invoice-field"><label>Email</label><input id="attachmentEmail" type="email" autocomplete="username"></div><div class="invoice-field"><label>Password</label><input id="attachmentPassword" type="password" autocomplete="current-password"></div></div><button class="btn-po" onclick="signInAttachmentUser()">Sign In</button><p id="attachmentAuthMessage"></p>`;return;}
  document.getElementById('attachmentWorkspace').style.display='block';await loadAttachments();
@@ -1505,6 +1531,43 @@ async function logoutUser(){
   window.location.replace('login.html');
 }
 
+let registerRecord=null;
+function returnToRecordRegister(){
+ location.href=registerRecord.type==='po'?'purchase-orders.html':'invoices.html';
+}
+function addRecordAction(label,handler,style=''){
+ const button=document.createElement('button');
+ button.type='button';button.textContent=label;button.className=style;button.onclick=handler;
+ document.querySelector('#invoiceModalContent .modal-actions').appendChild(button);
+ return button;
+}
+function recordDetailActions(){
+ const {type,id}=registerRecord;
+ addRecordAction('Delete',()=>type==='po'?deletePO(id):deleteInvoice(id),'btn-danger');
+ addRecordAction('Add Attachment',()=>manageAttachments(type,id));
+ addRecordAction('Back',returnToRecordRegister);
+ document.getElementById('invoiceModalContent').querySelectorAll('button[onclick="closeInvoiceModal()"]').forEach(button=>button.remove());
+}
+async function openRegisterRecord(){
+ const params=new URLSearchParams(location.search);
+ const type=params.get('record');
+ if(!['po','invoice'].includes(type))return false;
+ let id=params.get('id');
+ if(!id&&type==='invoice'&&params.get('invoice_no')){
+  const {data,error}=await supabaseClient.from('invoices').select('id').eq('invoice_no',params.get('invoice_no')).maybeSingle();
+  if(error){alert('Could not load invoice: '+error.message);return true;}
+  id=data?.id;
+ }
+ if(!/^\d+$/.test(String(id))){alert('The requested record could not be found.');return true;}
+ registerRecord={type,id};
+ if(params.get('view')==='attachments'){await manageAttachments(type,id);return true;}
+ await showRegisterRecord();
+ return true;
+}
+function showRegisterRecord(){
+ return registerRecord.type==='po'?editPO(registerRecord.id,true):showInvoiceDetails(registerRecord.id);
+}
+
 function openRequestedCreation(){
  const params=new URLSearchParams(location.search);
  const mode=params.get('create');
@@ -1551,7 +1614,7 @@ async function initializeDashboard(){
   await loadExecutiveDashboard();
   setDashboardFocus('all');
   await loadCompanies();
-  await openRequestedCreation();
+  if(!await openRegisterRecord())await openRequestedCreation();
   if(isExecutiveRole()) renderExecutiveDashboard();
   // Re-render after the analytics card becomes visible; Chart.js cannot size charts inside display:none containers.
   if(isExecutiveRole()) await new Promise(resolve=>requestAnimationFrame(()=>{renderExecutiveDashboard();resolve();}));

@@ -75,7 +75,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
   <div class="note muted" style="margin-top:14px">The due date and financial totals are calculated by the existing database view. This form edits only fields used by the current invoice entry screen.</div>
   <div id="modalMessage" class="modalmsg" role="status"></div>
  </div>
- <div class="modalfoot"><button type="button" class="secondary" id="cancelEdit">Cancel</button><button type="submit" class="teal" id="saveEdit">Save Changes</button></div>
+ <div class="modalfoot"><button type="button" class="secondary" id="cancelEdit">Back</button><button type="submit" class="teal" id="saveEdit">Save Changes</button></div>
  </form>
 </div>
 </div>
@@ -155,14 +155,23 @@ function applyFilters(){
  });
  render();
 }
+function registerRecordLinks(type,row){
+ const params=new URLSearchParams({record:type});
+ if(row.id!=null)params.set('id',row.id);
+ else if(type==='invoice'&&row.invoice_no)params.set('invoice_no',row.invoice_no);
+ else return '';
+ const href='companies.html?'+params;
+ return '<a class="btn" href="'+esc(href)+'">Open</a> <a class="btn secondary" href="'+esc(href+'&view=attachments')+'">Attachments</a>';
+}
+
 function render(){
  const a=filtered,sum=f=>a.reduce((s,x)=>s+f(x),0);
  const values={ex:sum(x=>num(x.invoice_amount)),vat:sum(invoiceVat),gross:sum(invoiceGross),paid:sum(x=>num(x.paid_amount)),balance:sum(invoiceBalance),retention:sum(x=>num(x.retention_balance)),overdue:sum(x=>invoiceStatus(x)==='Overdue'?invoiceBalance(x):0)};
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-edit-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)))} ✎</button></td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(dateOnly(x.approval_date||x.start_date))}</td><td>${esc(dateOnly(x.due_date))}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${money(invoiceVat(x))}</td><td class="num">${money(invoiceGross(x))}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(invoiceBalance(x))}</td><td class="num">${money(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td></tr>`});
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Edit</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
+ const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-edit-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)))} ✎</button></td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(dateOnly(x.approval_date||x.start_date))}</td><td>${esc(dateOnly(x.due_date))}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${money(invoiceVat(x))}</td><td class="num">${money(invoiceGross(x))}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(invoiceBalance(x))}</td><td class="num">${money(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td>${registerRecordLinks('invoice',x)}</td></tr>`});
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Edit</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-edit-invoice]').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.dataset.editInvoice))));
  $('resultCount').textContent=`Showing ${a.length} of ${allInvoices.length} invoices`;
 }

@@ -94,14 +94,23 @@ function applyFilters(){
  filtered=allPO.filter(x=>(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c.toLowerCase()))&&(!d||String(x.department||'').toLowerCase().includes(d.toLowerCase()))&&(!p||String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
  render();
 }
+function registerRecordLinks(type,row){
+ const params=new URLSearchParams({record:type});
+ if(row.id!=null)params.set('id',row.id);
+ else if(type==='invoice'&&row.invoice_no)params.set('invoice_no',row.invoice_no);
+ else return '';
+ const href='companies.html?'+params;
+ return '<a class="btn" href="'+esc(href)+'">Open</a> <a class="btn secondary" href="'+esc(href+'&view=attachments')+'">Attachments</a>';
+}
+
 function render(){
  const sum=(fn)=>filtered.reduce((s,x)=>s+fn(x),0),active=filtered.filter(x=>!x.archive&&String(x.status||'Open').toLowerCase()!=='closed');
  const invoiced=sum(x=>invoiceTotals(x).invoiced),poValue=sum(x=>num(x.po_value_ex_vat)),remaining=sum(x=>invoiceTotals(x).remaining),advance=sum(x=>num(x.advance_received_amount));
  const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
  renderTotalsChart({poValue,invoiced,remaining,advance,amortised:sum(x=>invoiceTotals(x).amort)});
- const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><a class="btn secondary" href="reports.html?report=pos">PO Report</a></td></tr>`;});
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>PO Number</th><th>Customer</th><th>Department</th><th>Project</th><th>PO Date</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining Ex VAT</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Status</th><th>Report</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
+ const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><a class="btn secondary" href="reports.html?report=pos">PO Report</a></td><td>${registerRecordLinks('po',po)}</td></tr>`;});
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>PO Number</th><th>Customer</th><th>Department</th><th>Project</th><th>PO Date</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining Ex VAT</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Status</th><th>Report</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(btn=>btn.addEventListener('click',()=>togglePODetail(btn.dataset.drillPo,btn)));
  $('resultCount').textContent=`Showing ${filtered.length} of ${allPO.length} purchase orders`;
 }
@@ -127,7 +136,7 @@ function togglePODetail(poNo,button){
  const cards=entries.map(([k,v])=>`<div class="po-detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('');
  const invoiceRows=inv.length?`<div class="tablewrap"><table style="min-width:600px"><thead><tr><th>Invoice Reference</th><th>Invoice Amount</th><th>Advance Amortisation</th><th>Net Invoice</th></tr></thead><tbody>${inv.map((x,i)=>`<tr><td><button type="button" class="invoice-drill" data-invoice-drill="${esc(poNo)}::${i}" aria-expanded="false">${esc(x.invoice_no||x.invoice_number||x.invoice_id||('Invoice '+(i+1)))} ▾</button></td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.invoice_total_after_advance??x.invoice_total)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoice records are currently linked to this purchase order.</div>';
  const tr=document.createElement('tr');tr.className='po-detail-row';tr.dataset.poDetail=poNo;
- tr.innerHTML=`<td colspan="15"><div class="po-detail">${cards}</div><div class="po-invoices"><h3>Linked invoices (${inv.length})</h3>${invoiceRows}</div></td>`;
+ tr.innerHTML=`<td colspan="16"><div class="po-detail">${cards}</div><div class="po-invoices"><h3>Linked invoices (${inv.length})</h3>${invoiceRows}</div></td>`;
  const main=$('tableWrap').querySelector(`[data-po-row="${CSS.escape(String(poNo))}"]`);
  if(main){main.after(tr);button.setAttribute('aria-expanded','true');button.textContent=String(poNo)+' ▴';
  tr.querySelectorAll('[data-invoice-drill]').forEach(b=>b.addEventListener('click',()=>toggleInvoiceDetail(poNo,Number(b.dataset.invoiceDrill.split('::')[1]),b)));}
