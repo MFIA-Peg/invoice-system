@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Power Energy | Purchase Orders</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--navy:#14263d;--navy2:#203d5d;--blue:#2563eb;--teal:#0f766e;--bg:#f3f6fa;--ink:#172033;--muted:#64748b;--line:#e2e8f0;--white:#fff;--red:#b42318;--shadow:0 8px 28px rgba(19,38,61,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,Segoe UI,Arial,sans-serif}
+.nav{background:var(--navy);color:#fff;position:sticky;top:0;z-index:20;box-shadow:0 3px 16px #14263d20}.navin{max-width:1600px;margin:auto;padding:12px 22px;display:flex;align-items:center;gap:15px;flex-wrap:wrap}.brand{font-weight:800;white-space:nowrap}.brand small{display:block;color:#a9bdd4;font-size:10px;letter-spacing:1.4px}.links{display:flex;gap:5px;flex:1;flex-wrap:wrap}.links a{padding:8px 10px;border-radius:7px;color:#dbeafe;text-decoration:none;font-size:12px;font-weight:650}.links a:hover,.links a.active{background:#ffffff20;color:white}.navright{display:flex;gap:9px;align-items:center}.user{font-size:12px;color:#cbd5e1}
+.page{max-width:1600px;margin:auto;padding:25px 22px 60px}.hero{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border-radius:16px;padding:23px 25px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.hero h1{margin:0;font-size:26px}.hero p{margin:5px 0 0;color:#dbeafe}.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);color:white;font:650 12px Arial,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}.btn.secondary,button.secondary{background:#475569}.btn.teal,button.teal{background:var(--teal)}button:disabled{opacity:.55;cursor:wait}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:17px;box-shadow:var(--shadow)}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.panel h2{font-size:17px;color:var(--navy);margin:0}.muted{color:var(--muted);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.kpi{border:1px solid var(--line);border-radius:11px;padding:15px;background:linear-gradient(145deg,#fff,#f8fafc);min-width:0}.kpi .label{font-size:12px;color:var(--muted);font-weight:700}.kpi .value{font-size:clamp(18px,2vw,25px);font-weight:800;color:var(--navy);margin-top:8px;overflow-wrap:anywhere}.kpi .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.filters{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px}.field label{display:block;font-size:11px;font-weight:750;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:var(--ink);font:13px Arial}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:1450px;font-size:12px}thead{background:var(--navy);color:#fff}th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{font-size:10px;letter-spacing:.45px;text-transform:uppercase;position:sticky;top:0;z-index:1}td.num{text-align:right;font-variant-numeric:tabular-nums}tbody tr:hover{background:#f8fafc}.pill{display:inline-block;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:750;background:#dcfce7;color:#166534}.pill.closed{background:#e2e8f0;color:#475569}.empty{text-align:center;padding:35px;color:var(--muted)}.error{display:none;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;padding:12px;border-radius:9px;margin-bottom:14px}.footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:12px;color:var(--muted);font-size:11px}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:650px){.page{padding:12px}.navin{padding:10px}.links{order:3;flex-basis:100%;overflow:auto;flex-wrap:nowrap}.links a{white-space:nowrap}.user{display:none}.hero{padding:18px}.hero h1{font-size:22px}.kpis,.filters{grid-template-columns:1fr 1fr}}@media(max-width:420px){.kpis,.filters{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="nav"><div class="navin">
+<div class="brand">POWER ENERGY<small>INVOICE MANAGEMENT</small></div>
+<nav class="links" aria-label="Main navigation">
+<a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="companies.html">Projects</a><a class="active" href="purchase-orders.html">Purchase Orders</a><a href="reports.html?report=open">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a>
+</nav><div class="navright"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div>
+</div></header>
+<main class="page">
+<section class="hero"><div><h1>Purchase Orders</h1><p>Purchase order register, invoicing utilization and remaining contract value</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=pos">PO Financial Report</a></div></section>
+<div id="errorBox" class="error" role="alert"></div>
+<section class="panel"><div class="panelhead"><div><h2>Purchase Order Summary</h2><div class="muted">Values are shown before VAT unless stated otherwise.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading purchase orders...</div></div></section>
+<section class="panel"><div class="panelhead"><div><h2>Find Purchase Orders</h2><div class="muted">Filter by customer, department, project, status or PO number.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
+<div class="filters">
+<div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="PO number or notes"></div>
+<div class="field"><label for="company">Customer / Company</label><select id="company"><option value="">All customers</option></select></div>
+<div class="field"><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
+<div class="field"><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
+<div class="field"><label for="status">Status</label><select id="status"><option value="">All statuses</option><option value="Open">Open</option><option value="Closed">Closed</option></select></div>
+</div></section>
+<section class="panel"><div class="panelhead"><div><h2>Purchase Order Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div>
+<div class="tablewrap" id="tableWrap"><div class="empty">Loading purchase orders...</div></div>
+<div class="footer"><span>Source: Supabase projects, pos and invoice_details_with_retention.</span><span>Currency: SAR</span></div>
+</section>
+</main>
+<script>
+'use strict';
+const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
+const SUPABASE_KEY='sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let allPO=[],projects=[],invoices=[],filtered=[];
+const $=id=>document.getElementById(id),num=v=>Number(v||0);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(v));
+function showError(s){$('errorBox').textContent=s;$('errorBox').style.display=s?'block':'none';}
+async function checkSession(){
+ if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return false;}
+ const {data:{session},error}=await db.auth.getSession();
+ if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return false;}
+ const {data:p,error:e}=await db.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
+ if(e||!p||p.active!==true){await db.auth.signOut();sessionStorage.clear();location.replace('login.html');return false;}
+ sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
+}
+async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
+async function loadAll(){
+ $('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
+ try{
+  const [p,po,iv]=await Promise.all([fetchRows('projects','id,project_name,company,department,status'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','po_no,invoice_amount,advance_amortisation,invoice_total_after_advance,invoice_total')]);
+  projects=p;allPO=po;invoices=iv;populateFilters();applyFilters();
+ }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
+ finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
+}
+function setOptions(id,values,label){const el=$(id),old=el.value,vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));el.innerHTML=`<option value="">All ${label}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(vals.includes(old))el.value=old;}
+function populateFilters(){setOptions('company',allPO.map(x=>x.company),'customers');setOptions('department',allPO.map(x=>x.department),'departments');setOptions('project',allPO.map(x=>x.project_name),'projects');}
+function invoiceTotals(po){const rows=invoices.filter(i=>String(i.po_no)===String(po.po_no));const invoiced=rows.reduce((s,x)=>s+num(x.invoice_amount),0);const gross=rows.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0);const amort=rows.reduce((s,x)=>s+num(x.advance_amortisation),0);return{count:rows.length,invoiced,gross,amort,remaining:Math.max(0,num(po.po_value_ex_vat)-invoiced)};}
+function applyFilters(){
+ const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
+ filtered=allPO.filter(x=>(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||x.company===c)&&(!d||x.department===d)&&(!p||x.project_name===p)&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
+ render();
+}
+function render(){
+ const sum=(fn)=>filtered.reduce((s,x)=>s+fn(x),0),active=filtered.filter(x=>!x.archive&&String(x.status||'Open').toLowerCase()!=='closed');
+ const invoiced=sum(x=>invoiceTotals(x).invoiced),poValue=sum(x=>num(x.po_value_ex_vat)),remaining=sum(x=>invoiceTotals(x).remaining),advance=sum(x=>num(x.advance_received_amount));
+ const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
+ $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
+ const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr><td><strong>${esc(po.po_no)}</strong></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><a class="btn secondary" href="reports.html?report=pos">PO Report</a></td></tr>`;});
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>PO Number</th><th>Customer</th><th>Department</th><th>Project</th><th>PO Date</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining Ex VAT</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Status</th><th>Report</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
+ $('resultCount').textContent=`Showing ${filtered.length} of ${allPO.length} purchase orders`;
+}
+function exportCSV(){
+ const headers=['PO Number','Customer','Department','Project','PO Date','Expiry Date','PO Value Ex VAT','VAT Applicable','Invoice Count','Invoiced Ex VAT','Remaining Ex VAT','Advance Percentage','Advance Amount','Advance Received','Advance Amortised','Advance Balance','Retention Applicable','Retention Percentage','Retention Period Days','Status','Notes'];
+ const rows=filtered.map(p=>{const m=invoiceTotals(p),adv=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return [p.po_no,p.company,p.department,p.project_name,p.po_date,p.expiry_date,p.po_value_ex_vat,p.vat,m.count,m.invoiced,m.remaining,p.advance_payment_percentage,adv,p.advance_received_amount,m.amort,Math.max(0,adv-m.amort),p.retention_applicable,p.retention_percentage,p.retention_period_days,p.status,p.notes];});
+ const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='purchase-orders.csv';a.click();URL.revokeObjectURL(url);
+}
+$('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{$('search').value='';['company','department','project','status'].forEach(id=>$(id).value='');applyFilters();});
+['search','company','department','project','status'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',applyFilters));
+$('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html');});
+(async()=>{if(await checkSession())await loadAll();})();
+</script>
+</body></html>
