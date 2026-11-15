@@ -52,12 +52,20 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(v));
 function showError(s){$('errorBox').textContent=s;$('errorBox').style.display=s?'block':'none';}
 async function checkSession(){
- if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return false;}
- const {data:{session},error}=await db.auth.getSession();
- if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return false;}
- const {data:p,error:e}=await db.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
- if(e||!p||p.active!==true){await db.auth.signOut();sessionStorage.clear();location.replace('login.html');return false;}
- sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
+ const {data:{user},error}=await db.auth.getUser();
+ if(error||!user){location.replace('login.html');return false;}
+ const {data:p,error:e}=await db.from('users_profile')
+   .select('id,username,full_name,role,active,must_change_password')
+   .eq('auth_user_id',user.id).maybeSingle();
+ if(e) throw e;
+ if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
+ if(p.must_change_password===true){location.replace('change-password.html');return false;}
+ sessionStorage.setItem('pe_user_role',p.role||'');
+ sessionStorage.setItem('pe_username',p.username||'');
+ sessionStorage.setItem('pe_full_name',p.full_name||'');
+ $('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;
+ $('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';
+ return true;
 }
 async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
 async function loadAll(){
