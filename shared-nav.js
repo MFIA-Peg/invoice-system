@@ -8,7 +8,7 @@
     ['Customers', 'companies.html'],
     ['Departments', 'departments.html'],
     ['Projects', 'companies.html'],
-    ['Purchase Orders', 'reports.html?report=pos'],
+   ['Purchase Orders', 'purchase-orders.html'],
     ['Invoices', 'reports.html?report=open'],
     ['Collections', 'collections.html'],
     ['Reports', 'reports.html'],
