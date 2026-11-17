@@ -56,17 +56,22 @@
   }
   function monthly(scope){
     const host=document.getElementById('monthlyComparison');if(!host)return;
-    const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=[Array(12).fill(0),Array(12).fill(0),Array(12).fill(0)];
+    const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=Array.from({length:4},()=>Array(12).fill(0));
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     function add(values,date,value){if(PEAnnual.inYear(date)){const m=Number(String(date).slice(5,7))-1;if(m>=0&&m<12)values[m]+=value;}}
-    for(const invoice of s.scoped){const m=PEAnnual.metrics(invoice,s.orderMap.get(text(invoice.po_no)));add(series[0],invoice.start_date,m.total);add(series[1],PEAnnual.due(invoice),m.total);}
+    for(const invoice of s.scoped){
+      const m=PEAnnual.metrics(invoice,s.orderMap.get(text(invoice.po_no))),due=PEAnnual.due(invoice);
+      add(series[0],invoice.start_date,m.total);add(series[1],due,m.total);
+      if(due&&due<today&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim()))add(series[3],due,m.balance);
+    }
     for(const c of s.collections)add(series[2],c.collection_date,num(c.amount));
-    const labels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],colors=['#2563eb','#d97706','#0f766e'];
+    const labels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],colors=['#2563eb','#d97706','#0f766e','#dc2626'];
     const max=Math.max(1,...series.flat()),width=1100,height=310,left=85,top=24,bottom=258,plotW=990,plotH=bottom-top,step=plotW/12;
-    let svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Monthly invoice, expected collection and actual collection comparison for '+y+'">';
+    let svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Monthly invoice, expected collection, actual collection and current overdue balance comparison for '+y+'">';
     for(let i=0;i<=4;i++){const v=max*i/4,yy=bottom-plotH*i/4;svg+='<line x1="'+left+'" y1="'+yy+'" x2="1080" y2="'+yy+'" stroke="#e2e8f0"/><text x="75" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#64748b">'+esc(new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v))+'</text>';}
-    for(let m=0;m<12;m++){for(let j=0;j<3;j++){const v=series[j][m],h=v/max*plotH,x=left+m*step+9+j*19;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="16" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+labels[m]+' '+y+' · '+['Invoiced','Expected collection','Actual collection'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+35)+'" y="281" text-anchor="middle" font-size="12" fill="#475569">'+labels[m]+'</text>';}
+    for(let m=0;m<12;m++){for(let j=0;j<4;j++){const v=series[j][m],h=v/max*plotH,x=left+m*step+6+j*18;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="15" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+labels[m]+' '+y+' · '+['Invoiced','Expected collection','Actual collection','Current overdue balance'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+40)+'" y="281" text-anchor="middle" font-size="12" fill="#475569">'+labels[m]+'</text>';}
     svg+='</svg>';
-    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span></div><div class="pe-monthly-wrap">'+svg+'</div>';
+    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span><span style="--series:#dc2626">Overdue now · due month</span></div><p class="muted" style="font-size:12px">Overdue as of '+esc(today)+': current unpaid due balance by due month, excluding unreleased retention. This is not a historical month-end balance.</p><div class="pe-monthly-wrap">'+svg+'</div>';
   }
   let drillState={company:null,project:null,order:null};
   function button(label,handler,secondary=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.className=secondary?'pe-secondary':'';b.onclick=handler;return b;}
@@ -146,3 +151,4 @@
   global.PEWorkspace={matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+

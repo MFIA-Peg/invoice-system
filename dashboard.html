@@ -34,7 +34,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 </style>
 <script src="annual-analytics.js?v=20261117b"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261117b"></script>
+<script src="workspace-ui.js?v=20261117c"></script>
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap dashboard-content">
 <section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
@@ -125,4 +125,5 @@ document.getElementById('status').textContent=PEAnnual.year+' · Current-year fi
 })();
 </script>
 </body></html>
+
 
