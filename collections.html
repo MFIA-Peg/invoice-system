@@ -35,7 +35,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -153,6 +155,7 @@ function applyFilters(){
  const reference=$('filterReference').value.trim().toLowerCase(),q=$('search').value.trim().toLowerCase();
  const from=$('filterFrom').value,to=$('filterTo').value;
  filteredTransactions=transactions.filter(c=>{
+  if(!PEWorkspace.matches('collection',c))return false;
   const i=im.get(Number(c.invoice_id)),m=i&&invMetrics(i);if(!i)return false;
   const company=m.pr?.company||'',department=m.pr?.department||'',project=m.pr?.project_name||i.project_name||'';
   if(co&&!String(company).toLowerCase().includes(co))return false;
@@ -198,3 +201,4 @@ PEAnnual.render('kpis','collectionChart',{profile:'collections',invoiceIds:invoi
 })();
 </script>
 </body></html>
+

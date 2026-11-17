@@ -97,7 +97,7 @@
       const m = metrics(invoice, orderMap.get(String(invoice.po_no)));
       return m.balance <= 0.005 && m.retention <= 0.005;
     }).reduce((sum, invoice) => sum + metrics(invoice, orderMap.get(String(invoice.po_no))).total, 0);
-    return {totals, annual, collections, orders, orderMap, poValue, remaining, activityIds, paid,
+    return {totals, annual, collections, orders, orderMap, poValue, remaining, activityIds, paid, scoped,
       advance: orders.reduce((sum, order) => sum + number(order.advance_received_amount), 0)};
   }
   const labels = [
@@ -183,8 +183,10 @@
       '<article class="kpi"><div class="label">' + label + '</div><div class="value">' + esc(kind === 'date' ? value : kind ? Number(value).toLocaleString('en-SA') : currency.format(value)) +
       '</div><div class="sub">' + year + ' · ' + basis + '</div></article>'
     ).join('');
+    host.style.setProperty('--kpi-columns', String(Math.ceil(cards.length / 2)));
     if (chartId) chart(chartId, cards.filter(card => !card[3]).map(([label, value]) => [label, value]));
     return s;
   }
-  global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics};
+  global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics, records: () => data};
 })(window);
+

@@ -35,7 +35,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -92,7 +94,7 @@ async function loadAll(){
  try{
  await PEAnnual.load(db);
 
-  const [p,po,iv]=await Promise.all([fetchRows('projects','id,project_name,company,department,status'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','po_no,invoice_amount,advance_amortisation,invoice_total_after_advance,invoice_total')]);
+  const [p,po,iv]=await Promise.all([fetchRows('projects','id,project_name,company,department,status'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','*')]);
   projects=p;allPO=po;invoices=iv;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
@@ -102,7 +104,7 @@ function populateFilters(){setOptions('company',allPO.map(x=>x.company),'custome
 function invoiceTotals(po){const rows=invoices.filter(i=>String(i.po_no)===String(po.po_no));const invoiced=rows.reduce((s,x)=>s+num(x.invoice_amount),0);const gross=rows.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0);const amort=rows.reduce((s,x)=>s+num(x.advance_amortisation),0);return{count:rows.length,invoiced,gross,amort,remaining:Math.max(0,num(po.po_value_ex_vat)-invoiced)};}
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
- filtered=allPO.filter(x=>(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c.toLowerCase()))&&(!d||String(x.department||'').toLowerCase().includes(d.toLowerCase()))&&(!p||String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
+ filtered=allPO.filter(x=>PEWorkspace.matches('order',x)&&(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c.toLowerCase()))&&(!d||String(x.department||'').toLowerCase().includes(d.toLowerCase()))&&(!p||String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
  render();
 }
 function registerRecordLinks(type,row){
@@ -134,7 +136,7 @@ function togglePODetail(poNo,button){
  $('tableWrap').querySelectorAll('.po-detail-row').forEach(x=>x.remove());
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.dataset.drillPo+' ▾';});
  const po=allPO.find(x=>String(x.po_no)===String(poNo));if(!po)return;
- const inv=invoices.filter(x=>String(x.po_no)===String(poNo));
+ const inv=invoices.filter(x=>String(x.po_no)===String(poNo)&&PEWorkspace.matches('invoice',x));
  const entries=[
   ['PO Number',po.po_no],['Customer',po.company],['Department',po.department],
   ['Project',po.project_name],['PO Date',po.po_date],['Expiry Date',po.expiry_date],
@@ -164,7 +166,7 @@ function toggleInvoiceDetail(poNo,index,button){
  if(!poRow)return;
  poRow.querySelectorAll('.invoice-detail-row').forEach(x=>x.remove());
  poRow.querySelectorAll('[data-invoice-drill]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.textContent.replace(' ▴',' ▾');});
- const inv=invoices.filter(x=>String(x.po_no)===String(poNo));
+ const inv=invoices.filter(x=>String(x.po_no)===String(poNo)&&PEWorkspace.matches('invoice',x));
  const x=inv[index];if(!x)return;
  const fields=[
   ['Invoice No.',x.invoice_no||x.invoice_number||x.invoice_id],
@@ -255,3 +257,4 @@ PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p
 })();
 </script>
 </body></html>
+

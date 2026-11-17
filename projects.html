@@ -36,7 +36,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html" aria-current="page">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -94,7 +96,7 @@ function projectInvoices(project){const poNos=new Set(projectPOs(project).map(p=
 function invoiceMetrics(project){const inv=projectInvoices(project),po=projectPOs(project),poValue=po.reduce((s,x)=>s+num(x.po_value_ex_vat),0),billed=inv.reduce((s,x)=>s+num(x.invoice_amount),0),gross=inv.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0),paid=inv.reduce((s,x)=>s+num(x.paid_amount),0),balance=inv.reduce((s,x)=>s+num(x.collection_balance_after_advance??x.open_balance),0),retention=inv.reduce((s,x)=>s+num(x.retention_balance),0),overdue=inv.filter(x=>x.due_date&&String(x.due_date).slice(0,10)<new Date().toISOString().slice(0,10)).reduce((s,x)=>s+num(x.collection_balance_after_advance??x.open_balance),0);return{poCount:po.length,invoiceCount:inv.length,poValue,billed,gross,paid,balance,retention,overdue,remaining:Math.max(0,poValue-billed)};}
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim().toLowerCase(),d=$('department').value.trim().toLowerCase(),p=$('projectName').value.trim().toLowerCase(),s=$('status').value.trim().toLowerCase();
- filtered=allProjects.filter(x=>(!q||[x.project_name,x.company,x.department,x.status,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c))&&(!d||String(x.department||'').toLowerCase().includes(d))&&(!p||String(x.project_name||'').toLowerCase().includes(p))&&(!s||String(x.status||'').toLowerCase().includes(s)));
+ filtered=allProjects.filter(x=>PEWorkspace.matches('project',x)&&(!q||[x.project_name,x.company,x.department,x.status,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c))&&(!d||String(x.department||'').toLowerCase().includes(d))&&(!p||String(x.project_name||'').toLowerCase().includes(p))&&(!s||String(x.status||'').toLowerCase().includes(s)));
  render();
 }
 function render(){
@@ -116,7 +118,7 @@ function renderChart(v){
 function toggleProjectDetail(id,button){
  const old=$('tableWrap').querySelector(`[data-project-detail="${CSS.escape(String(id))}"]`);if(old){old.remove();button.setAttribute('aria-expanded','false');button.textContent=button.textContent.replace(' ▴',' ▾');return;}
  $('tableWrap').querySelectorAll('.detail-row').forEach(x=>x.remove());$('tableWrap').querySelectorAll('[data-project-drill]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.textContent.replace(' ▴',' ▾');});
- const p=allProjects.find(x=>String(x.id)===String(id));if(!p)return;const pos=projectPOs(p),inv=projectInvoices(p),m=invoiceMetrics(p);
+ const p=allProjects.find(x=>String(x.id)===String(id));if(!p)return;const pos=projectPOs(p).filter(x=>PEWorkspace.matches('order',x)),inv=projectInvoices(p).filter(x=>PEWorkspace.matches('invoice',x)),m=invoiceMetrics(p);
  const fields=[['Project ID',p.id],['Project Name',p.project_name],['Customer',p.company],['Department',p.department],['Status',p.status],['Purchase Orders',m.poCount],['PO Value Ex VAT',money(m.poValue)],['Invoiced Ex VAT',money(m.billed)],['Collected',money(m.paid)],['Open Balance',money(m.balance)],['Overdue',money(m.overdue)],['Retention',money(m.retention)],['Created At',p.created_at],['Notes',p.notes]].filter(x=>x[1]!==null&&x[1]!==undefined&&x[1]!=='');
  const cards=fields.map(([k,v])=>`<div class="detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('');
  const poRows=pos.length?`<div class="tablewrap"><table style="min-width:750px"><thead><tr><th>PO Number</th><th>PO Value Ex VAT</th><th>Invoice Count</th><th>Invoiced Ex VAT</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${pos.map(po=>{const linked=inv.filter(x=>String(x.po_no)===String(po.po_no)),b=linked.reduce((s,x)=>s+num(x.invoice_amount),0);return `<tr><td>${esc(po.po_no)}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${linked.length}</td><td class="num">${money(b)}</td><td class="num">${money(Math.max(0,num(po.po_value_ex_vat)-b))}</td><td>${esc(po.status||'—')}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="muted">No purchase orders are linked to this project.</div>';
@@ -154,3 +156,4 @@ PEAnnual.render('kpis','projectChart',{profile:'projects',projectIds:filtered.ma
 })();
 </script>
 </body></html>
+

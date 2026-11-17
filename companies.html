@@ -178,7 +178,9 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head>
 
 <body>
@@ -271,7 +273,7 @@ let currentCompanyName=null;
 let executiveData={projects:[],pos:[],invoices:[]};
 let executiveCharts={};
 let currentExecutiveSnapshot=null;
-function isFinanceManagerRole(){return String(sessionStorage.getItem('pe_user_role')||'').toLowerCase().trim()==='finance_manager';}
+function isFinanceManagerRole(){return ['finance_manager','system_admin'].includes(String(sessionStorage.getItem('pe_user_role')||'').toLowerCase().trim());}
 function isExecutiveRole(){return ['system_admin','admin','manager','finance_manager','reviewer','viewer'].includes(String(sessionStorage.getItem('pe_user_role')||'').toLowerCase().trim());}
 function setDashboardFocus(mode){
  const header=document.getElementById('dashboardHeaderCard'),companies=document.getElementById('companiesCard'),analytics=document.getElementById('analyticsCard'),projects=document.getElementById('projectsCard'),details=document.getElementById('projectDetailsCard');
@@ -1727,7 +1729,7 @@ Cancel
 // Customer master records are separate from the existing project-derived company financial summary.
 const cmState={loaded:false,customers:[],departments:[],links:[],profile:null,permissions:null,mode:null,id:null,busy:false};
 const cmById=id=>document.getElementById(id);
-const cmManager=()=>cmState.profile?.role==='finance_manager';
+const cmManager=()=>['finance_manager','system_admin'].includes(String(cmState.profile?.role||'').toLowerCase());
 const cmCanCreate=()=>cmManager()||cmState.permissions?.can_create_customers===true;
 const cmName=id=>cmState.departments.find(d=>Number(d.id)===Number(id))?.name||'Unknown department';
 async function cmLoad(){
@@ -1750,6 +1752,7 @@ async function cmLoad(){
   for(const r of [a,b,c])if(r.error)throw r.error;
   cmState.customers=a.data||[];cmState.departments=b.data||[];cmState.links=c.data||[];
   cmById('cmAdd').style.display=cmCanCreate()?'':'none';
+  cmById('cmAdd').onclick=cmOpenCreate;
   status.textContent=`${cmState.customers.length} customers · ${cmState.departments.length} departments`;
   cmState.loaded=true;
   renderCustomerFinancials();
@@ -1773,18 +1776,19 @@ function cmRender(rows,financialByName,assignments){
   });
   const actions=document.createElement('td');const bar=document.createElement('div');bar.className='cm-actions';
   const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
+  add('Open',()=>PEWorkspace.openCustomer(c.name));
   if(cmCanCreate())add('Departments',()=>cmOpenLinks(c.id));
-  if(cmManager()){add('Rename',()=>cmOpenRename(c.id));add('Delete',()=>cmDelete(c.id),true);}
+  if(cmManager()){add('Edit',()=>cmOpenRename(c.id));add('Delete',()=>cmDelete(c.id),true);}
   if(!bar.children.length)bar.textContent='View only';actions.append(bar);tr.append(name,deps,...financialCells,actions);body.append(tr);
  }
  table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
 }
 function cmClose(){cmById('cmDialog').style.display='none';cmState.mode=null;cmState.id=null;}
-function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;}
+function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;cmById('cmDialog').setAttribute('role','dialog');cmById('cmDialog').setAttribute('aria-modal','true');}
 function cmField(label,type,value='',options=[]){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent=label;body.append(l);let input;if(type==='select'){input=document.createElement('select');for(const opt of options){const o=document.createElement('option');o.value=String(opt.id);o.textContent=opt.name;input.append(o);}}else{input=document.createElement('input');input.type='text';input.value=value;}input.id='cmField';body.append(input);return input;}
-function cmOpenCreate(){if(!cmCanCreate())return;cmDialog('Add Customer','create',null);cmField('Customer name','text');cmFieldDepartment();}
+function cmOpenCreate(){if(!cmState.loaded){cmLoad().then(()=>{if(cmState.loaded)cmOpenCreate();});return;}if(!cmCanCreate()){alert('Your account needs customer creation permission.');return;}cmDialog('Add Customer','create',null);cmField('Customer name','text').focus();cmFieldDepartment();}
 function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
-function cmOpenRename(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Rename Customer','rename',id);cmField('Customer name','text',c.name);}
+function cmOpenRename(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Edit Customer','rename',id);cmField('Customer name','text',c.name);}
 function cmOpenLinks(id){if(!cmCanCreate())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments);const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmManager()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
 async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmState.id,field=cmById('cmField');if(!field)return;const name=field.value.trim();let fn,args;
  if(mode==='create'){if(name.length<2){alert('Enter a customer name');return;}const dep=Number(cmById('cmDepartment')?.value);if(!dep){alert('Select a department');return;}fn='create_customer_for_department';args={p_customer_name:name,p_department_id:dep};}
@@ -1792,7 +1796,7 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
  else if(mode==='link'){fn='link_existing_customer_to_department';args={p_customer_company_id:id,p_department_id:Number(field.value)};if(!args.p_department_id){alert('Select a department');return;}}
  else return;
  cmState.busy=true;cmById('cmSaveButton').disabled=true;
- try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
+ try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
 }
 async function cmUnlink(id,dep){if(!cmManager())return;if(!confirm('Remove this customer department assignment?'))return;const r=await supabaseClient.rpc('unlink_customer_from_department',{p_customer_company_id:id,p_department_id:dep});if(r.error){alert('Unlink failed: '+r.error.message);return;}cmClose();await cmLoad();}
 async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
@@ -1848,8 +1852,8 @@ function renderCustomerFinancials() {
   const key=customerKey(c.name);
   assignedByName.set(key,[...(assignedByName.get(key)||[]),...(assignments.get(Number(c.id))||[])]);
  }
- visibleCustomerFinancialRows = customerFinancialRows.filter(row=>customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
- const matching = cmState.loaded ? cmState.customers.filter(c=>customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
+ visibleCustomerFinancialRows = customerFinancialRows.filter(row=>PEWorkspace.matches('customer',row)&&customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
+ const matching = cmState.loaded ? cmState.customers.filter(c=>PEWorkspace.matches('customer',c)&&customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
  visibleCustomerMasterRows = matching.map(c=>{
   const finance=financialByName.get(customerKey(c.name));
   return [c.name,(assignments.get(Number(c.id))||[]).join(', '),
@@ -1870,7 +1874,7 @@ function renderCustomerFinancials() {
       ).join('')+'</tbody></table></div>'
    : '<p>No financial records match the filters.</p>';
   target.querySelectorAll('[data-open]').forEach(button=>{
-   button.onclick=()=>showCompanyProjects(rows[Number(button.dataset.open)].name);
+   button.onclick=()=>PEWorkspace.openCustomer(rows[Number(button.dataset.open)].name);
   });
   target.querySelectorAll('[data-delete]').forEach(button=>{
    const row=rows[Number(button.dataset.delete)];
@@ -1950,9 +1954,19 @@ originalRender.apply(this,arguments);
 if(customerFinanceLoaded&&!customerFinanceError){
 PEAnnual.render('customerTotalsGrid','customerTotalsChart',{profile:'customers',companies:visibleCustomerFinancialRows.map(c=>c.name)});
 cmById('customerTotalsNote').textContent=PEAnnual.year+' · Due-date KPIs / payment-date collections';
+PEWorkspace.openFromQuery();
 }
 };
 })();
 </script>
+<script>
+const refreshCustomerWorkspace=refreshDashboard;
+refreshDashboard=async function(){
+await refreshCustomerWorkspace();
+await PEAnnual.load(supabaseClient);
+PEWorkspace.refreshDrill();
+};
+</script>
 </body>
 </html>
+
