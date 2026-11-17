@@ -56,22 +56,35 @@
   }
   function monthly(scope){
     const host=document.getElementById('monthlyComparison');if(!host)return;
-    const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=Array.from({length:4},()=>Array(12).fill(0));
+    const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=Array.from({length:4},()=>Array(13).fill(0));
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    function add(values,date,value){if(PEAnnual.inYear(date)){const m=Number(String(date).slice(5,7))-1;if(m>=0&&m<12)values[m]+=value;}}
+    const from=scope?.dueFrom||'',to=scope?.dueTo||'',filtered=!!(from||to),overdueRows=[];
+    const inPeriod=date=>!!date&&(!from||date>=from)&&(!to||date<=to);
+    const records=PEAnnual.records(),projects=new Map(records.projects.map(p=>[text(p.id),p]));
+    function add(values,date,value){if(PEAnnual.inYear(date)&&inPeriod(String(date).slice(0,10))){const m=Number(String(date).slice(5,7));if(m>=1&&m<=12)values[m]+=value;}}
     for(const invoice of s.scoped){
       const m=PEAnnual.metrics(invoice,s.orderMap.get(text(invoice.po_no))),due=PEAnnual.due(invoice);
       add(series[0],invoice.start_date,m.total);add(series[1],due,m.total);
-      if(due&&due<today&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim()))add(series[3],due,m.balance);
+      if(due&&due<today&&m.balance>0.005&&inPeriod(due)&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim())){
+        if(Number(due.slice(0,4))<y)series[3][0]+=m.balance;
+        else add(series[3],due,m.balance);
+        const order=s.orderMap.get(text(invoice.po_no)),project=projects.get(text(invoice.project_id??order?.project_id));
+        overdueRows.push({customer:order?.company||project?.company||invoice.company||'—',department:order?.department||project?.department||invoice.department||'—',po:invoice.po_no||order?.po_no||'—',invoice:invoice.invoice_no||'—',due,amount:m.balance});
+      }
     }
     for(const c of s.collections)add(series[2],c.collection_date,num(c.amount));
-    const labels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],colors=['#2563eb','#d97706','#0f766e','#dc2626'];
-    const max=Math.max(1,...series.flat()),width=1100,height=310,left=85,top=24,bottom=258,plotW=990,plotH=bottom-top,step=plotW/12;
+    const labels=['Previous years','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],colors=['#2563eb','#d97706','#0f766e','#dc2626'];
+    const max=Math.max(1,...series.flat()),width=1100,height=310,left=85,top=24,bottom=258,plotW=990,plotH=bottom-top,step=plotW/13;
     let svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Monthly invoice, expected collection, actual collection and current overdue balance comparison for '+y+'">';
     for(let i=0;i<=4;i++){const v=max*i/4,yy=bottom-plotH*i/4;svg+='<line x1="'+left+'" y1="'+yy+'" x2="1080" y2="'+yy+'" stroke="#e2e8f0"/><text x="75" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#64748b">'+esc(new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v))+'</text>';}
-    for(let m=0;m<12;m++){for(let j=0;j<4;j++){const v=series[j][m],h=v/max*plotH,x=left+m*step+6+j*18;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="15" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+labels[m]+' '+y+' · '+['Invoiced','Expected collection','Actual collection','Current overdue balance'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+40)+'" y="281" text-anchor="middle" font-size="12" fill="#475569">'+labels[m]+'</text>';}
+    for(let m=0;m<13;m++){for(let j=0;j<4;j++){if(m===0&&j!==3)continue;const v=series[j][m],h=v/max*plotH,x=left+m*step+4+j*17;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="14" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+labels[m]+' '+(m===0?'before '+y:y)+' · '+['Invoiced','Expected collection','Actual collection','Current overdue balance'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+36)+'" y="281" text-anchor="middle" font-size="'+(m===0?9:12)+'" fill="#475569">'+labels[m]+'</text>';}
     svg+='</svg>';
-    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span><span style="--series:#dc2626">Overdue now · due month</span></div><p class="muted" style="font-size:12px">Overdue as of '+esc(today)+': current unpaid due balance by due month, excluding unreleased retention. This is not a historical month-end balance.</p><div class="pe-monthly-wrap">'+svg+'</div>';
+    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span><span style="--series:#dc2626">Overdue now · due month</span></div><p class="muted" style="font-size:12px">Overdue as of '+esc(today)+': previous years combined first, then current-year due months; excluding unreleased retention. This is not a historical month-end balance. '+(filtered?'Selected period: '+esc(from||'Beginning')+' to '+esc(to||'Today')+'. Each series follows its own date.':'Select a due-date period above to show the overdue invoice statement.')+'</p><div class="pe-monthly-wrap">'+svg+'</div>';
+    if(filtered){
+      overdueRows.sort((a,b)=>a.due.localeCompare(b.due)||text(a.invoice).localeCompare(text(b.invoice)));
+      const total=overdueRows.reduce((n,r)=>n+r.amount,0);
+      host.innerHTML+='<section aria-label="Overdue invoice statement" style="margin-top:20px"><h2>Overdue invoice statement</h2><p class="muted" style="font-size:12px">Due-date period: '+esc(from||'Beginning')+' to '+esc(to||'Today')+' · '+overdueRows.length+' invoices · Total overdue: '+esc(money(total))+' · Includes previous years in the selected period.</p>'+((from&&to&&from>to)?'<p role="alert">The start date must be on or before the end date.</p>':'<div style="overflow:auto"><table style="width:100%;min-width:800px;border-collapse:collapse;font-size:13px"><thead><tr>'+['Customer','Department','Purchase Order','Invoice Number','Due Date','Overdue Amount'].map(h=>'<th style="padding:10px;text-align:left;background:#14263d;color:white">'+h+'</th>').join('')+'</tr></thead><tbody>'+overdueRows.map(r=>'<tr>'+[r.customer,r.department,r.po,r.invoice,r.due,money(r.amount)].map(v=>'<td style="padding:10px;border-bottom:1px solid #e2e8f0">'+esc(v)+'</td>').join('')+'</tr>').join('')+(overdueRows.length?'':'<tr><td colspan="6" style="padding:15px">No overdue invoices in this period.</td></tr>')+'</tbody><tfoot><tr><th colspan="5" style="padding:10px;text-align:left">Total overdue</th><th style="padding:10px;text-align:left">'+esc(money(total))+'</th></tr></tfoot></table></div>')+'</section>';
+    }
   }
   let drillState={company:null,project:null,order:null};
   function button(label,handler,secondary=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.className=secondary?'pe-secondary':'';b.onclick=handler;return b;}
