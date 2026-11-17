@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Power Energy | Closed Records</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
+<script src="shared-nav.js" defer></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fb;color:#172033;font:15px/1.5 Inter,Segoe UI,Arial,sans-serif}
+main{max-width:1200px;margin:25px auto;padding:0 20px}header.hero{background:#14263d;color:white;padding:25px;border-radius:14px}h1{margin:0 0 8px;font-size:27px}.hero p{margin:0;color:#cbd5e1}.archive-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:20px}.archive-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;text-decoration:none;color:#172033;display:block}.archive-card:hover{border-color:#0f766e}.archive-card h2{font-size:18px;margin:0 0 8px}.archive-card p{color:#64748b;margin:0;font-size:13px}.archive-card strong{display:block;margin-top:16px;color:#0f766e}.archive-note{color:#64748b;font-size:13px;margin-top:20px}@media(max-width:700px){.archive-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header class="hero"><h1>Closed Records</h1><p>Find completed work, paid invoices and their supporting records.</p></header>
+<div id="archiveStatus" role="status">Verifying session...</div>
+<section class="archive-grid" id="archiveLinks" hidden>
+<a class="archive-card" href="companies.html?view=closed"><h2>Customers</h2><p>Customers with closed work or settled invoices. Open projects and orders remain available in their active screens.</p><strong>Browse customer history →</strong></a>
+<a class="archive-card" href="projects.html?view=closed"><h2>Projects</h2><p>Projects marked Completed, Closed or Cancelled, with their existing detail and export actions.</p><strong>Browse closed projects →</strong></a>
+<a class="archive-card" href="purchase-orders.html?view=closed"><h2>Purchase Orders</h2><p>Closed, completed, cancelled and archived purchase orders.</p><strong>Browse closed orders →</strong></a>
+<a class="archive-card" href="invoices.html?view=closed"><h2>Invoices</h2><p>Invoices paid in full after retention is fully released, plus cancelled invoices.</p><strong>Browse closed invoices →</strong></a>
+<a class="archive-card" href="collections.html?view=closed"><h2>Collections</h2><p>Collection transactions associated with closed invoices.</p><strong>Browse historical collections →</strong></a>
+<a class="archive-card" href="reports.html?view=closed"><h2>Financial Reports</h2><p>Closed records with the same report tabs, filters, exports and print controls.</p><strong>Open historical reports →</strong></a>
+</section>
+<p class="archive-note">Records are grouped by their current status. Updating an eligible status or balance changes where the record appears. Existing access rules continue to apply.</p>
+</main>
+<script>
+(async function(){
+const api=supabase.createClient('https://hxhfjmtjibwkkbpakopt.supabase.co','sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9');
+const status=document.getElementById('archiveStatus');
+try{
+if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}
+const {data:{session},error}=await api.auth.getSession();if(error||!session){location.replace('login.html');return;}
+const {data:profile,error:profileError}=await api.from('users_profile').select('active,must_change_password').eq('auth_user_id',session.user.id).maybeSingle();
+if(profileError||!profile?.active)throw new Error('An active account is required.');
+if(profile.must_change_password){location.replace('change-password.html');return;}
+status.textContent='';document.getElementById('archiveLinks').hidden=false;PEWorkspace.mount();
+}catch(error){status.textContent='Unable to open closed records: '+error.message;}
+})();
+</script>
+</body>
+</html>

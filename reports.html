@@ -15,7 +15,9 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
@@ -62,6 +64,7 @@ const from=document.getElementById('fFrom').value,to=document.getElementById('fT
 const status=document.getElementById('fStatus').value,search=(document.getElementById('fSearch').value||'').trim().toLowerCase();
 const pmap=new Map(projects.map(x=>[String(x.id),x]));const pomap=new Map(pos.map(x=>[String(x.po_no),x]));
 fp.invoices=invoices.filter(x=>{
+ if(!PEWorkspace.matches('invoice',x))return false;
  const pr=pmap.get(String(x.project_id))||projects.find(p=>p.project_name===x.project_name),po=pomap.get(String(x.po_no));
  const d=dateOnly(x.approval_date||x.start_date),dd=dateOnly(x.due_date);
  if(company&&!matchesText(pr?.company||po?.company,company))return false;
@@ -75,9 +78,9 @@ fp.invoices=invoices.filter(x=>{
  return true;
 });
 const relatedPOs=new Set(fp.invoices.map(x=>String(x.po_no)));const relatedProjects=new Set(fp.invoices.map(x=>String(x.project_id)));
-fp.pos=pos.filter(x=>(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||matchesText(x.po_no,poNo)));
+fp.pos=pos.filter(x=>PEWorkspace.matches('order',x)&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||matchesText(x.po_no,poNo)));
 if(from||to||dueFrom||dueTo||search||status){fp.pos=fp.pos.filter(x=>relatedPOs.has(String(x.po_no)));}
-fp.projects=projects.filter(x=>(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
+fp.projects=projects.filter(x=>PEWorkspace.matches('project',x)&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
 if(from||to||dueFrom||dueTo||search||status){fp.projects=fp.projects.filter(x=>relatedProjects.has(String(x.id)));}
 render();document.getElementById('filterCount').textContent=`${fp.invoices.length} invoices · ${fp.pos.length} POs · ${fp.projects.length} projects`;
 }
@@ -126,4 +129,5 @@ PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],
 })();
 </script>
 </body></html>
+
 

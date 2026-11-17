@@ -32,15 +32,26 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117"></script>
+<script src="annual-analytics.js?v=20261117b"></script>
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+<script src="workspace-ui.js?v=20261117b"></script>
 </head><body>
-<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap">
-<section class="top"><div><h1>Power Energy — Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
-<section class="panel"><h2 style="margin:0 0 8px;font-size:20px">Financial Filters</h2><div class="muted">Date filters are applied using invoice Due Date.</div>
-<div class="filters"><div><label for="company">Company</label><select id="company"><option value="">All companies</option></select></div><div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div><div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div><div><label for="fromDate">From Date (Due Date)</label><input type="date" id="fromDate"></div><div><label for="toDate">To Date (Due Date)</label><input type="date" id="toDate"></div></div>
-<div class="actions"><button onclick="renderKPIs()">Apply Filters</button><button class="secondary" onclick="clearFilters()">Clear Filters</button></div></section>
-<section class="panel"><h2 style="margin:0 0 14px;font-size:20px">Financial KPIs</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
-<section class="panel"><h2 style="margin:0 0 14px;font-size:20px">Financial Analysis</h2><div class="charts"><article class="chart-card"><h3>Collection Position</h3><div class="note">Collected amount versus current open balance. Collected is not restricted by Due Date.</div><div class="chart-box"><canvas id="collectionChart"></canvas></div></article><article class="chart-card"><h3>Overdue Analysis</h3><div class="note">Overdue collection balance versus the remaining open balance.</div><div class="chart-box"><canvas id="overdueChart"></canvas></div></article><article class="chart-card"><h3>Purchase Order Coverage</h3><div class="note">Invoiced PO value versus the remaining uninvoiced PO value, before VAT.</div><div class="chart-box"><canvas id="poChart"></canvas></div></article></div></section>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap dashboard-content">
+<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
+<section class="panel"><h2>Filter financial activity</h2><div class="filters">
+<div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
+<div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
+<div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
+<div><label for="fromDate">Due date from</label><input type="date" id="fromDate"></div>
+<div><label for="toDate">Due date to</label><input type="date" id="toDate"></div></div>
+<div class="actions"><button onclick="renderKPIs()">Apply Filters</button><button class="secondary" onclick="clearFilters()">Clear Filters</button><a class="btn" href="invoices.html">Open Invoices</a><a class="btn" href="closed-records.html">Closed Records</a></div></section>
+<section class="panel"><h2>Billing, collections and balances</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
+<section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Invoice totals include VAT. Expected collection follows invoice due dates. Actual collection follows the recorded collection date.</p><div id="monthlyComparison"></div></section>
+<section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
+<article class="chart-card"><h3>Collections and remaining balance</h3><div class="chart-box"><div id="collectionChart"></div></div></article>
+<article class="chart-card"><h3>Overdue and not yet due</h3><div class="chart-box"><div id="overdueChart"></div></div></article>
+<article class="chart-card"><h3>Purchase order value and invoicing</h3><div class="note">PO values follow PO dates. Invoiced amounts follow invoice due dates.</div><div class="chart-box"><div id="poChart"></div></div></article>
+</div></section>
 </main><script>
 const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
 const SUPABASE_KEY="sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
@@ -108,8 +119,10 @@ const s=PEAnnual.render('kpis',null,{projectIds:ids,dueFrom:document.getElementB
 PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
 PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
 PEAnnual.chart('poChart',[['PO Value',s.orders.reduce((n,p)=>n+Number(p.po_value_ex_vat||0),0)],['Invoiced',s.totals.net]]);
-document.getElementById('status').textContent=PEAnnual.year+' KPIs · Invoice due date / collection payment date';
+PEWorkspace.monthly({projectIds:ids});
+document.getElementById('status').textContent=PEAnnual.year+' · Current-year financial activity';
 };
 })();
 </script>
 </body></html>
+
