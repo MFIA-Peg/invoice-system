@@ -28,6 +28,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html" aria-current="page">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersNav" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="navuser" id="username"></span><button class="btn ghost small" id="signout">Sign Out</button></div></div></header>
@@ -68,6 +69,8 @@ async function allFinancialRows(table){let result=[],from=0;for(;;){const {data,
 function invoiceFinance(i,po){const base=Math.max(0,num(i.invoice_amount)-num(i.advance_amortisation));const total=base*(po?.vat?1.15:1);const retention=num(i.retention_amount)+num(i.retention_vat);const retentionBalance=Math.max(0,retention-num(i.retention_released_amount));const collected=Math.max(0,num(i.paid_amount));const balance=Math.max(0,total-retention-collected);let due=String(i.due_date||'').slice(0,10);if(!due&&i.approval_date&&i.payment_terms!=null){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00Z');if(!Number.isNaN(d.getTime())){d.setUTCDate(d.getUTCDate()+num(i.payment_terms));due=d.toISOString().slice(0,10);}}return{total,collected,balance,retentionBalance,due};}
 function emptyFinance(){return{po:0,billing:0,collected:0,outstanding:0,pending:0,overdue:0,notDue:0,retention:0,unclassified:0};}
 async function loadDepartmentFinancials(){state.financeError=null;state.financial=new Map(state.departments.map(d=>[d.id,emptyFinance()]));try{
+ await PEAnnual.load(db);
+
  const [projects,pos,invoices]=await Promise.all(['projects','pos','invoices'].map(allFinancialRows));
  const deptById=new Map(state.departments.map(d=>[Number(d.id),d.id]));const deptByName=new Map(state.departments.map(d=>[norm(d.name),d.id]));
  const customersById=new Map(state.customers.map(c=>[Number(c.id),c]));const customerByName=new Map(state.customers.map(c=>[norm(c.name),c]));
@@ -123,7 +126,20 @@ function selectField(label,items,placeholder){const wrap=el('div','field'),lab=e
 function showLinkCustomer(deptId){const d=state.departments.find(x=>x.id===deptId);if(!d)return;openModal('Link Existing Customer',`Department: ${d.name}`);const used=new Set(linked(deptId).map(x=>x.customer_company_id)),options=state.customers.filter(x=>!used.has(x.id));const f=selectField('Existing Customer *',options,'Select a customer');const err=el('div','inlineerror');$('modalBody').append(f.wrap,el('div','hint','Only existing customers can be linked. The database verifies department access.'),err);$('modalFoot').append(btn('Back','secondary',()=>showDepartment(deptId)));const save=btn('Link Customer','',async()=>{if(!f.select.value){showInlineError(err,'Select a customer.');return}busy(save,true);try{await rpc('link_existing_customer_to_department',{p_customer_company_id:Number(f.select.value),p_department_id:deptId});await fetchAll();toast('Customer linked successfully.');showDepartment(deptId)}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});save.disabled=!options.length;$('modalFoot').append(save);if(!options.length)$('modalBody').append(el('div','hint','All visible customers are already linked.'))}
 function showNewCustomer(deptId){const d=state.departments.find(x=>x.id===deptId);if(!d||!canCreateCustomer())return;openModal('Create & Link Customer',`Department: ${d.name}`);const f=field('Customer Name *','Enter exact customer name'),err=el('div','inlineerror');$('modalBody').append(f.wrap,el('div','hint','The customer will be created (or reused if its exact name already exists) and linked to this department.'),err);$('modalFoot').append(btn('Back','secondary',()=>showDepartment(deptId)));const save=btn('Create & Link','',async()=>{if(!f.input.value.trim()){showInlineError(err,'Enter a customer name.');return}busy(save,true);try{await rpc('create_customer_for_department',{p_customer_name:f.input.value,p_department_id:deptId});await fetchAll();toast('Customer saved and linked successfully.');showDepartment(deptId)}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});$('modalFoot').append(save);f.input.focus()}
 function confirmUnlink(deptId,customerId){if(!isManager())return;const d=state.departments.find(x=>x.id===deptId),c=state.customers.find(x=>x.id===customerId);openModal('Unlink Customer','Finance Manager approval required');$('modalBody').append(el('p','',`Remove the relationship between "${c?.name||customerId}" and "${d?.name||deptId}"?`),el('p','hint','This action is blocked by the database when related purchase orders exist. It does not delete the customer.'));const err=el('div','inlineerror');$('modalBody').append(err);$('modalFoot').append(btn('Cancel','secondary',()=>showDepartment(deptId)));const save=btn('Unlink Customer','danger',async()=>{busy(save,true);try{const result=await rpc('unlink_customer_from_department',{p_customer_company_id:customerId,p_department_id:deptId});if(result!==true)throw new Error('Relationship was not removed.');await fetchAll();toast('Customer relationship removed.');showDepartment(deptId)}catch(e){showInlineError(err,friendly(e))}finally{busy(save,false)}});$('modalFoot').append(save)}
-$('search').addEventListener('input',render);$('refresh').onclick=fetchAll;$('addDepartment').onclick=showNewDepartment;$('signout').onclick=async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')};
+$('search').addEventListener('input',()=>render());$('refresh').onclick=fetchAll;$('addDepartment').onclick=showNewDepartment;$('signout').onclick=async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')};
 (async()=>{try{if(await checkLogin())await fetchAll()}catch(e){message('Unable to verify account or load data: '+friendly(e));$('rows').replaceChildren();}})();
 </script>
+
+<script>
+(function(){
+const originalRender=render;
+render=function(){
+originalRender.apply(this,arguments);
+const q=$('search').value.toLocaleLowerCase(),cm=customerMap();
+const names=state.departments.filter(d=>d.name.toLocaleLowerCase().includes(q)||linked(d.id).some(x=>(cm.get(x.customer_company_id)?.name||'').toLocaleLowerCase().includes(q))).map(d=>d.name);
+if(!state.financeError)PEAnnual.render('financeKpis','financeChart',{departments:names});
+};
+})();
+</script>
 </body></html>
+

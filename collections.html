@@ -35,6 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -103,6 +104,8 @@ async function initialize(){try{
  if(!canAdd())$('saveCollectionButton').disabled=true;$('collectionDate').value=today();await loadCollections();
  }catch(e){$('signedInUser').textContent=e.message;showError(e.message);document.querySelectorAll('main section').forEach(x=>x.style.display='none');setTimeout(()=>location.replace('login.html'),2200)}}
 async function loadCollections(){const b=$('refresh');b.disabled=true;b.textContent='Loading...';showError('');try{
+ await PEAnnual.load(client);
+
  const [p,po,i,c]=await Promise.all([rows('projects','id,project_name,company,department,status'),rows('pos','id,po_no,project_id,company,department,vat,archive,status'),rows('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,project_id,project_name,retention_amount,retention_vat,advance_amortisation'),rows('invoice_collections','id,invoice_id,collection_date,amount,payment_method,reference_no,notes,created_at')]);
  projects=p.filter(x=>allowedProject(x.id)&&allowedDept(x.department));const ids=new Set(projects.map(x=>Number(x.id)));pos=po.filter(x=>ids.has(Number(x.project_id))&&x.archive!==true);invoices=i.filter(x=>ids.has(Number(x.project_id||pos.find(y=>y.po_no===x.po_no)?.project_id)));const invIds=new Set(invoices.map(x=>Number(x.id)));
  transactions=c.filter(x=>invIds.has(Number(x.invoice_id))).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date))||b.id-a.id);
@@ -181,5 +184,17 @@ function clearFilters(){['search','filterCompany','filterDepartment','filterProj
 async function logoutUser(){const {error}=await client.auth.signOut();if(error)return alert(error.message);sessionStorage.clear();location.replace('login.html')}
 $('refresh').addEventListener('click',loadCollections);$('export').addEventListener('click',exportCSV);$('clearFilters').addEventListener('click',clearFilters);$('saveCollectionButton').addEventListener('click',saveCollection);$('clearForm').addEventListener('click',()=>resetForm());$('invoiceSearch').addEventListener('input',syncInvoiceSearch);$('invoiceSearch').addEventListener('change',syncInvoiceSearch);$('invoiceSelect').addEventListener('change',updateBalance);['search','filterCompany','filterDepartment','filterProject','filterPO','filterInvoice','filterMethod','filterReference','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('input',applyFilters));$('signOut').addEventListener('click',logoutUser);
 initialize();
+</script>
+
+<script>
+(function(){
+renderChart=function(){};
+const originalRender=render;
+render=function(){
+originalRender.apply(this,arguments);
+const ids=filteredTransactions.map(c=>c.id),invoicesInScope=filteredTransactions.map(c=>c.invoice_id);
+PEAnnual.render('kpis','collectionChart',{profile:'collections',invoiceIds:invoicesInScope,collectionIds:ids});
+};
+})();
 </script>
 </body></html>

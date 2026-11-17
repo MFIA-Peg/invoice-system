@@ -37,6 +37,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -129,6 +130,8 @@ function setOptions(id,values){const list=$(id+'Options');if(!list)return;const 
 async function loadAll(){
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
+ await PEAnnual.load(db);
+
   const [iv,p,po]=await Promise.all([fetchRows('invoice_details_with_retention','*',null),fetchRows('projects','id,project_name,company,department'),fetchRows('pos','id,po_no,project_id,project_name,company,department,status')]);
   allInvoices=iv;projects=p;pos=po;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load invoices: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Could not load invoice data. Check database permissions and view availability.</div>'}
@@ -266,5 +269,16 @@ $('editBackdrop').addEventListener('click',e=>{if(e.target===$('editBackdrop'))c
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('editBackdrop').classList.contains('open'))closeModal()});
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')});
 (async()=>{try{if(await checkSession())await loadAll()}catch(e){showError('Session verification failed: '+(e.message||e))}})();
+</script>
+
+<script>
+(function(){
+renderChart=function(){};
+const originalRender=render;
+render=function(){
+originalRender.apply(this,arguments);
+PEAnnual.render('kpis','invoiceChart',{profile:'invoices',invoiceIds:filtered.map(i=>i.id)});
+};
+})();
 </script>
 </body></html>
