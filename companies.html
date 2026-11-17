@@ -178,6 +178,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 
 <body>
@@ -327,6 +328,7 @@ function renderSvgFallbackChart(id,labels,datasets){const canvas=document.getEle
 function showCompanySummaryDetail(company){const s=currentExecutiveSnapshot;if(!s)return;const rows=s.invoices.filter(i=>(i._project?.company||i._po?.company||'Unassigned')===company);let h=`<h2>Company Summary: ${escapeHtml(company)}</h2><table><tr><th>Invoice Number</th><th>Project</th><th>Purchase Order</th><th>Billing</th><th>Collected</th><th>Balance</th><th>Retention</th><th>Due Date</th></tr>`;rows.forEach(i=>h+=`<tr><td>${escapeHtml(i.invoice_no||'')}</td><td>${escapeHtml(i._project?.project_name||i.project_name||'')}</td><td>${escapeHtml(i.po_no||'')}</td><td>${moneySAR(i._m.total)}</td><td>${moneySAR(i._m.collected)}</td><td>${moneySAR(i._m.outstanding)}</td><td>${moneySAR(i._m.retentionBalance)}</td><td>${escapeHtml(i._m.due||'')}</td></tr>`);h+='</table><div class="modal-actions"><button onclick="document.getElementById(\'dashboardDetailModal\').style.display=\'none\'">Close</button></div>';document.getElementById('dashboardDetailContent').innerHTML=h;document.getElementById('dashboardDetailModal').style.display='block';}
 function clearExecutiveFilters(){['dashCompanyFilter','dashProjectFilter','dashDepartmentFilter','dashDateFrom','dashDateTo'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderExecutiveDashboard();}
 async function loadCompanies(){
+ await PEAnnual.load(supabaseClient);
  const {data,error}=await supabaseClient.from('projects').select('id,project_name,company,department,status').order('company');
  customerFinanceError=error?.message||executiveData.loadError||null;
  customerFinanceLoaded=!customerFinanceError;
@@ -1930,7 +1932,7 @@ async function exportCustomerFinancials(){
  }
 }
 
-cmById('customerFilters').addEventListener('input',renderCustomerFinancials);
+cmById('customerFilters').addEventListener('input',()=>renderCustomerFinancials());
 cmById('customerClear').addEventListener('click',()=>{
  for(const id of customerFilterIds) cmById(id).value='';
  renderCustomerFinancials();
@@ -1938,6 +1940,19 @@ cmById('customerClear').addEventListener('click',()=>{
 });
 cmById('customerExport').addEventListener('click',exportCustomerFinancials);
 
+</script>
+
+<script>
+(function(){
+const originalRender=renderCustomerFinancials;
+renderCustomerFinancials=function(){
+originalRender.apply(this,arguments);
+if(customerFinanceLoaded&&!customerFinanceError){
+PEAnnual.render('customerTotalsGrid','customerTotalsChart',{profile:'customers',companies:visibleCustomerFinancialRows.map(c=>c.name)});
+cmById('customerTotalsNote').textContent=PEAnnual.year+' · Due-date KPIs / payment-date collections';
+}
+};
+})();
 </script>
 </body>
 </html>

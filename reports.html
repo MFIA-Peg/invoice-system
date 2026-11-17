@@ -15,6 +15,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
@@ -51,7 +52,9 @@ const dateOnly=s=>s?String(s).slice(0,10):'';const today=()=>new Date().toISOStr
 function invStatus(x){const m=metrics(x);if(m.outstanding<=0.005)return 'Paid';if(m.dueDate&&m.dueDate<today())return 'Overdue';return m.paymentStatus}
 function populate(id,values){const el=document.getElementById(id);if(!el)return;el.innerHTML=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)).map(v=>`<option value="${esc(v)}"></option>`).join('')}
 function matchesText(value,filter){return !filter||String(value??'').toLowerCase().includes(filter.toLowerCase())}
-async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{const results=await Promise.all([db.from('projects').select('*').order('id'),db.from('pos').select('*').order('id'),db.from('invoice_details_with_retention').select('*')]);const bad=results.find(r=>r.error);if(bad)throw bad.error;projects=results[0].data||[];pos=results[1].data||[];invoices=results[2].data||[];populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
+async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{
+ await PEAnnual.load(db);
+const results=await Promise.all([db.from('projects').select('*').order('id'),db.from('pos').select('*').order('id'),db.from('invoice_details_with_retention').select('*')]);const bad=results.find(r=>r.error);if(bad)throw bad.error;projects=results[0].data||[];pos=results[1].data||[];invoices=results[2].data||[];populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 function applyFilters(){
 const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();
@@ -108,4 +111,19 @@ if(kind==='customers'){name='customer-financial-summary';const g=new Map();const
 const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'-'+today()+'.csv';a.click();URL.revokeObjectURL(url)}
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.report-section').forEach(x=>x.classList.toggle('active',x.id==='sec-'+b.dataset.tab))}));
 loadAll();
-</script></body></html>
+</script>
+<script>
+(function(){
+renderCharts=function(){};
+const originalRender=render;
+render=function(){
+originalRender.apply(this,arguments);
+const s=PEAnnual.render('kpis','compositionChart',{invoiceIds:fp.invoices.map(i=>i.id)});
+const bands=[0,0,0,0];
+for(const i of s.annual){const days=ageDays({...i,due_date:PEAnnual.due(i)});if(days===null)continue;const m=PEAnnual.metrics(i,s.orderMap.get(String(i.po_no)));bands[days<=30?0:days<=60?1:days<=90?2:3]+=m.balance;}
+PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],['61–90 days',bands[2]],['Over 90 days',bands[3]]]);
+};
+})();
+</script>
+</body></html>
+

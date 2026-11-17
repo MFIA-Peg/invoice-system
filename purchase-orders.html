@@ -35,6 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -89,6 +90,8 @@ async function fetchRows(table,columns){let rows=[],from=0;while(true){const {da
 async function loadAll(){
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
+ await PEAnnual.load(db);
+
   const [p,po,iv]=await Promise.all([fetchRows('projects','id,project_name,company,department,status'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','po_no,invoice_amount,advance_amortisation,invoice_total_after_advance,invoice_total')]);
   projects=p;allPO=po;invoices=iv;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
@@ -239,5 +242,16 @@ $('refresh').addEventListener('click',loadAll);$('export').addEventListener('cli
 ['search','company','department','project','status'].forEach(id=>$(id).addEventListener(['search','company','department','project'].includes(id)?'input':'change',applyFilters));
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html');});
 (async()=>{if(await checkSession())await loadAll();})();
+</script>
+
+<script>
+(function(){
+renderTotalsChart=function(){};
+const originalRender=render;
+render=function(){
+originalRender.apply(this,arguments);
+PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p=>p.po_no)});
+};
+})();
 </script>
 </body></html>

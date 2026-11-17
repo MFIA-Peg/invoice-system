@@ -32,6 +32,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
+<script src="annual-analytics.js?v=20261117"></script>
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap">
 <section class="top"><div><h1>Power Energy — Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
@@ -65,14 +66,16 @@ document.getElementById('kpis').innerHTML=cards.map(([name,value,sub])=>`<articl
 const poInvoiced=sum(pos,p=>Math.min(Number(p.po_value_ex_vat||0),invoicedByPO.get(String(p.po_no))||0));
 const poRemaining=Math.max(0,sum(pos,p=>Number(p.po_value_ex_vat||0))-poInvoiced);
 const overdueOpen=Math.min(open,overdue),notOverdueOpen=Math.max(0,open-overdueOpen);
-function drawDonut(key,canvasId,labels,values){if(dashboardCharts[key])dashboardCharts[key].destroy();dashboardCharts[key]=new Chart(document.getElementById(canvasId),{type:'doughnut',data:{labels,datasets:[{data:values,borderWidth:2,hoverOffset:7}]},options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:9,padding:16}},tooltip:{callbacks:{label(ctx){return `${ctx.label}: ${money(ctx.raw)}`}}}}}});}
+function drawDonut(){}
 drawDonut('collection','collectionChart',['Collected','Open'],[collected,open]);
 drawDonut('overdue','overdueChart',['Overdue','Other Open Balance'],[overdueOpen,notOverdueOpen]);
 drawDonut('po','poChart',['Invoiced','Not Invoiced'],[poInvoiced,poRemaining]);
 document.getElementById('status').textContent=`Showing ${projects.length} projects, ${pos.length} purchase orders and ${dated.length} invoices under the selected dimensions.`;}
 function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
 document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
-async function loadDashboard(){const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{const [projects,pos,invoices]=await Promise.all([fetchAll('projects','id,project_name,company,department,status'),fetchAll('pos','id,company,project_name,po_no,vat,po_value_ex_vat,project_id,archive,status'),fetchAll('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,approval_date,payment_terms,project_id,project_name,retention_amount,retention_vat,retention_released_amount,advance_amortisation')]);data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
+async function loadDashboard(){const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{
+ await PEAnnual.load(supabaseClient);
+const [projects,pos,invoices]=await Promise.all([fetchAll('projects','id,project_name,company,department,status'),fetchAll('pos','id,company,project_name,po_no,vat,po_value_ex_vat,project_id,archive,status'),fetchAll('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,approval_date,payment_terms,project_id,project_name,retention_amount,retention_vat,retention_released_amount,advance_amortisation')]);data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
 
 function exportToExcel(){
   const projects=selectedProjects(), ids=new Set(projects.map(p=>Number(p.id)));
@@ -94,4 +97,19 @@ window.exportToExcel=exportToExcel;
 async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert('Sign out failed: '+error.message);return;}sessionStorage.clear();location.replace('login.html');}
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
-</script></body></html>
+</script>
+<script>
+(function(){
+const originalRender=renderKPIs;
+renderKPIs=function(){
+originalRender.apply(this,arguments);
+const ids=selectedProjects().map(p=>p.id);
+const s=PEAnnual.render('kpis',null,{projectIds:ids,dueFrom:document.getElementById('fromDate').value,dueTo:document.getElementById('toDate').value});
+PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
+PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
+PEAnnual.chart('poChart',[['PO Value',s.orders.reduce((n,p)=>n+Number(p.po_value_ex_vat||0),0)],['Invoiced',s.totals.net]]);
+document.getElementById('status').textContent=PEAnnual.year+' KPIs · Invoice due date / collection payment date';
+};
+})();
+</script>
+</body></html>
