@@ -65,8 +65,7 @@
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     const s=PEAnnual.render('kpis',null,scope);
-    PEDashboardDonuts.kpis(s);
-    PEDashboardDonuts.workflow(rows,f);
+    PEDashboardDonuts.kpis(s,dimensionRows,f);
     PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
     PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
     PEAnnual.chart('poChart',[['PO Value',s.poValue],['Invoiced',s.totals.net]]);
@@ -83,13 +82,16 @@
   global.clearFilters=function(){activeAttention='';el('invoiceStatus').value='';el('paymentStatus').value='';nativeClear();};
   el('clearAttention').addEventListener('click',()=>{activeAttention='';renderKPIs();});
   ['invoiceStatus','paymentStatus'].forEach(id=>el(id).addEventListener('change',()=>{activeAttention='';renderKPIs();}));
-  function selectWorkflow(kind){
+  function selectWorkflow(kind,currentYear=false){
+    if(currentYear&&!el('fromDate').value&&!el('toDate').value){el('fromDate').value=PEAnnual.year+'-01-01';el('toDate').value=PEAnnual.year+'-12-31';}
     activeAttention=kind==='draft'?'draft':'waiting';
     el('invoiceStatus').value='';el('paymentStatus').value='';renderKPIs();
     el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});
   }
   global.PEDashboard={buildRows,matches,values,selectWorkflow};
 })(window);
+
+
 
 
 
