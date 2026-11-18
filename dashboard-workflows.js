@@ -50,6 +50,7 @@
   const columns=['Invoice Number','Customer','Department','Project','Purchase Order','Invoice Date','Due Date','Invoice Status','Payment Status','Total Incl VAT','Paid','Open Collection Balance','Retention Balance'];
   function values(r){return [r.i.invoice_no||'—',r.customer,r.department,r.project,r.i.po_no||r.po?.po_no||'—',date(r.i.start_date)||'—',r.due||'—',r.i.status||'—',r.payment,r.m.total,Number(r.i.paid_amount||0),r.m.balance,r.m.retention];}
   function renderTable(rows,f){
+    el('dashboardInvoices').hidden=!Object.values(f).some(Boolean);
     shown=rows.filter(r=>matches(r,f)).sort((a,b)=>(a.due||date(a.i.start_date)).localeCompare(b.due||date(b.i.start_date))||str(a.i.invoice_no).localeCompare(str(b.i.invoice_no)));
     const total=shown.reduce((n,r)=>n+r.m.total,0),overdue=shown.filter(r=>r.overdue).reduce((n,r)=>n+r.m.balance,0);
     el('dashboardInvoiceSummary').textContent=shown.length+' invoices · Total '+amount(total)+' · Overdue '+amount(overdue)+(f.from||f.to?' · Selected due-date period (invoice date when no due date)':activeAttention?' · All years requiring attention':' · '+PEAnnual.year+' due dates / invoice dates for pending invoices');
