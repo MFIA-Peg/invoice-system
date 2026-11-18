@@ -94,7 +94,7 @@ function clearFilters(){['company','project','department','fromDate','toDate'].f
 document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
 async function loadDashboard(){const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{
  await PEAnnual.load(supabaseClient);
-const [projects,pos,invoices]=await Promise.all([fetchAll('projects','id,project_name,company,department,status'),fetchAll('pos','id,company,project_name,po_no,vat,po_value_ex_vat,project_id,archive,status'),fetchAll('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,approval_date,payment_terms,project_id,project_name,retention_amount,retention_vat,retention_released_amount,advance_amortisation')]);data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
+const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
 
 function exportToExcel(){
   const projects=selectedProjects(), ids=new Set(projects.map(p=>Number(p.id)));
@@ -120,13 +120,3 @@ initialize();
 <script src="dashboard-donuts.js?v=20261118d"></script>
 <script src="dashboard-workflows.js?v=20261118d"></script>
 </body></html>
-
-
-
-
-
-
-
-
-
-
