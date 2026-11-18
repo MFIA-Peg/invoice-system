@@ -180,8 +180,12 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 </style>
 <script src="annual-analytics.js?v=20261117b"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261117b"></script>
+<script src="workspace-ui.js?v=20261118links"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
+<style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
+<script src="project-lookups.js?v=20261118a"></script>
+<script src="relationship-actions.js?v=20261118a"></script>
+<script src="searchable-selects.js?v=20261118a" defer></script>
 </head>
 
 <body>
@@ -367,7 +371,7 @@ async function loadCompanies(){
  renderCustomerFinancials();
 }
 
-function addProjectForCompany(company){addProject();const f=document.getElementById('new_company');if(f)f.value=company;}
+async function addProjectForCompany(company){await addProject();PEProjectLookups.selectCustomer(company);}
 function requestDeleteCompany(company,projectCount){if(projectCount>0){alert('The company cannot be deleted because it is linked to '+projectCount+' project(s). Deleting a company must not delete its related projects or invoices.');return;}alert('There is no separate company record to delete in the current database. Companies are derived from the company field in projects.');}
 async function showCompanyProjects(company){currentCompanyName=company;setDashboardFocus('company');document.querySelector('#projectsCard h2').textContent='Projects — '+company;const {data,error}=await supabaseClient.from('projects').select('*').eq('company',company).order('id');const el=document.getElementById('projectsList');if(error){el.textContent=error.message;return;}let h=`<div class="modal-actions"><button style="background:#64748b" onclick="showAllDashboard()">Back to Companies</button></div><table><tr><th>ID</th><th>Project</th><th>Company</th><th>Department</th><th>Manager</th><th>Status</th><th>Open</th><th>Add PO</th><th>Edit</th></tr>`;(data||[]).filter(p=>p.status!=='Completed').forEach(p=>{h+=`<tr><td>${p.id}</td><td>${escapeHtml(p.project_name)}</td><td>${escapeHtml(p.company)}</td><td>${escapeHtml(p.department)}</td><td>${escapeHtml(p.project_manager)}</td><td>${escapeHtml(p.status)}</td><td><button onclick="openProject(${p.id})">Open</button></td><td><button class="btn-po" onclick="directAddPO(${p.id},'${escapeHtml(p.project_name).replace(/'/g,"\\'")}')">Add PO</button></td><td><button onclick="editProject(${p.id})">Edit</button></td></tr>`;});el.innerHTML=h+'</table>'+(data?.length?'':'<p>No projects found.</p>');filterProjects();}
 
@@ -468,10 +472,13 @@ async function deleteProject(id){
   const {count,error:countError}=await supabaseClient.from('pos').select('id',{count:'exact',head:true}).eq('project_id',id);
   if(countError){alert('Could not check linked purchase orders: '+countError.message);return;}
   if(count>0){alert(`Cannot delete this project because it has ${count} purchase order(s). Delete or reassign the purchase orders first.`);return;}
-  const {error}=await supabaseClient.from('projects').delete().eq('id',id);
-  if(error){alert('Project deletion failed: '+error.message);return;}
+  const {count:invoiceCount,error:invoiceError}=await supabaseClient.from('invoices').select('id',{count:'exact',head:true}).eq('project_id',id);
+  if(invoiceError||invoiceCount===null){alert('Could not verify linked invoices. No project was deleted.');return;}
+  if(invoiceCount>0){alert('This project has linked invoices and cannot be deleted.');return;}
+  const {data:deleted,error}=await supabaseClient.from('projects').delete().eq('id',id).select('id');
+  if(error||deleted?.length!==1){alert('Project deletion failed: '+(error?.message||'The record was not removed. Check your access and refresh.'));return;}
   if(Number(currentProjectId)===Number(id)){currentProjectId=null;currentInvoicePoNo=null;showAllDashboard();}
-  await loadProjects();
+  await refreshDashboard();
   const cm=document.getElementById('closedModal');if(cm?.style.display==='block') await showCompletedProjects();
   alert('Project deleted successfully.');
 }
@@ -734,7 +741,9 @@ row.innerText
 
 }
 
-function addProject(){
+async function addProject(){
+try{await PEProjectLookups.prepare();}catch(e){alert('Could not load customer and department lists: '+e.message);return;}
+for(const id of ['new_project_name','new_project_manager'])document.getElementById(id).value='';
 currentProjectEditId=null;
 document.getElementById("new_project_start_date").value=localToday();
 document.getElementById("new_project_end_date").value=localToday();
@@ -1250,15 +1259,17 @@ async function loadPOs(projectId){
 
 async function editProject(id){
  const {data,error}=await supabaseClient.from('projects').select('*').eq('id',id).single();if(error){alert(error.message);return;}
+ try{await PEProjectLookups.prepare(data);}catch(e){alert('Could not load project lists: '+e.message);return;}
  currentProjectEditId=id;
  document.getElementById('projectModal').style.display='block';
  document.querySelector('#projectModal h2').textContent='Edit Project';
  document.getElementById('new_project_name').value=data.project_name||'';document.getElementById('new_company').value=data.company||'';document.getElementById('new_department').value=data.department||'';document.getElementById('new_project_manager').value=data.project_manager||'';document.getElementById('new_project_start_date').value=toDateInput(data.start_date);document.getElementById('new_project_end_date').value=toDateInput(data.end_date);document.getElementById('new_status').innerHTML=['Active','Pending','Completed','Closed'].map(x=>`<option ${data.status===x?'selected':''}>${x}</option>`).join('');
  const b=document.querySelector('#projectModal button[onclick="saveProject()"]');b.textContent='Save Changes';
- let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent='Back to Completed Projects';back.style.background='#64748b';back.onclick=()=>{closeProjectModal();showCompletedProjects();};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
+ let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent=returnToCompletedProjects?'Back to Completed Projects':'Back to Projects';back.style.background='#64748b';back.onclick=()=>{if(new URLSearchParams(location.search).has('project_action'))location.href='projects.html';else{closeProjectModal();if(returnToCompletedProjects)showCompletedProjects();}};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
+ const lookupError=PEProjectLookups.validate();if(lookupError){alert(lookupError);return;}
  const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),start_date:document.getElementById('new_project_start_date').value||null,end_date:document.getElementById('new_project_end_date').value||null,status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
  const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.from('projects').insert([payload]);
@@ -1564,6 +1575,8 @@ function recordDetailActions(){
 async function openRegisterRecord(){
  const params=new URLSearchParams(location.search);
  const type=params.get('record');
+ const projectAction=params.get('project_action');
+ if(['open','edit'].includes(projectAction)){const id=params.get('project_id');if(!/^\d+$/.test(String(id))){alert('Invalid project.');return true;}if(projectAction==='edit')await editProject(id);else await openProject(id);return true;}
  if(!['po','invoice'].includes(type))return false;
  let id=params.get('id');
  if(!id&&type==='invoice'&&params.get('invoice_no')){
@@ -1669,17 +1682,11 @@ placeholder="Project Name">
 
 <br><br>
 
-<input
-id="new_company"
-type="text"
-placeholder="Company">
+<label for="new_company">Customer *</label><select id="new_company" required><option value="">Select an existing customer</option></select>
 
 <br><br>
 
-<input
-id="new_department"
-type="text"
-placeholder="Department">
+<label for="new_department">Department *</label><select id="new_department" required><option value="">Select a department</option></select>
 
 <br><br>
 
@@ -1799,7 +1806,7 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
  cmState.busy=true;cmById('cmSaveButton').disabled=true;
  try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
 }
-async function cmUnlink(id,dep){if(!cmManager())return;if(!confirm('Remove this customer department assignment?'))return;const r=await supabaseClient.rpc('unlink_customer_from_department',{p_customer_company_id:id,p_department_id:dep});if(r.error){alert('Unlink failed: '+r.error.message);return;}cmClose();await cmLoad();}
+async function cmUnlink(id,dep){if(!cmManager()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
 async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
 // Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
 window.addEventListener('load',()=>cmLoad());
@@ -1970,6 +1977,8 @@ PEWorkspace.refreshDrill();
 </script>
 </body>
 </html>
+
+
 
 
 

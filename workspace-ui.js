@@ -124,7 +124,7 @@
       const rows=d.projects.filter(p=>p.company===drillState.company&&(matches('project',p)||(closedView&&d.invoices.some(i=>text(i.project_id)===text(p.id)&&invoiceClosed(i)))));
       table(host,['Project','Department','Status','Actions'],rows.map(p=>({record:p,cells:[p.project_name,p.department||'—',p.status||'—']})),(td,p)=>{
         td.append(button('Open Purchase Orders',()=>{drillState.project=p;renderDrill();}));
-        if(manager)td.append(button('Edit',()=>editProject(p.id),true));
+        if(manager){td.append(button('Edit',()=>editProject(p.id),true));td.append(button('Delete',()=>deleteProject(p.id),true));}
       });
     }else if(!drillState.order){
       const p=drillState.project;if(manager){host.append(button('Edit Project',()=>editProject(p.id)));if(!closedView)host.append(button('Add Purchase Order',()=>directAddPO(p.id,p.project_name)));}
@@ -164,4 +164,6 @@
   global.PEWorkspace={matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+
+
 

@@ -40,6 +40,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
+<style>.project-action-cell{position:sticky;right:0;background:#fff;z-index:2;box-shadow:-3px 0 8px #14263d10;min-width:190px}th.project-action-cell{background:#14263d;z-index:3}.project-row-actions{display:flex;gap:6px;align-items:center}.project-action{font:600 12px/1.4 Arial,sans-serif!important;padding:7px 9px!important;border:0;border-radius:6px;background:#2563eb;color:white;text-decoration:none;cursor:pointer}.project-action.danger{background:#b42318}</style><script src="searchable-selects.js?v=20261118a" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html" aria-current="page">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -67,6 +68,7 @@ const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
 const SUPABASE_KEY='sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let allProjects=[],allPO=[],allInvoices=[],filtered=[];
+let projectAccess={edit:false,remove:false};
 const $=id=>document.getElementById(id),num=v=>Number(v||0);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(v));
@@ -75,8 +77,9 @@ async function checkSession(){
  if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return false;}
  const {data:{session},error}=await db.auth.getSession();
  if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return false;}
- const {data:p,error:e}=await db.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
+ const {data:p,error:e}=await db.from('users_profile').select('id,username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
  if(e||!p||p.active!==true){await db.auth.signOut();sessionStorage.clear();location.replace('login.html');return false;}
+ const manager=['finance_manager','system_admin'].includes(String(p.role||'').toLowerCase().trim());projectAccess={edit:manager,remove:manager};if(!manager){const permissions=await db.from('user_permissions').select('can_edit,can_delete').eq('user_id',p.id).maybeSingle();if(!permissions.error){projectAccess.edit=permissions.data?.can_edit===true;projectAccess.remove=permissions.data?.can_delete===true;}}
  sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
 }
 async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
@@ -105,11 +108,25 @@ function render(){
  const cards=[['Projects',filtered.length,'Projects matching current filters'],['Purchase Orders',sum('poCount'),'Linked purchase orders'],['PO Value',money(sum('poValue')),'Total PO value before VAT'],['Invoiced',money(sum('billed')),'Invoice amounts before VAT'],['Collected',money(sum('paid')),'Cumulative paid amount'],['Open Balance',money(sum('balance')),'Outstanding collection balance'],['Overdue',money(sum('overdue')),'Past due date based on invoice due date'],['Retention',money(sum('retention')),'Current retention balance']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
  renderChart({poValue:sum('poValue'),billed:sum('billed'),remaining:sum('remaining'),paid:sum('paid'),balance:sum('balance'),retention:sum('retention')});
- const rows=metrics.map(({p,m})=>`<tr data-project-row="${esc(p.id)}"><td><button class="project-drill" type="button" data-project-drill="${esc(p.id)}" aria-expanded="false">${esc(p.project_name||('Project '+p.id))} ▾</button></td><td>${esc(p.company)}</td><td>${esc(p.department)}</td><td>${esc(p.status||'—')}</td><td class="num">${m.poCount}</td><td class="num">${money(m.poValue)}</td><td class="num">${m.invoiceCount}</td><td class="num">${money(m.billed)}</td><td class="num">${money(m.remaining)}</td><td class="num">${money(m.paid)}</td><td class="num">${money(m.balance)}</td><td class="num">${money(m.overdue)}</td><td class="num">${money(m.retention)}</td></tr>`);
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Project</th><th>Customer</th><th>Department</th><th>Status</th><th>PO Count</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining PO Value</th><th>Collected</th><th>Open Balance</th><th>Overdue</th><th>Retention</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No projects match the selected filters.</div>';
+ const rows=metrics.map(({p,m})=>`<tr data-project-row="${esc(p.id)}"><td><button class="project-drill" type="button" data-project-drill="${esc(p.id)}" aria-expanded="false">${esc(p.project_name||('Project '+p.id))} ▾</button></td><td>${esc(p.company)}</td><td>${esc(p.department)}</td><td>${esc(p.status||'—')}</td><td class="num">${m.poCount}</td><td class="num">${money(m.poValue)}</td><td class="num">${m.invoiceCount}</td><td class="num">${money(m.billed)}</td><td class="num">${money(m.remaining)}</td><td class="num">${money(m.paid)}</td><td class="num">${money(m.balance)}</td><td class="num">${money(m.overdue)}</td><td class="num">${money(m.retention)}</td><td class="project-action-cell"><div class="project-row-actions"><a class="project-action" href="companies.html?project_action=open&project_id=${encodeURIComponent(p.id)}">Open</a>${projectAccess.edit?`<a class="project-action" href="companies.html?project_action=edit&project_id=${encodeURIComponent(p.id)}">Edit</a>`:''}${projectAccess.remove?`<button class="project-action danger" type="button" data-project-delete="${esc(p.id)}">Delete</button>`:''}</div></td></tr>`);
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Project</th><th>Customer</th><th>Department</th><th>Status</th><th>PO Count</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining PO Value</th><th>Collected</th><th>Open Balance</th><th>Overdue</th><th>Retention</th><th class="project-action-cell">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No projects match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-project-drill]').forEach(b=>b.addEventListener('click',()=>toggleProjectDetail(b.dataset.projectDrill,b)));
+ $('tableWrap').querySelectorAll('[data-project-delete]').forEach(b=>b.addEventListener('click',()=>deleteRegisteredProject(b.dataset.projectDelete,b)));
  $('resultCount').textContent=`Showing ${filtered.length} of ${allProjects.length} projects`;
 }
+async function deleteRegisteredProject(id,button){
+ if(!projectAccess.remove)return;
+ const project=allProjects.find(p=>String(p.id)===String(id));if(!project)return;
+ if(!confirm('Delete project "'+project.project_name+'"? This cannot be undone. Projects with linked documents cannot be deleted.'))return;
+ button.disabled=true;showError('');
+ try{
+  const linked=await Promise.all(['pos','invoices'].map(table=>db.from(table).select('id',{count:'exact',head:true}).eq('project_id',id)));
+  for(const r of linked){if(r.error)throw r.error;if(r.count==null)throw new Error('Could not verify linked records.');if(r.count>0)throw new Error('This project has linked purchase orders or invoices. Keep it or close it instead.');}
+  const result=await db.from('projects').delete().eq('id',id).select('id');if(result.error)throw result.error;if(result.data?.length!==1)throw new Error('The project was not deleted. Check your access and refresh.');
+  await loadAll();
+ }catch(e){showError('Project deletion blocked: '+(e.message||e));}finally{button.disabled=false;}
+}
+
 function renderChart(v){
  const host=$('projectChart'),items=[['PO Value',v.poValue],['Invoiced',v.billed],['Remaining PO Value',v.remaining],['Collected',v.paid],['Open Balance',v.balance],['Retention',v.retention]],max=Math.max(1,...items.map(x=>x[1]));
  const width=980,left=190,right=150,rowH=42,top=15,barW=width-left-right,height=top+items.length*rowH+10;
@@ -124,7 +141,7 @@ function toggleProjectDetail(id,button){
  const cards=fields.map(([k,v])=>`<div class="detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('');
  const poRows=pos.length?`<div class="tablewrap"><table style="min-width:750px"><thead><tr><th>PO Number</th><th>PO Value Ex VAT</th><th>Invoice Count</th><th>Invoiced Ex VAT</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${pos.map(po=>{const linked=inv.filter(x=>String(x.po_no)===String(po.po_no)),b=linked.reduce((s,x)=>s+num(x.invoice_amount),0);return `<tr><td>${esc(po.po_no)}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${linked.length}</td><td class="num">${money(b)}</td><td class="num">${money(Math.max(0,num(po.po_value_ex_vat)-b))}</td><td>${esc(po.status||'—')}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="muted">No purchase orders are linked to this project.</div>';
  const invRows=inv.length?`<div class="tablewrap"><table style="min-width:700px"><thead><tr><th>Invoice</th><th>PO Number</th><th>Approval Date</th><th>Invoice Amount</th><th>Paid</th><th>Open Balance</th><th>Status</th></tr></thead><tbody>${inv.map((x,i)=>`<tr><td><button type="button" class="invoice-drill" data-invoice-drill="${esc(id)}::${i}" aria-expanded="false">${esc(x.invoice_no||x.invoice_number||('Invoice '+(i+1)))} ▾</button></td><td>${esc(x.po_no)}</td><td>${esc(x.approval_date||x.start_date||'—')}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(x.collection_balance_after_advance??x.open_balance)}</td><td>${esc(x.status||x.payment_status||'—')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoices are linked to this project.</div>';
- const tr=document.createElement('tr');tr.className='detail-row';tr.dataset.projectDetail=id;tr.innerHTML=`<td colspan="13"><div class="detail-grid">${cards}</div><div class="nested"><h3>Linked Purchase Orders (${pos.length})</h3>${poRows}</div><div class="nested"><h3>Linked Invoices (${inv.length}) — select an invoice to drill down</h3>${invRows}</div></td>`;
+ const tr=document.createElement('tr');tr.className='detail-row';tr.dataset.projectDetail=id;tr.innerHTML=`<td colspan="14"><div class="detail-grid">${cards}</div><div class="nested"><h3>Linked Purchase Orders (${pos.length})</h3>${poRows}</div><div class="nested"><h3>Linked Invoices (${inv.length}) — select an invoice to drill down</h3>${invRows}</div></td>`;
  const main=$('tableWrap').querySelector(`[data-project-row="${CSS.escape(String(id))}"]`);if(main){main.after(tr);button.setAttribute('aria-expanded','true');button.textContent=button.textContent.replace(' ▾',' ▴');tr.querySelectorAll('[data-invoice-drill]').forEach(b=>b.addEventListener('click',()=>toggleInvoiceDetail(id,Number(b.dataset.invoiceDrill.split('::')[1]),b)));}
 }
 function toggleInvoiceDetail(projectId,index,button){
@@ -157,6 +174,8 @@ PEAnnual.render('kpis','projectChart',{profile:'projects',projectIds:filtered.ma
 })();
 </script>
 </body></html>
+
+
 
 
 
