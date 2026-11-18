@@ -149,7 +149,7 @@ function populateFilters(){
 function relatedFor(x){
  const pr=projects.find(p=>String(p.id)===String(x.project_id))||projects.find(p=>p.project_name===x.project_name);
  const po=pos.find(p=>String(p.po_no)===String(x.po_no));
- return {pr,po,company:pr?.company||po?.company||'',department:pr?.department||po?.department||''};
+ return {pr,po,company:x.company||po?.company||pr?.company||'Unassigned',department:x.department||po?.department||pr?.department||'Unassigned'};
 }
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim(),d=$('department').value.trim(),p=$('project').value.trim(),po=$('po').value.trim(),s=$('status').value.trim();
@@ -184,8 +184,8 @@ function render(){
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-edit-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)))} ✎</button></td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(dateOnly(x.approval_date||x.start_date))}</td><td>${esc(dateOnly(x.due_date))}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${money(invoiceVat(x))}</td><td class="num">${money(invoiceGross(x))}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(invoiceBalance(x))}</td><td class="num">${money(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td>${registerRecordLinks('invoice',x)}</td></tr>`});
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Edit</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
+ const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-edit-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)))} ✎</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(dateOnly(x.approval_date||x.start_date))}</td><td>${esc(dateOnly(x.due_date))}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${money(invoiceVat(x))}</td><td class="num">${money(invoiceGross(x))}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(invoiceBalance(x))}</td><td class="num">${money(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td>${registerRecordLinks('invoice',x)}</td></tr>`});
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Edit</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-edit-invoice]').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.dataset.editInvoice))));
  $('resultCount').textContent=`Showing ${a.length} of ${allInvoices.length} invoices`;
 }
@@ -240,9 +240,9 @@ async function saveEdit(event){
  finally{$('saveEdit').disabled=false;$('saveEdit').textContent='Save Changes';}
 }
 function exportCSV(){
- const headers=['Invoice No','Project','PO No','Approval Date','Due Date','Amount Ex VAT','Advance Amortisation','Net Invoice Amount','VAT','Invoice Total','Paid Amount','Open Balance','Retention Balance','Payment Status','Invoice Status','Description'];
- const rows=filtered.map(x=>[x.invoice_no,x.project_name,x.po_no,x.approval_date||x.start_date,x.due_date,x.invoice_amount,x.advance_amortisation,x.net_invoice_amount,invoiceVat(x),invoiceGross(x),x.paid_amount,invoiceBalance(x),x.retention_balance,invoiceStatus(x),x.status,x.description]);
- const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ const headers=['Invoice No','Customer / Company','Project','PO No','Approval Date','Due Date','Amount Ex VAT','Advance Amortisation','Net Invoice Amount','VAT','Invoice Total','Paid Amount','Open Balance','Retention Balance','Payment Status','Invoice Status','Description'];
+ const rows=filtered.map(x=>[x.invoice_no,relatedFor(x).company,x.project_name,x.po_no,x.approval_date||x.start_date,x.due_date,x.invoice_amount,x.advance_amortisation,x.net_invoice_amount,invoiceVat(x),invoiceGross(x),x.paid_amount,invoiceBalance(x),x.retention_balance,invoiceStatus(x),x.status,x.description]);
+ const csv='\ufeff'+[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/^[\s]*[=+@-]/,s=>"'"+s).replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='invoice-register-'+today()+'.csv';a.click();URL.revokeObjectURL(url);
 }
 function openCreatePicker(){
@@ -285,4 +285,6 @@ PEAnnual.render('kpis','invoiceChart',{profile:'invoices',invoiceIds:filtered.ma
 })();
 </script>
 </body></html>
+
+
 

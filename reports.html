@@ -18,11 +18,19 @@
 <script src="annual-analytics.js?v=20261117b"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
-</head>
+<style>
+@media screen{
+.report-control-dock{position:sticky;top:0;z-index:30;background:#f3f6fa;padding:8px 0;border-bottom:1px solid #cbd5e1;box-shadow:0 4px 12px #14263d14;max-height:52vh;overflow:auto}
+.report-control-dock>.panel{margin-bottom:8px;padding:12px}.report-control-dock h2{font-size:16px;margin-bottom:10px}.report-control-dock .tabs{margin:0;gap:6px}
+.report-control-dock .field label{font-size:12px;margin-bottom:4px}.report-control-dock input,.report-control-dock select{padding:7px;font-size:13px}.report-control-dock button{padding:8px 10px;font-size:13px}
+#kpis{position:static!important}.report-section{scroll-margin-top:52vh}
+}
+@media print{.report-control-dock{display:none!important}}
+</style></head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
 <div class="error" id="errorBox"></div>
-<section class="panel"><h2>Report Filters</h2><div class="filters">
+<div class="report-control-dock"><section class="panel"><h2>Report Filters</h2><div class="filters">
 <div class="field"><label>Customer / Company</label><input id="fCompany" list="companyOptions" placeholder="Type customer name" oninput="applyFilters()"><datalist id="companyOptions"></datalist></div>
 <div class="field"><label>Department</label><input id="fDepartment" list="departmentOptions" placeholder="Type department" oninput="applyFilters()"><datalist id="departmentOptions"></datalist></div>
 <div class="field"><label>Project</label><input id="fProject" list="projectOptions" placeholder="Type project name" oninput="applyFilters()"><datalist id="projectOptions"></datalist></div>
@@ -34,8 +42,9 @@
 <div class="field"><label>Search Text</label><input type="search" id="fSearch" placeholder="Invoice, PO, project, company, description..." oninput="applyFilters()"></div>
 <div class="field"><label>Invoice / Payment Status</label><select id="fStatus"><option value="">All Statuses</option><option>Paid</option><option>Partially Paid</option><option>Unpaid</option><option>Overdue</option><option>Retention Only</option></select></div>
 </div><div class="filter-actions" style="margin-top:12px"><button onclick="applyFilters()">Apply Filters</button><button class="secondary" onclick="resetFilters()">Reset</button><span id="filterCount" class="meta"></span></div></section>
+<div class="tabs"><button class="active" data-tab="invoices">Invoice Register</button><button data-tab="collections">Collections & Aging</button><button data-tab="pos">Purchase Orders</button><button data-tab="projects">Projects</button><button data-tab="customers">Customer Summary</button></div></div>
 <section class="panel"><h2>Management Summary</h2><div class="kpis" id="kpis"></div><div class="grid2" style="margin-top:17px"><div><h2>Invoice Value Composition</h2><div class="chartbox"><canvas id="compositionChart"></canvas></div></div><div><h2>Outstanding Receivables Aging</h2><div class="chartbox"><canvas id="agingChart"></canvas></div></div></div></section>
-<section class="panel"><div class="tabs"><button class="active" data-tab="invoices">Invoice Register</button><button data-tab="collections">Collections & Aging</button><button data-tab="pos">Purchase Orders</button><button data-tab="projects">Projects</button><button data-tab="customers">Customer Summary</button></div>
+<section class="panel">
 <div class="report-section active" id="sec-invoices"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Invoice Register</h2><button class="green" onclick="exportCSV('invoices')">Export Invoice CSV</button></div><div class="table-wrap" id="invoiceTable"></div></div>
 <div class="report-section" id="sec-collections"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Collections & Receivables Aging</h2><button class="green" onclick="exportCSV('collections')">Export Collections CSV</button></div><div class="note" style="margin-bottom:12px">Paid Amount is the cumulative amount stored on each invoice. Since no dated receipt/collection transaction table has been confirmed, this report shows cumulative collections to date and current outstanding aging; it does not claim cash collected within the selected date range.</div><div class="table-wrap" id="collectionTable"></div></div>
 <div class="report-section" id="sec-pos"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Purchase Order Utilization</h2><button class="green" onclick="exportCSV('pos')">Export PO CSV</button></div><div class="table-wrap" id="poTable"></div></div>
@@ -129,5 +138,7 @@ PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],
 })();
 </script>
 </body></html>
+
+
 
 
