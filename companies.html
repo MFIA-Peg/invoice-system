@@ -186,7 +186,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <script src="project-lookups.js?v=20261118a"></script>
 <script src="relationship-actions.js?v=20261118a"></script>
 <script src="searchable-selects.js?v=20261118b" defer></script>
-<link rel="stylesheet" href="customer-table.css?v=20261118a">
+<link rel="stylesheet" href="customer-table.css?v=20261118b">
 </head>
 
 <body>
@@ -223,16 +223,13 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 </section>
 
 <section class="card panel" id="customerMasterCard">
-<div class="panelhead"><div><h2>Customer Register</h2><div id="cmStatus" class="muted" role="status">Loading customers…</div></div>
+<div class="panelhead"><div><h2>Customers</h2><div id="cmStatus" class="muted" role="status">Loading customers…</div><p class="muted customer-register-note">One row per registered customer, with linked departments and financial activity. Amounts below cover accessible history; KPI cards show the current year. All amounts are SAR.</p></div>
 <div class="actions"><button id="cmAdd" onclick="cmOpenCreate()" class="teal" style="display:none">Add Customer</button><button onclick="cmLoad()" class="secondary">Refresh Customers</button></div></div>
 <div id="cmList" class="cm-scroll"></div>
 </section>
 </div>
 
-<section class="card panel" id="companiesCard" style="display:none">
-<div class="panelhead"><div><h2>Customer Financial Register</h2><div class="muted" id="customerFinancialCount"></div></div></div>
-<div id="companiesList">Loading companies…</div>
-</section>
+<div id="companiesCard" hidden><span id="customerFinancialCount" hidden></span><div id="companiesList" hidden></div></div>
 
 <div class="card" id="projectsCard" style="display:none">
 
@@ -1769,26 +1766,20 @@ async function cmLoad(){
 }
 function cmRender(rows,financialByName,assignments){
  const wrap=cmById('cmList');wrap.replaceChildren();
- const table=document.createElement('table');table.className='cm-table';
- const thead=document.createElement('thead');const hr=document.createElement('tr');for(const name of ['Customer','Departments','Purchase Orders','PO Value','Billing','Collected','Outstanding','Pending Approval','Overdue','Not Yet Due','Actions']){const th=document.createElement('th');th.textContent=name;hr.append(th);}thead.append(hr);table.append(thead);
+ const table=document.createElement('table');table.className='cm-table';table.setAttribute('aria-label','Customers and financial activity');
+ const colgroup=document.createElement('colgroup');for(const column of customerRegisterColumns){const col=document.createElement('col');col.style.width=column.width+'px';colgroup.append(col);}const actionCol=document.createElement('col');actionCol.style.width='250px';colgroup.append(actionCol);table.append(colgroup);
+ const thead=document.createElement('thead'),hr=document.createElement('tr');for(const column of [...customerRegisterColumns,{label:'Actions'}]){const th=document.createElement('th');th.scope='col';th.textContent=column.label;hr.append(th);}thead.append(hr);table.append(thead);
  const body=document.createElement('tbody');
- for(const c of rows){
-  const tr=document.createElement('tr');const name=document.createElement('td');name.textContent=c.name;
-  const deps=document.createElement('td');
-  const departments=assignments.get(Number(c.id))||[];
-  deps.textContent=departments.join(', ')||'Not assigned';
-  const finance=financialByName.get(customerKey(c.name));
-  const financialCells=['poCount','poVal','billed','collected','out','pending','overdue','notDue'].map(key=>{
-   const td=document.createElement('td');
-   td.textContent=finance ? (key==='poCount'?finance[key]:customerMoney.format(finance[key])) : '—';
-   return td;
-  });
-  const actions=document.createElement('td');const bar=document.createElement('div');bar.className='cm-actions';
-  const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
-  add('Open',()=>PEWorkspace.openCustomer(c.name));
-  if(cmCanCreate())add('Departments',()=>cmOpenLinks(c.id));
-  if(cmManager()){add('Edit',()=>cmOpenRename(c.id));add('Delete',()=>cmDelete(c.id),true);}
-  if(!bar.children.length)bar.textContent='View only';actions.append(bar);tr.append(name,deps,...financialCells,actions);body.append(tr);
+ for(const customer of rows){
+  const finance=financialByName.get(customerKey(customer.name)),departments=customerRegisterDepartments(customer,finance,assignments),values=customerRegisterValues(customer,finance,departments);
+  const tr=document.createElement('tr');
+  values.forEach((value,index)=>{const td=document.createElement('td');td.textContent=value==null?'—':customerRegisterColumns[index].money?customerMoney.format(value):String(value);if(customerRegisterColumns[index].money||customerRegisterColumns[index].count)td.className='num';if(index===0&&customer.financialOnly){const note=document.createElement('small');note.className='customer-unregistered';note.textContent='Financial history · not registered';td.append(note);}tr.append(td);});
+  const actions=document.createElement('td'),bar=document.createElement('div');bar.className='cm-actions';
+  const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
+  add('Open',()=>PEWorkspace.openCustomer(customer.name));
+  if(!customer.financialOnly&&cmCanCreate())add('Departments',()=>cmOpenLinks(customer.id));
+  if(!customer.financialOnly&&cmManager()){add('Edit',()=>cmOpenRename(customer.id));add('Delete',()=>cmDelete(customer.id),true);}
+  actions.append(bar);tr.append(actions);body.append(tr);
  }
  table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
 }
@@ -1821,6 +1812,30 @@ const customerMetrics = [
  ['Overdue Balance','overdue'], ['Not Yet Due','notDue'], ['Retention','ret']
 ];
 const financialHeaders = ['Customer','Projects','Purchase Orders',...customerMetrics.map(([label])=>label)];
+
+const customerRegisterColumns=[
+ {label:'Customer',width:180},{label:'Departments',width:135},{label:'Projects',width:75,count:true},{label:'Purchase Orders',width:90,count:true},
+ {label:'PO Value Ex VAT',width:125,money:true},{label:'Uninvoiced PO Value Ex VAT',width:125,money:true},
+ {label:'Invoiced Incl VAT',width:125,money:true},{label:'Settled Invoice Value',width:125,money:true},{label:'Collected Incl Advances',width:125,money:true},
+ {label:'Outstanding Incl Retention',width:125,money:true},{label:'Pending Approval Incl VAT',width:125,money:true},
+ {label:'Overdue Collection',width:125,money:true},{label:'Not Yet Due',width:125,money:true},{label:'Retention Balance',width:125,money:true}
+];
+function unifiedCustomerRows(matching,financialRows,allRegistered){
+ const registeredKeys=new Set(allRegistered.map(c=>customerKey(c.name)));
+ return [...matching,...financialRows.filter(f=>!registeredKeys.has(customerKey(f.name))).map(f=>({id:null,name:f.name,financialOnly:true}))]
+  .sort((a,b)=>a.name.localeCompare(b.name));
+}
+function customerRegisterDepartments(customer,finance,assignments){
+ const assigned=customer.financialOnly?[]:assignments.get(Number(customer.id))||[];
+ const values=customer.financialOnly?(finance?.projects||[]).map(p=>p.department).filter(Boolean):assigned;
+ return [...new Set(values)].join(', ')||'Not assigned';
+}
+function customerRegisterValues(customer,finance,departments){
+ const missing=customerFinanceLoaded&&!customerFinanceError?0:null;
+ return [customer.name,departments,finance?.projects?.length??missing,finance?.poCount??missing,
+  ...['poVal','poBal','billed','paid','collected','out','pending','overdue','notDue','ret'].map(key=>finance?.[key]??missing)];
+}
+
 const customerFilterIds = ['cmSearch','companySearch','customerDepartment','customerProject','customerStatus'];
 const customerMoney = new Intl.NumberFormat('en-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
 let customerFinancialRows = [];
@@ -1871,33 +1886,10 @@ function renderCustomerFinancials() {
  }
  visibleCustomerFinancialRows = customerFinancialRows.filter(row=>PEWorkspace.matches('customer',row)&&customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
  const matching = cmState.loaded ? cmState.customers.filter(c=>PEWorkspace.matches('customer',c)&&customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
- visibleCustomerMasterRows = matching.map(c=>{
-  const finance=financialByName.get(customerKey(c.name));
-  return [c.name,(assignments.get(Number(c.id))||[]).join(', '),
-   finance?.poCount??null,...['poVal','billed','collected','out','pending','overdue','notDue'].map(key=>finance?.[key]??null)];
- });
- const target = cmById('companiesList');
- if(customerFinanceError) target.textContent = 'Financial data could not be loaded: '+customerFinanceError;
- else if(customerFinanceLoaded){
-  const rows = visibleCustomerFinancialRows;
-  target.innerHTML = rows.length
-   ? '<div class="company-table-wrap"><table class="company-table"><thead><tr>'
-     +[...financialHeaders,'Actions'].map(label=>'<th scope="col">'+label+'</th>').join('')
-     +'</tr></thead><tbody>'+rows.map((row,index)=>
-       '<tr class="company-row"><td><b>'+escapeHtml(row.name)+'</b></td><td>'+row.projects.length+'</td><td>'+row.poCount+'</td>'
-       +customerMetrics.map(([,key])=>'<td class="num">'+customerMoney.format(row[key])+'</td>').join('')
-       +'<td><div class="company-actions"><button type="button" data-open="'+index+'">Open</button>'
-       +'<button type="button" class="btn-danger" data-delete="'+index+'">Delete</button></div></td></tr>'
-      ).join('')+'</tbody></table></div>'
-   : '<p>No financial records match the filters.</p>';
-  target.querySelectorAll('[data-open]').forEach(button=>{
-   button.onclick=()=>PEWorkspace.openCustomer(rows[Number(button.dataset.open)].name);
-  });
-  target.querySelectorAll('[data-delete]').forEach(button=>{
-   const row=rows[Number(button.dataset.delete)];
-   button.onclick=()=>requestDeleteCompany(row.name,row.projects.length);
-  });
- }
+ const unifiedRows=unifiedCustomerRows(matching,visibleCustomerFinancialRows,cmState.customers);
+ visibleCustomerMasterRows=unifiedRows.map(customer=>{const finance=financialByName.get(customerKey(customer.name));return customerRegisterValues(customer,finance,customerRegisterDepartments(customer,finance,assignments));});
+ cmById('companiesList').replaceChildren();
+
  const totals = customerTotals(visibleCustomerFinancialRows);
  const hasRows = visibleCustomerFinancialRows.length>0;
  const note = customerFinanceError ? 'Financial data unavailable.' : !customerFinanceLoaded ? 'Loading financial totals…'
@@ -1920,8 +1912,8 @@ function renderCustomerFinancials() {
     +'<span class="customer-chart-amount">'+customerMoney.format(value)+'</span></div>').join('')
   : '<div class="muted">'+(customerFinanceLoaded?'No matching financial records.':'Financial amounts are unavailable.')+'</div>';
  if(cmState.loaded){
-  cmById('cmStatus').textContent=matching.length+' of '+cmState.customers.length+' customers';
-  cmRender(matching,financialByName,assignments);
+  cmById('cmStatus').textContent=unifiedRows.length+' customers · '+matching.length+' registered'+(unifiedRows.length>matching.length?' · '+(unifiedRows.length-matching.length)+' financial history records requiring registration':'');
+  cmRender(unifiedRows,financialByName,assignments);
  }
 }
 
@@ -1934,16 +1926,12 @@ async function exportCustomerFinancials(){
  try {
   const xlsx = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
   const workbook = xlsx.utils.book_new();
-  const register = xlsx.utils.aoa_to_sheet([financialHeaders,
-   ...rows.map(row=>[row.name,row.projects.length,row.poCount,...customerMetrics.map(([,key])=>row[key])])]);
-  register['!cols'] = financialHeaders.map((label,index)=>({wch:index===0?34:Math.max(13,label.length+2)}));
-  const summary = xlsx.utils.aoa_to_sheet([['Metric','Amount (SAR)'],...customerTotals(rows)]);
-  summary['!cols'] = [{wch:27},{wch:20}];
-  const masterHeaders=['Customer','Departments','Purchase Orders','PO Value','Billing','Collected','Outstanding','Pending Approval','Overdue','Not Yet Due'];
-  const master = xlsx.utils.aoa_to_sheet([masterHeaders,...masterRows]);
-  master['!cols'] = masterHeaders.map((label,index)=>({wch:index<2?34:Math.max(13,label.length+2)}));
+  const headers=customerRegisterColumns.map(c=>c.label);
+  const master=xlsx.utils.aoa_to_sheet([headers,...masterRows]);
+  master['!cols']=customerRegisterColumns.map((column,index)=>({wch:index===0?28:index===1?22:index<4?14:22}));
+  const summary=xlsx.utils.aoa_to_sheet([['Metric','Amount (SAR)'],...customerTotals(rows)]);
+  summary['!cols']=[{wch:30},{wch:22}];
   xlsx.utils.book_append_sheet(workbook,master,'Customers');
-  xlsx.utils.book_append_sheet(workbook,register,'Financial Register');
   xlsx.utils.book_append_sheet(workbook,summary,'Financial Summary');
   xlsx.writeFileXLSX(workbook,'Customers.xlsx');
  }catch(error){
@@ -1986,6 +1974,8 @@ PEWorkspace.refreshDrill();
 </script>
 </body>
 </html>
+
+
 
 
 
