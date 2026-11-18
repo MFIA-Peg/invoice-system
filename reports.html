@@ -66,8 +66,17 @@ function invStatus(x){const m=metrics(x);if(m.outstanding<=0.005)return 'Paid';i
 function populate(id,values){const el=document.getElementById(id);if(!el)return;el.innerHTML=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)).map(v=>`<option value="${esc(v)}"></option>`).join('')}
 function matchesText(value,filter){return !filter||String(value??'').trim().toLowerCase()===filter.trim().toLowerCase()}
 async function loadReportInvoices(){const result=[];for(let from=0;;from+=1000){const r=await db.from('invoice_details_with_retention').select('*').order('id').range(from,from+999);if(r.error)throw r.error;result.push(...(r.data||[]));if(!r.data||r.data.length<1000)return result;if(from>=100000)throw new Error('Report record limit exceeded');}}
+let requestedPOApplied=false;
+const requestedPO=new URLSearchParams(location.search).get('po_no');
+function applyRequestedPO(){
+ if(requestedPOApplied||requestedPO===null)return;
+ const select=document.getElementById('fPO');
+ if(!Array.from(select.options).some(o=>o.value===requestedPO))select.add(new Option(requestedPO,requestedPO));
+ select.value=requestedPO;requestedPOApplied=true;
+ window.PESearchableSelects?.refresh();
+}
 async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{
- const [,iv]=await Promise.all([PEAnnual.load(db),loadReportInvoices()]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
+ const [,iv]=await Promise.all([PEAnnual.load(db),loadReportInvoices()]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 function applyFilters(){
 const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();
@@ -75,7 +84,7 @@ const from=document.getElementById('fFrom').value,to=document.getElementById('fT
 const status=document.getElementById('fStatus').value,search=(document.getElementById('fSearch').value||'').trim().toLowerCase();
 const pmap=new Map(projects.map(x=>[String(x.id),x]));const pomap=new Map(pos.map(x=>[String(x.po_no),x]));
 fp.invoices=invoices.filter(x=>{
- if(!PEWorkspace.matches('invoice',x))return false;
+ if(!(requestedPO!==null&&poNo)&&!PEWorkspace.matches('invoice',x))return false;
  const pr=pmap.get(String(x.project_id))||projects.find(p=>p.project_name===x.project_name),po=pomap.get(String(x.po_no));
  const d=dateOnly(x.approval_date||x.start_date),dd=dateOnly(x.due_date);
  if(company&&!matchesText(pr?.company||po?.company,company))return false;
@@ -89,9 +98,9 @@ fp.invoices=invoices.filter(x=>{
  return true;
 });
 const relatedPOs=new Set(fp.invoices.map(x=>String(x.po_no)));const relatedProjects=new Set(fp.invoices.map(x=>String(x.project_id)));
-fp.pos=pos.filter(x=>PEWorkspace.matches('order',x)&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||matchesText(x.po_no,poNo)));
+fp.pos=pos.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('order',x))&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||matchesText(x.po_no,poNo)));
 if(from||to||dueFrom||dueTo||search||status){fp.pos=fp.pos.filter(x=>relatedPOs.has(String(x.po_no)));}
-fp.projects=projects.filter(x=>PEWorkspace.matches('project',x)&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
+fp.projects=projects.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('project',x))&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
 if(from||to||dueFrom||dueTo||search||status){fp.projects=fp.projects.filter(x=>relatedProjects.has(String(x.id)));}
 render();document.getElementById('filterCount').textContent=`${fp.invoices.length} invoices · ${fp.pos.length} POs · ${fp.projects.length} projects`;
 }
