@@ -31,6 +31,7 @@
 <script src="annual-analytics.js?v=20261117b"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
+<link rel="stylesheet" href="compact-layout.css?v=20261118c">
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html" aria-current="page">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersNav" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="navuser" id="username"></span><button class="btn ghost small" id="signout">Sign Out</button></div></div></header>
@@ -144,5 +145,7 @@ if(!state.financeError)PEAnnual.render('financeKpis','financeChart',{departments
 })();
 </script>
 </body></html>
+
+
 
 

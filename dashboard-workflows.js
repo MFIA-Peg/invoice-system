@@ -17,7 +17,7 @@
       if(cancelled)payment='Cancelled';
       else if(m.total>0&&m.balance<=0.005)payment=m.retention>0.005?'Retention Only':'Paid';
       else if(Number(i.paid_amount||0)>0)payment='Partially Paid';
-      return {i,po,p,m,due,payment,overdue,cancelled,draftDue:!cancelled&&draft&&!!i.start_date&&date(i.start_date)<=asOf,waiting,
+      return {i,po,p,m,due,payment,overdue,cancelled,draft,draftDue:!cancelled&&draft&&!!i.start_date&&date(i.start_date)<=asOf,waiting,
         customer:i.company||po?.company||p?.company||'Unassigned',department:i.department||po?.department||p?.department||'Unassigned',project:i.project_name||p?.project_name||po?.project_name||'Unassigned'};
     });
   }
@@ -65,6 +65,8 @@
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     const s=PEAnnual.render('kpis',null,scope);
+    PEDashboardDonuts.kpis(s);
+    PEDashboardDonuts.workflow(rows,f);
     PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
     PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
     PEAnnual.chart('poChart',[['PO Value',s.poValue],['Invoiced',s.totals.net]]);
@@ -81,6 +83,13 @@
   global.clearFilters=function(){activeAttention='';el('invoiceStatus').value='';el('paymentStatus').value='';nativeClear();};
   el('clearAttention').addEventListener('click',()=>{activeAttention='';renderKPIs();});
   ['invoiceStatus','paymentStatus'].forEach(id=>el(id).addEventListener('change',()=>{activeAttention='';renderKPIs();}));
-  global.PEDashboard={buildRows,matches,values};
+  function selectWorkflow(kind){
+    activeAttention=kind==='draft'?'draft':'waiting';
+    el('invoiceStatus').value='';el('paymentStatus').value='';renderKPIs();
+    el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  global.PEDashboard={buildRows,matches,values,selectWorkflow};
 })(window);
+
+
 
