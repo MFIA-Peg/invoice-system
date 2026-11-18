@@ -1,0 +1,26 @@
+/* Bounded work areas, readable tables, and compact shared financial forms. */
+@media screen{
+ body>.wrap,body>main.wrap,body>.container,body>main.page,.container.page{width:100%!important;max-width:1680px!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box}
+ #pe-global-nav .pe-nav-inner{max-width:1680px!important;margin:auto}
+ .tablewrap,.table-wrap,.cm-scroll,.pe-table-wrap{max-width:100%;overflow:auto}
+ .tablewrap table,.table-wrap table{width:100%;font-size:13px}.tablewrap td,.tablewrap th,.table-wrap td,.table-wrap th{padding:9px 10px}
+ #invoiceModal{padding:4vh 20px!important;z-index:1800!important;background:#0f172a88!important}
+ #invoiceModalContent{width:min(100%,1000px)!important;max-width:1000px!important;min-height:0!important;max-height:90vh!important;overflow:auto!important;margin:0 auto!important;padding:18px 20px!important;border:1px solid #dbe3ed;border-radius:14px!important;box-shadow:0 20px 65px #0f172a38!important;font:14px/1.4 Inter,Segoe UI,Arial,sans-serif}
+ #invoiceModalContent>h2{position:sticky;top:-18px;z-index:4;background:#14263d;color:white;font-size:19px;line-height:1.4;margin:-18px -20px 14px!important;padding:14px 20px;border-bottom:1px solid #cbd5e1}
+ #invoiceModalContent .form-section{padding:11px 12px;margin:10px 0;background:#fbfdff;border:1px solid #e2e8f0;border-radius:9px}
+ #invoiceModalContent .form-section h3{font-size:14px;margin:0 0 10px;padding-bottom:7px}
+ #invoiceModalContent .invoice-fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+ #invoiceModalContent .invoice-field{min-width:0}#invoiceModalContent .invoice-field label{font-size:12px;line-height:1.35;color:#475569;margin-bottom:4px}
+ #invoiceModalContent input,#invoiceModalContent select,#invoiceModalContent textarea{font:14px/1.35 Inter,Segoe UI,Arial,sans-serif;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;min-height:34px;max-width:100%;box-sizing:border-box}
+ #invoiceModalContent input[type=checkbox]{min-height:0;width:auto}#invoiceModalContent textarea{height:58px;min-height:58px;resize:vertical}
+ #invoiceModalContent input[readonly],#invoiceModalContent input:disabled,#invoiceModalContent select:disabled{background:#f1f5f9;color:#475569}
+ #invoiceModalContent .modal-actions{position:sticky;bottom:-18px;z-index:4;background:#fff;border-top:1px solid #e2e8f0;padding:12px 0;margin-top:14px;gap:8px}
+ #invoiceModalContent .modal-actions button{font-size:13px;padding:8px 13px;border-radius:7px;min-height:34px}
+ .modal-backdrop{z-index:1800!important;padding:4vh 18px!important}.modal-backdrop .modal{width:min(820px,100%)!important;max-height:90vh!important;border:1px solid #dbe3ed;border-radius:14px!important}
+ .modalhead{padding:13px 18px!important}.modalhead h2{font-size:19px!important}.modalhead .muted{font-size:12px}.modalbody{padding:14px 18px!important}.modalgrid{gap:10px 12px!important}
+ .modalgrid .field label{font-size:12px;margin-bottom:4px}.modalgrid input,.modalgrid select,.modalgrid textarea{font-size:14px;padding:7px 9px;min-height:34px;border-radius:7px}.modalgrid textarea{min-height:60px!important}.modalfoot{padding:11px 18px!important}.modalfoot button{font-size:13px;padding:8px 12px}
+ #createPicker{width:min(520px,calc(100vw - 30px))!important;padding:18px!important;border-radius:12px!important}#createPicker h2{font-size:19px}#createPicker label{font-size:12px}#createPicker select{font-size:14px;padding:8px;min-height:36px}
+}
+@media(max-width:1000px){#invoiceModalContent .invoice-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){#invoiceModal{padding:10px!important}#invoiceModalContent{padding:15px!important;max-height:calc(100dvh - 20px)!important}#invoiceModalContent>h2{top:-15px;margin:-15px -15px 12px!important;padding:12px 15px}#invoiceModalContent .invoice-fields,.modalgrid{grid-template-columns:1fr!important}#invoiceModalContent .modal-actions{bottom:-15px}#invoiceModalContent input,#invoiceModalContent select,.modalgrid input,.modalgrid select{min-height:42px}.modal-backdrop{padding:10px!important}}
+

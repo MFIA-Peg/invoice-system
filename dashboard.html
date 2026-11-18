@@ -36,6 +36,8 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117d"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
+<link rel="stylesheet" href="compact-layout.css?v=20261118c">
+<link rel="stylesheet" href="dashboard-donuts.css?v=20261118c">
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap dashboard-content">
 <section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
@@ -51,6 +53,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years unless a period is selected. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
 <section class="panel"><h2>Billing, collections and balances</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
 <section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Invoice totals include VAT. Expected collection follows invoice due dates. Actual collection follows the recorded collection date.</p><div id="monthlyComparison"></div></section>
+<section class="panel"><h2>Draft and approval workflow</h2><p id="workflowChartNote" class="muted" style="font-size:12px"></p><div id="invoiceWorkflowCharts"></div></section>
 <section class="panel" id="dashboardInvoices" hidden><h2>Filtered invoice details</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
 <article class="chart-card"><h3>Collections and remaining balance</h3><div class="chart-box"><div id="collectionChart"></div></div></article>
@@ -114,8 +117,11 @@ async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script>
-<script src="dashboard-workflows.js?v=20261118b"></script>
+<script src="dashboard-donuts.js?v=20261118c"></script>
+<script src="dashboard-workflows.js?v=20261118c"></script>
 </body></html>
+
+
 
 
 

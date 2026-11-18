@@ -38,6 +38,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <script src="annual-analytics.js?v=20261117b"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
+<link rel="stylesheet" href="compact-layout.css?v=20261118c">
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -257,4 +258,6 @@ PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p
 })();
 </script>
 </body></html>
+
+
 
