@@ -134,9 +134,8 @@ function setOptions(id,values){const list=$(id+'Options');if(!list)return;const 
 async function loadAll(){
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- await PEAnnual.load(db);
-
-  const [iv,p,po]=await Promise.all([fetchRows('invoice_details_with_retention','*',null),fetchRows('projects','id,project_name,company,department'),fetchRows('pos','id,po_no,project_id,project_name,company,department,status')]);
+ const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*',null)]);
+ const {projects:p,orders:po}=PEAnnual.records();
   allInvoices=iv;projects=p;pos=po;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load invoices: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Could not load invoice data. Check database permissions and view availability.</div>'}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh'}
@@ -287,12 +286,3 @@ PEAnnual.render('kpis','invoiceChart',{profile:'invoices',invoiceIds:filtered.ma
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-
-
-

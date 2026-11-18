@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+(function(){const p=new URLSearchParams(location.search);if(['po','invoice'].includes(p.get('record'))||['open','edit'].includes(p.get('project_action'))||['project','purchase-order','invoice'].includes(p.get('create')))document.documentElement.classList.add('record-loading');})();
+</script>
+<style>html.record-loading body{visibility:hidden}html.record-loading:after{content:'Loading requested record…';position:fixed;inset:0;display:grid;place-items:center;background:#f3f6fa;color:#14263d;font:18px Arial}html.record-route #customerOverview,html.record-route #companiesCard{display:none!important}</style>
 <style>html{font-size:18px}</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -298,9 +302,8 @@ async function loadExecutiveDashboard(){
  const msg=document.getElementById('analyticsMessage');
  if(msg)msg.textContent='Loading financial statistics...';
  try{
-  const [projects,pos,invoices]=await Promise.all([
-   fetchAllRows('projects','*'),fetchAllRows('pos','*'),fetchAllRows('invoices','*')
-  ]);
+  await PEAnnual.load(supabaseClient);
+  const {projects,orders:pos,invoices}=PEAnnual.records();
   executiveData={projects,pos,invoices,advanceTrackingAvailable:pos.some(p=>p.advance_received_amount!==undefined)};
   try{populateExecutiveFilters();if(isExecutiveRole())renderExecutiveDashboard();}catch(renderError){console.warn('Optional dashboard charts:',renderError);}
   if(msg)msg.textContent=`Loaded ${projects.length} projects, ${pos.length} purchase orders and ${invoices.length} invoices.`;
@@ -333,8 +336,7 @@ function renderSvgFallbackChart(id,labels,datasets){const canvas=document.getEle
 function showCompanySummaryDetail(company){const s=currentExecutiveSnapshot;if(!s)return;const rows=s.invoices.filter(i=>(i._project?.company||i._po?.company||'Unassigned')===company);let h=`<h2>Company Summary: ${escapeHtml(company)}</h2><table><tr><th>Invoice Number</th><th>Project</th><th>Purchase Order</th><th>Billing</th><th>Collected</th><th>Balance</th><th>Retention</th><th>Due Date</th></tr>`;rows.forEach(i=>h+=`<tr><td>${escapeHtml(i.invoice_no||'')}</td><td>${escapeHtml(i._project?.project_name||i.project_name||'')}</td><td>${escapeHtml(i.po_no||'')}</td><td>${moneySAR(i._m.total)}</td><td>${moneySAR(i._m.collected)}</td><td>${moneySAR(i._m.outstanding)}</td><td>${moneySAR(i._m.retentionBalance)}</td><td>${escapeHtml(i._m.due||'')}</td></tr>`);h+='</table><div class="modal-actions"><button onclick="document.getElementById(\'dashboardDetailModal\').style.display=\'none\'">Close</button></div>';document.getElementById('dashboardDetailContent').innerHTML=h;document.getElementById('dashboardDetailModal').style.display='block';}
 function clearExecutiveFilters(){['dashCompanyFilter','dashProjectFilter','dashDepartmentFilter','dashDateFrom','dashDateTo'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderExecutiveDashboard();}
 async function loadCompanies(){
- await PEAnnual.load(supabaseClient);
- const {data,error}=await supabaseClient.from('projects').select('id,project_name,company,department,status').order('company');
+ const data=executiveData.projects,error=executiveData.loadError?{message:executiveData.loadError}:null;
  customerFinanceError=error?.message||executiveData.loadError||null;
  customerFinanceLoaded=!customerFinanceError;
  customerFinancialRows=[];
@@ -1592,7 +1594,7 @@ function showRegisterRecord(){
  return registerRecord.type==='po'?editPO(registerRecord.id,true):showInvoiceDetails(registerRecord.id);
 }
 
-function openRequestedCreation(){
+async function openRequestedCreation(){
  const params=new URLSearchParams(location.search);
  const mode=params.get('create');
  if(!['project','invoice','purchase-order'].includes(mode))return;
@@ -1601,7 +1603,7 @@ function openRequestedCreation(){
  back.textContent='Back to '+{'project':'Projects','invoice':'Invoices','purchase-order':'Purchase Orders'}[mode];
  back.style.color='#dbeafe';
  document.querySelector('#dashboardHeaderCard .actions').prepend(back);
- if(mode==='project'){addProject();return;}
+ if(mode==='project'){await addProject();return;}
  if(mode==='purchase-order'){
   const project=executiveData.projects.find(row=>String(row.id)===params.get('project_id')&&row.status!=='Completed');
   if(!project){alert('Select an available project.');return;}
@@ -1635,6 +1637,21 @@ async function initializeDashboard(){
   const userManagementButton=document.getElementById('userManagementButton');
   if(userManagementButton) userManagementButton.hidden=profile.role!=='finance_manager';
   const signed=document.getElementById('signedInUser');if(signed)signed.textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;
+  if(document.documentElement.classList.contains('record-loading')){
+    document.documentElement.classList.add('record-route');
+    const params=new URLSearchParams(location.search),kind=params.get('record')||(params.has('project_action')?'project':params.get('create'));
+    const label=kind==='project'?'Projects':kind==='po'||kind==='purchase-order'?'Purchase Orders':'Invoices';
+    document.title='Power Energy — '+label;
+    const heading=document.querySelector('#dashboardHeaderCard h1');if(heading)heading.textContent=label;
+    const back=document.createElement('a');back.href=label==='Projects'?'projects.html':label==='Purchase Orders'?'purchase-orders.html':'invoices.html';back.textContent='Back to '+label;document.querySelector('#dashboardHeaderCard .actions').prepend(back);
+    document.querySelector('#customerExport').hidden=true;
+    document.querySelectorAll('#pe-global-nav a').forEach(a=>{a.removeAttribute('aria-current');if(a.textContent===label)a.setAttribute('aria-current','page');});
+    try{
+      if(new URLSearchParams(location.search).has('create'))await loadExecutiveDashboard();
+      if(!await openRegisterRecord())await openRequestedCreation();
+    }finally{document.documentElement.classList.remove('record-loading');}
+    return;
+  }
   await loadExecutiveDashboard();
   setDashboardFocus('all');
   await loadCompanies();
@@ -1801,7 +1818,7 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
 async function cmUnlink(id,dep){if(!cmManager()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
 async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
 // Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
-window.addEventListener('load',()=>cmLoad());
+window.addEventListener('load',()=>{if(!document.documentElement.classList.contains('record-route')&&!document.documentElement.classList.contains('record-loading'))cmLoad();});
 </script>
 <script>
 
@@ -1968,18 +1985,8 @@ PEWorkspace.openFromQuery();
 const refreshCustomerWorkspace=refreshDashboard;
 refreshDashboard=async function(){
 await refreshCustomerWorkspace();
-await PEAnnual.load(supabaseClient);
 PEWorkspace.refreshDrill();
 };
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

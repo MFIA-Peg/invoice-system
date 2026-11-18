@@ -87,9 +87,8 @@ async function fetchRows(table,columns){let rows=[],from=0;while(true){const {da
 async function loadAll(){
  $('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- await PEAnnual.load(db);
-
-  const [p,po,iv]=await Promise.all([fetchRows('projects','*'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','*')]);
+ const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);
+ const {projects:p,orders:po}=PEAnnual.records();
   allProjects=p;allPO=po;allInvoices=iv;populateFilters();applyFilters();
  }catch(e){showError('Unable to load projects: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check database access and view availability.</div>';}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
@@ -175,12 +174,3 @@ PEAnnual.render('kpis','projectChart',{profile:'projects',projectIds:filtered.ma
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-
-
-

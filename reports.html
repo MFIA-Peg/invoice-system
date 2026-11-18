@@ -65,9 +65,9 @@ const dateOnly=s=>s?String(s).slice(0,10):'';const today=()=>new Date().toISOStr
 function invStatus(x){const m=metrics(x);if(m.outstanding<=0.005)return 'Paid';if(m.dueDate&&m.dueDate<today())return 'Overdue';return m.paymentStatus}
 function populate(id,values){const el=document.getElementById(id);if(!el)return;el.innerHTML=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)).map(v=>`<option value="${esc(v)}"></option>`).join('')}
 function matchesText(value,filter){return !filter||String(value??'').trim().toLowerCase()===filter.trim().toLowerCase()}
+async function loadReportInvoices(){const result=[];for(let from=0;;from+=1000){const r=await db.from('invoice_details_with_retention').select('*').order('id').range(from,from+999);if(r.error)throw r.error;result.push(...(r.data||[]));if(!r.data||r.data.length<1000)return result;if(from>=100000)throw new Error('Report record limit exceeded');}}
 async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{
- await PEAnnual.load(db);
-const results=await Promise.all([db.from('projects').select('*').order('id'),db.from('pos').select('*').order('id'),db.from('invoice_details_with_retention').select('*')]);const bad=results.find(r=>r.error);if(bad)throw bad.error;projects=results[0].data||[];pos=results[1].data||[];invoices=results[2].data||[];populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
+ const [,iv]=await Promise.all([PEAnnual.load(db),loadReportInvoices()]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 function applyFilters(){
 const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();
@@ -124,6 +124,8 @@ if(kind==='projects'){name='project-summary';rows=[['Project','Company','Departm
 if(kind==='customers'){name='customer-financial-summary';const g=new Map();const customerOf=x=>{const pr=projects.find(p=>String(p.id)===String(x.project_id))||projects.find(p=>p.project_name===x.project_name),po=pos.find(p=>String(p.po_no)===String(x.po_no));return String(pr?.company||po?.company||'Unassigned').trim()||'Unassigned'};const get=(k)=>{if(!g.has(k))g.set(k,{projects:new Set(),pos:new Set(),count:0,poValue:0,invoiced:0,advance:0,net:0,vat:0,gross:0,paid:0,out:0,ret:0});return g.get(k)};fp.projects.forEach(p=>get(String(p.company||'Unassigned')).projects.add(String(p.id)));fp.pos.forEach(p=>{const x=get(String(p.company||projects.find(z=>String(z.id)===String(p.project_id))?.company||'Unassigned'));x.pos.add(String(p.po_no));x.poValue+=n(p.po_value_ex_vat)});fp.invoices.forEach(x=>{const a=get(customerOf(x));a.count++;if(x.project_id!=null)a.projects.add(String(x.project_id));if(x.po_no)a.pos.add(String(x.po_no));a.invoiced+=n(x.invoice_amount);a.advance+=n(x.advance_amortisation);a.net+=n(x.net_invoice_amount??(n(x.invoice_amount)-n(x.advance_amortisation)));a.vat+=invVat(x);a.gross+=invGross(x);a.paid+=n(x.paid_amount);a.out+=invBalance(x);a.ret+=n(x.retention_balance)});rows=[['Customer / Company','Projects','POs','Invoices','PO Value Ex VAT','Invoiced Ex VAT','Advance Amortised','Net Invoice Ex VAT','VAT','Invoice Total Incl VAT','Cumulative Paid','Outstanding Balance','Retention Balance'],...Array.from(g.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,x])=>[k,x.projects.size,x.pos.size,x.count,x.poValue,x.invoiced,x.advance,x.net,x.vat,x.gross,x.paid,x.out,x.ret])] }
 const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'-'+today()+'.csv';a.click();URL.revokeObjectURL(url)}
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.report-section').forEach(x=>x.classList.toggle('active',x.id==='sec-'+b.dataset.tab))}));
+const requestedReport=new URLSearchParams(location.search).get('report');
+Array.from(document.querySelectorAll('[data-tab]')).find(b=>b.dataset.tab===requestedReport)?.click();
 loadAll();
 </script>
 <script>
@@ -140,13 +142,3 @@ PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-
-
-
-

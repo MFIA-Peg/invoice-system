@@ -110,7 +110,7 @@ async function initialize(){try{
 async function loadCollections(){const b=$('refresh');b.disabled=true;b.textContent='Loading...';showError('');try{
  await PEAnnual.load(client);
 
- const [p,po,i,c]=await Promise.all([rows('projects','id,project_name,company,department,status'),rows('pos','id,po_no,project_id,company,department,vat,archive,status'),rows('invoices','id,invoice_no,status,po_no,invoice_amount,paid_amount,project_id,project_name,retention_amount,retention_vat,advance_amortisation'),rows('invoice_collections','id,invoice_id,collection_date,amount,payment_method,reference_no,notes,created_at')]);
+ const {projects:p,orders:po,invoices:i,collections:c}=PEAnnual.records();
  projects=p.filter(x=>allowedProject(x.id)&&allowedDept(x.department));const ids=new Set(projects.map(x=>Number(x.id)));pos=po.filter(x=>ids.has(Number(x.project_id))&&x.archive!==true);invoices=i.filter(x=>ids.has(Number(x.project_id||pos.find(y=>y.po_no===x.po_no)?.project_id)));const invIds=new Set(invoices.map(x=>Number(x.id)));
  transactions=c.filter(x=>invIds.has(Number(x.invoice_id))).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date))||b.id-a.id);
  populateFilters();fillInvoices();applyFilters();
@@ -203,10 +203,3 @@ PEAnnual.render('kpis','collectionChart',{profile:'collections',invoiceIds:invoi
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-

@@ -95,9 +95,8 @@ async function fetchRows(table,columns){let rows=[],from=0;while(true){const {da
 async function loadAll(){
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- await PEAnnual.load(db);
-
-  const [p,po,iv]=await Promise.all([fetchRows('projects','id,project_name,company,department,status'),fetchRows('pos','*'),fetchRows('invoice_details_with_retention','*')]);
+ const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);
+ const {projects:p,orders:po}=PEAnnual.records();
   projects=p;allPO=po;invoices=iv;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
@@ -260,12 +259,3 @@ PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-
-
-
