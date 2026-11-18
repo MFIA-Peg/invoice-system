@@ -1,0 +1,6 @@
+#cmList .cm-table{table-layout:fixed;width:100%;min-width:1420px}#cmList .cm-table th:first-child,#cmList .cm-table td:first-child{width:180px}#cmList .cm-table th:nth-child(2),#cmList .cm-table td:nth-child(2){width:135px}
+#cmList .cm-table td:nth-child(-n+2),#cmList .cm-table th:nth-child(-n+2){white-space:normal!important;overflow-wrap:anywhere;word-break:normal;line-height:1.4;text-align:left}#cmList .cm-table th:last-child,#cmList .cm-table td:last-child{width:250px;position:sticky;right:0;background:white;z-index:2;box-shadow:-3px 0 8px #14263d0d}#cmList .cm-table th:last-child{background:#14263d;z-index:3}
+#cmList .cm-actions,#companiesList .company-actions{display:flex;flex-direction:row;flex-wrap:nowrap!important;align-items:center;gap:5px;white-space:nowrap}#cmList .cm-actions button,#companiesList .company-actions button{flex:none;font-size:12px;padding:7px 9px;white-space:nowrap}
+#companiesList .company-table{table-layout:fixed;min-width:1400px}#companiesList .company-table td:first-child,#companiesList .company-table th:first-child{width:180px;white-space:normal!important;overflow-wrap:anywhere;line-height:1.4}#companiesList .company-table td:last-child,#companiesList .company-table th:last-child{width:130px}
+#customerFilters #companySearch{width:100%;margin:0}#customerFilters .field{min-width:0}
+

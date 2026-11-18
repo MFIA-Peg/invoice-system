@@ -185,7 +185,8 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261118a"></script>
 <script src="relationship-actions.js?v=20261118a"></script>
-<script src="searchable-selects.js?v=20261118a" defer></script>
+<script src="searchable-selects.js?v=20261118b" defer></script>
+<link rel="stylesheet" href="customer-table.css?v=20261118a">
 </head>
 
 <body>
@@ -214,10 +215,10 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <div class="panelhead"><div><h2>Find Customers</h2><div class="muted">Project and status filters match linked projects. Amounts are customer totals.</div></div><button type="button" id="customerClear" class="secondary">Clear Filters</button></div>
 <div class="filters" id="customerFilters">
 <div class="field"><label for="cmSearch">Search</label><input id="cmSearch" type="search" placeholder="Customer, department, project or status"></div>
-<div class="field"><label for="companySearch">Customer</label><input id="companySearch" type="search" placeholder="Type customer name"></div>
-<div class="field"><label for="customerDepartment">Department</label><input id="customerDepartment" type="search" placeholder="Type department"></div>
-<div class="field"><label for="customerProject">Project</label><input id="customerProject" type="search" placeholder="Type project name"></div>
-<div class="field"><label for="customerStatus">Project Status</label><input id="customerStatus" type="search" placeholder="Type project status"></div>
+<div class="field"><label for="companySearch">Customer</label><select id="companySearch"><option value="">All customers</option></select></div>
+<div class="field"><label for="customerDepartment">Department</label><select id="customerDepartment"><option value="">All departments</option></select></div>
+<div class="field"><label for="customerProject">Project</label><select id="customerProject"><option value="">All projects</option></select></div>
+<div class="field"><label for="customerStatus">Project Status</label><select id="customerStatus"><option value="">All project statuses</option></select></div>
 </div>
 </section>
 
@@ -1833,10 +1834,11 @@ const customerKey = value => String(value??'').trim().toLowerCase();
 function customerMatches(name, projects, assignedDepartments, filters) {
  const [search, customer, department, project, status] = filters;
  const contains = (value, query) => customerKey(value).includes(query);
+ const selected = (value, query) => !query || customerKey(value)===query;
  const departments = [...assignedDepartments,...projects.map(row=>row.department)];
- return contains(name,customer)
-  && (!department || departments.some(value=>contains(value,department)))
-  && ((!project&&!status) || projects.some(row=>contains(row.project_name,project)&&contains(row.status,status)))
+ return selected(name,customer)
+  && (!department || departments.some(value=>selected(value,department)))
+  && ((!project&&!status) || projects.some(row=>selected(row.project_name,project)&&selected(row.status,status)))
   && (!search || contains(name,search) || departments.some(value=>contains(value,search))
       || projects.some(row=>contains(row.project_name,search)||contains(row.status,search)));
 }
@@ -1845,7 +1847,14 @@ function customerTotals(rows) {
  return customerMetrics.map(([label,key])=>[label,rows.reduce((total,row)=>total+row[key],0)]);
 }
 
+function populateCustomerFilterLists(){
+ const projects=customerFinancialRows.flatMap(r=>r.projects||[]);
+ const definitions=[['companySearch',[...cmState.customers.map(c=>c.name),...customerFinancialRows.map(r=>r.name)],'customers'],['customerDepartment',[...cmState.departments.map(d=>d.name),...projects.map(p=>p.department)],'departments'],['customerProject',projects.map(p=>p.project_name),'projects'],['customerStatus',projects.map(p=>p.status),'project statuses']];
+ for(const [id,values,label] of definitions){const select=cmById(id),options=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)),key=JSON.stringify(options);if(select.dataset.optionsKey===key)continue;select.dataset.optionsKey=key;const old=select.value;select.innerHTML='<option value="">All '+label+'</option>'+options.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');select.value=options.includes(old)?old:'';}
+}
+
 function renderCustomerFinancials() {
+ populateCustomerFilterLists();
  const filters = customerFilterIds.map(id=>customerKey(cmById(id).value));
  const financialByName = new Map(customerFinancialRows.map(row=>[customerKey(row.name),row]));
  const assignedByName = new Map();
@@ -1977,6 +1986,8 @@ PEWorkspace.refreshDrill();
 </script>
 </body>
 </html>
+
+
 
 
 
