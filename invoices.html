@@ -41,7 +41,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
-<script src="searchable-selects.js?v=20261118a" defer></script>
+<script src="searchable-selects.js?v=20261118b" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -53,15 +53,15 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="panel"><div class="panelhead"><div><h2>Find Invoices</h2><div class="muted">Type in the fields to filter instantly. Dates are based on approval/start date and due date.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="Invoice no., description, PO"></div>
-<div class="field"><label for="company">Customer / Company</label><input id="company" list="companyOptions" placeholder="Type customer"><datalist id="companyOptions"></datalist></div>
-<div class="field"><label for="department">Department</label><input id="department" list="departmentOptions" placeholder="Type department"><datalist id="departmentOptions"></datalist></div>
-<div class="field"><label for="project">Project</label><input id="project" list="projectOptions" placeholder="Type project"><datalist id="projectOptions"></datalist></div>
-<div class="field"><label for="po">Purchase Order</label><input id="po" list="poOptions" placeholder="Type PO number"><datalist id="poOptions"></datalist></div>
+<div class="field"><label for="company">Customer / Company</label><select id="company" data-filter-source="companyOptions" aria-label="Customer / Company"><option value="">All</option></select><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="department">Department</label><select id="department" data-filter-source="departmentOptions" aria-label="Department"><option value="">All</option></select><datalist id="departmentOptions"></datalist></div>
+<div class="field"><label for="project">Project</label><select id="project" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
+<div class="field"><label for="po">Purchase Order</label><select id="po" data-filter-source="poOptions" aria-label="Purchase Order"><option value="">All</option></select><datalist id="poOptions"></datalist></div>
 <div class="field"><label for="dateFrom">Approval / Start From</label><input id="dateFrom" type="date"></div>
 <div class="field"><label for="dateTo">Approval / Start To</label><input id="dateTo" type="date"></div>
 <div class="field"><label for="dueFrom">Due Date From</label><input id="dueFrom" type="date"></div>
 <div class="field"><label for="dueTo">Due Date To</label><input id="dueTo" type="date"></div>
-<div class="field"><label for="status">Payment Status</label><input id="status" list="statusOptions" placeholder="Type status"><datalist id="statusOptions"></datalist></div>
+<div class="field"><label for="status">Payment Status</label><select id="status" data-filter-source="statusOptions" aria-label="Payment Status"><option value="">All</option></select><datalist id="statusOptions"></datalist></div>
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div><div class="tablewrap" id="tableWrap"><div class="empty">Loading invoices...</div></div><div class="footer"><span>Read source: invoice_details_with_retention · Edit source: invoices.</span><span>Currency: SAR</span></div></section>
 </main>
@@ -142,8 +142,8 @@ async function loadAll(){
  finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh'}
 }
 function populateFilters(){
- setOptions('company',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);
- setOptions('department',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);
+ setOptions('company',[...projects.map(x=>x.company),...pos.map(x=>x.company),...allInvoices.map(x=>relatedFor(x).company)]);
+ setOptions('department',[...projects.map(x=>x.department),...pos.map(x=>x.department),...allInvoices.map(x=>relatedFor(x).department)]);
  setOptions('project',[...projects.map(x=>x.project_name),...allInvoices.map(x=>x.project_name)]);
  setOptions('po',[...pos.map(x=>x.po_no),...allInvoices.map(x=>x.po_no)]);
  setOptions('status',allInvoices.map(invoiceStatus));
@@ -159,11 +159,11 @@ function applyFilters(){
  filtered=allInvoices.filter(x=>{
   if(!PEWorkspace.matches('invoice',x))return false;
   const r=relatedFor(x),date=dateOnly(x.approval_date||x.start_date),due=dateOnly(x.due_date);
-  if(c&&!String(r.company).toLowerCase().includes(c.toLowerCase()))return false;
-  if(d&&!String(r.department).toLowerCase().includes(d.toLowerCase()))return false;
-  if(p&&!String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))return false;
-  if(po&&!String(x.po_no||'').toLowerCase().includes(po.toLowerCase()))return false;
-  if(s&&!invoiceStatus(x).toLowerCase().includes(s.toLowerCase()))return false;
+  if(c&&String(r.company).toLowerCase()!==c.toLowerCase())return false;
+  if(d&&String(r.department).toLowerCase()!==d.toLowerCase())return false;
+  if(p&&String(x.project_name||'').toLowerCase()!==p.toLowerCase())return false;
+  if(po&&String(x.po_no||'').toLowerCase()!==po.toLowerCase())return false;
+  if(s&&invoiceStatus(x).toLowerCase()!==s.toLowerCase())return false;
   if(from&&(!date||date<from))return false;if(to&&(!date||date>to))return false;
   if(dueFrom&&(!due||due<dueFrom))return false;if(dueTo&&(!due||due>dueTo))return false;
   if(q&&![x.invoice_no,x.po_no,x.project_name,x.description,x.status,invoiceStatus(x),r.company,r.department].join(' ').toLowerCase().includes(q))return false;
@@ -287,6 +287,8 @@ PEAnnual.render('kpis','invoiceChart',{profile:'invoices',invoiceIds:filtered.ma
 })();
 </script>
 </body></html>
+
+
 
 
 

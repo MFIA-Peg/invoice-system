@@ -39,7 +39,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
-<script src="searchable-selects.js?v=20261118a" defer></script>
+<script src="searchable-selects.js?v=20261118b" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -65,13 +65,13 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="panel"><div class="panelhead"><div><h2>Find Collection Transactions</h2><div class="muted">Type customer, project, invoice or reference details to filter instantly.</div></div><button class="secondary" id="clearFilters" type="button">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="Invoice, reference, notes"></div>
-<div class="field"><label for="filterCompany">Customer / Company</label><input id="filterCompany" list="companyOptions" placeholder="Type customer"><datalist id="companyOptions"></datalist></div>
-<div class="field"><label for="filterDepartment">Department</label><input id="filterDepartment" list="departmentOptions" placeholder="Type department"><datalist id="departmentOptions"></datalist></div>
-<div class="field"><label for="filterProject">Project</label><input id="filterProject" list="projectOptions" placeholder="Type project"><datalist id="projectOptions"></datalist></div>
-<div class="field"><label for="filterPO">Purchase Order No.</label><input id="filterPO" list="poOptions" placeholder="Type PO number"><datalist id="poOptions"></datalist></div>
-<div class="field"><label for="filterInvoice">Invoice Number</label><input id="filterInvoice" list="invoiceOptions" placeholder="Type invoice number"><datalist id="invoiceOptions"></datalist></div>
-<div class="field"><label for="filterMethod">Payment Method</label><input id="filterMethod" list="methodOptions" placeholder="Type method"><datalist id="methodOptions"></datalist></div>
-<div class="field"><label for="filterReference">Reference Number</label><input id="filterReference" list="referenceOptions" placeholder="Type reference"><datalist id="referenceOptions"></datalist></div>
+<div class="field"><label for="filterCompany">Customer / Company</label><select id="filterCompany" data-filter-source="companyOptions" aria-label="Customer / Company"><option value="">All</option></select><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="filterDepartment">Department</label><select id="filterDepartment" data-filter-source="departmentOptions" aria-label="Department"><option value="">All</option></select><datalist id="departmentOptions"></datalist></div>
+<div class="field"><label for="filterProject">Project</label><select id="filterProject" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
+<div class="field"><label for="filterPO">Purchase Order No.</label><select id="filterPO" data-filter-source="poOptions" aria-label="Purchase Order No."><option value="">All</option></select><datalist id="poOptions"></datalist></div>
+<div class="field"><label for="filterInvoice">Invoice Number</label><select id="filterInvoice" data-filter-source="invoiceOptions" aria-label="Invoice Number"><option value="">All</option></select><datalist id="invoiceOptions"></datalist></div>
+<div class="field"><label for="filterMethod">Payment Method</label><select id="filterMethod" data-filter-source="methodOptions" aria-label="Payment Method"><option value="">All</option></select><datalist id="methodOptions"></datalist></div>
+<div class="field"><label for="filterReference">Reference Number</label><select id="filterReference" data-filter-source="referenceOptions" aria-label="Reference Number"><option value="">All</option></select><datalist id="referenceOptions"></datalist></div>
 <div class="field"><label for="filterFrom">Collection Date From</label><input type="date" id="filterFrom"></div>
 <div class="field"><label for="filterTo">Collection Date To</label><input type="date" id="filterTo"></div>
 </div></section>
@@ -116,7 +116,7 @@ async function loadCollections(){const b=$('refresh');b.disabled=true;b.textCont
  populateFilters();fillInvoices();applyFilters();
  }catch(e){showError('Load failed: '+(e.message||e));$('transactionsTable').innerHTML=`<div class="empty">${esc(e.message)}</div>`}
  finally{b.disabled=false;b.textContent='↻ Refresh'}}
-function setOptions(id,values){const list=$(id+'Options');if(!list)return;const vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
+function setOptions(id,values){const list=$($(id)?.dataset.filterSource||id+'Options');if(!list)return;const vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
 function populateFilters(){
  setOptions('filterCompany',projects.map(x=>x.company));
  setOptions('filterDepartment',projects.map(x=>x.department));
@@ -160,13 +160,13 @@ function applyFilters(){
   if(!PEWorkspace.matches('collection',c))return false;
   const i=im.get(Number(c.invoice_id)),m=i&&invMetrics(i);if(!i)return false;
   const company=m.pr?.company||'',department=m.pr?.department||'',project=m.pr?.project_name||i.project_name||'';
-  if(co&&!String(company).toLowerCase().includes(co))return false;
-  if(dept&&!String(department).toLowerCase().includes(dept))return false;
-  if(pr&&!String(project).toLowerCase().includes(pr))return false;
-  if(po&&!String(i.po_no||'').toLowerCase().includes(po))return false;
-  if(invoice&&!String(i.invoice_no||'').toLowerCase().includes(invoice))return false;
-  if(method&&!String(c.payment_method||'').toLowerCase().includes(method))return false;
-  if(reference&&!String(c.reference_no||'').toLowerCase().includes(reference))return false;
+  if(co&&String(company).toLowerCase()!==co)return false;
+  if(dept&&String(department).toLowerCase()!==dept)return false;
+  if(pr&&String(project).toLowerCase()!==pr)return false;
+  if(po&&String(i.po_no||'').toLowerCase()!==po)return false;
+  if(invoice&&String(i.invoice_no||'').toLowerCase()!==invoice)return false;
+  if(method&&String(c.payment_method||'').toLowerCase()!==method)return false;
+  if(reference&&String(c.reference_no||'').toLowerCase()!==reference)return false;
   if(from&&c.collection_date<from)return false;if(to&&c.collection_date>to)return false;
   if(q&&![i.invoice_no,i.po_no,company,department,project,c.payment_method,c.reference_no,c.notes,c.collection_date].join(' ').toLowerCase().includes(q))return false;
   return true;
@@ -203,6 +203,8 @@ PEAnnual.render('kpis','collectionChart',{profile:'collections',invoiceIds:invoi
 })();
 </script>
 </body></html>
+
+
 
 
 

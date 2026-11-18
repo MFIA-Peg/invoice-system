@@ -39,7 +39,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
-<script src="searchable-selects.js?v=20261118a" defer></script>
+<script src="searchable-selects.js?v=20261118b" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -53,9 +53,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="panel"><div class="panelhead"><div><h2>Find Purchase Orders</h2><div class="muted">Filter by customer, department, project, status or PO number.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="PO number or notes"></div>
-<div class="field"><label for="company">Customer / Company</label><input id="company" list="companyOptions" type="text" placeholder="Type customer name"><datalist id="companyOptions"></datalist></div>
-<div class="field"><label for="department">Department</label><input id="department" list="departmentOptions" type="text" placeholder="Type department"><datalist id="departmentOptions"></datalist></div>
-<div class="field"><label for="project">Project</label><input id="project" list="projectOptions" type="text" placeholder="Type project name"><datalist id="projectOptions"></datalist></div>
+<div class="field"><label for="company">Customer / Company</label><select id="company" data-filter-source="companyOptions" aria-label="Customer / Company"><option value="">All</option></select><datalist id="companyOptions"></datalist></div>
+<div class="field"><label for="department">Department</label><select id="department" data-filter-source="departmentOptions" aria-label="Department"><option value="">All</option></select><datalist id="departmentOptions"></datalist></div>
+<div class="field"><label for="project">Project</label><select id="project" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
 <div class="field"><label for="status">Status</label><select id="status"><option value="">All statuses</option><option value="Open">Open</option><option value="Closed">Closed</option></select></div>
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Purchase Order Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div>
@@ -106,7 +106,7 @@ function populateFilters(){setOptions('company',allPO.map(x=>x.company),'custome
 function invoiceTotals(po){const rows=invoices.filter(i=>String(i.po_no)===String(po.po_no));const invoiced=rows.reduce((s,x)=>s+num(x.invoice_amount),0);const gross=rows.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0);const amort=rows.reduce((s,x)=>s+num(x.advance_amortisation),0);return{count:rows.length,invoiced,gross,amort,remaining:Math.max(0,num(po.po_value_ex_vat)-invoiced)};}
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
- filtered=allPO.filter(x=>PEWorkspace.matches('order',x)&&(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase().includes(c.toLowerCase()))&&(!d||String(x.department||'').toLowerCase().includes(d.toLowerCase()))&&(!p||String(x.project_name||'').toLowerCase().includes(p.toLowerCase()))&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
+ filtered=allPO.filter(x=>PEWorkspace.matches('order',x)&&(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c.toLowerCase())&&(!d||String(x.department||'').toLowerCase()===d.toLowerCase())&&(!p||String(x.project_name||'').toLowerCase()===p.toLowerCase())&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
  render();
 }
 function registerRecordLinks(type,row){
@@ -259,6 +259,8 @@ PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p
 })();
 </script>
 </body></html>
+
+
 
 
 
