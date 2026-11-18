@@ -27,6 +27,7 @@
 }
 @media print{.report-control-dock{display:none!important}}
 </style><link rel="stylesheet" href="compact-layout.css?v=20261118c">
+<script src="searchable-selects.js?v=20261118a" defer></script>
 </head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
@@ -139,6 +140,8 @@ PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],
 })();
 </script>
 </body></html>
+
+
 
 
 
