@@ -75,7 +75,7 @@ async function initializePage(){
 
 async function loadManagementData(){
   const [u,pr,po]=await Promise.all([
-    client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').in('role',['finance_manager','user']).order('id'),
+    client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').order('id'),
     client.from('projects').select('id,project_name,company').order('project_name'),
     client.from('pos').select('project_id,department')
   ]);
@@ -146,12 +146,13 @@ async function openExistingUser(id){
   for(const r of [perm,pa,da])if(r.error){alert('Unable to load user access: '+r.error.message);return;}
   resetAccessState((da.data||[]).map(x=>x.department),(pa.data||[]).map(x=>Number(x.project_id)));
   const isManager=user.role==='finance_manager';
+  const canManage=user.role==='user';
   $('editor').innerHTML=`
     <div class="section"><div class="section-title">User Details</div><div class="section-body"><div class="field-grid"><div class="field"><label>Full Name</label><input readonly value="${escapeHtml(user.full_name)}"></div><div class="field"><label>Username</label><input readonly value="${escapeHtml(user.username)}"></div><div class="field"><label>Account Type</label><input readonly value="${escapeHtml(user.role)}"></div></div>
-    ${!isManager?`<div class="inline-actions"><label class="check-card"><input id="accountActive" type="checkbox" ${user.active?'checked':''}><span>Account Active</span></label><button type="button" class="secondary" id="resetPasswordButton">Reset Password</button><button type="button" class="danger" id="deleteUserButton">Delete User</button></div>`:'<p class="muted">The Finance Manager account is protected and cannot be edited here.</p>'}</div></div>
-    ${isManager?'':renderAccessSections(perm.data||{})}
-    ${isManager?'':`<div class="actions"><button id="saveChangesButton" type="button">Save Changes</button><button class="secondary" id="cancelEditButton" type="button">Back to Users</button><span id="formStatus" class="status" aria-live="polite"></span></div>`}`;
-  if(!isManager){attachAccessHandlers();$('saveChangesButton').addEventListener('click',saveExistingUser);$('cancelEditButton').addEventListener('click',()=>showView('list'));$('resetPasswordButton').addEventListener('click',resetUserPassword);$('deleteUserButton').addEventListener('click',deleteUser);}
+    ${canManage?`<div class="inline-actions"><label class="check-card"><input id="accountActive" type="checkbox" ${user.active?'checked':''}><span>Account Active</span></label><button type="button" class="secondary" id="resetPasswordButton">Reset Password</button><button type="button" class="danger" id="deleteUserButton">Delete User</button></div>`:isManager?'<p class="muted">The Finance Manager account is protected and cannot be edited here.</p>':'<p class="muted">This existing account has no standard user role assigned. Its access setup must be completed before it can be activated. Do not create a duplicate account.</p>'}</div></div>
+    ${!canManage?'':renderAccessSections(perm.data||{})}
+    ${!canManage?'':`<div class="actions"><button id="saveChangesButton" type="button">Save Changes</button><button class="secondary" id="cancelEditButton" type="button">Back to Users</button><span id="formStatus" class="status" aria-live="polite"></span></div>`}`;
+  if(canManage){attachAccessHandlers();$('saveChangesButton').addEventListener('click',saveExistingUser);$('cancelEditButton').addEventListener('click',()=>showView('list'));$('resetPasswordButton').addEventListener('click',resetUserPassword);$('deleteUserButton').addEventListener('click',deleteUser);}
   showView('editor');
 }
 
@@ -222,5 +223,3 @@ initializePage().catch(error=>fail(error.message||'Unexpected initialization err
 </script>
 </body>
 </html>
-
-
