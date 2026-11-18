@@ -41,6 +41,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>.project-action-cell{position:sticky;right:0;background:#fff;z-index:2;box-shadow:-3px 0 8px #14263d10;min-width:190px}th.project-action-cell{background:#14263d;z-index:3}.project-row-actions{display:flex;gap:6px;align-items:center}.project-action{font:600 12px/1.4 Arial,sans-serif!important;padding:7px 9px!important;border:0;border-radius:6px;background:#2563eb;color:white;text-decoration:none;cursor:pointer}.project-action.danger{background:#b42318}</style><script src="searchable-selects.js?v=20261118b" defer></script>
+<link rel="stylesheet" href="register-table.css?v=20261118a">
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html" aria-current="page">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -57,7 +58,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="field"><label for="projectName">Project</label><select id="projectName" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
 <div class="field"><label for="status">Status</label><select id="status" data-filter-source="statusOptions" aria-label="Status"><option value="">All</option></select><datalist id="statusOptions"></datalist></div>
 </div></section>
-<section class="panel"><div class="panelhead"><div><h2>Project Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div>
+<section class="panel"><div class="panelhead"><div><h2>Project Register</h2><div class="muted" id="resultCount">Loading records...</div><p class="register-note">One row per project. Purchase-order and invoice values exclude VAT; collection and balance amounts include VAT. Amounts are SAR. Open the project for linked orders and invoices.</p></div></div>
 <div class="tablewrap" id="tableWrap"><div class="empty">Loading projects...</div></div>
 <div class="footer"><span>Source: Supabase projects, pos and invoice_details_with_retention.</span><span>Currency: SAR</span></div>
 </section>
@@ -109,7 +110,7 @@ function render(){
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
  renderChart({poValue:sum('poValue'),billed:sum('billed'),remaining:sum('remaining'),paid:sum('paid'),balance:sum('balance'),retention:sum('retention')});
  const rows=metrics.map(({p,m})=>`<tr data-project-row="${esc(p.id)}"><td><button class="project-drill" type="button" data-project-drill="${esc(p.id)}" aria-expanded="false">${esc(p.project_name||('Project '+p.id))} ▾</button></td><td>${esc(p.company)}</td><td>${esc(p.department)}</td><td>${esc(p.status||'—')}</td><td class="num">${m.poCount}</td><td class="num">${money(m.poValue)}</td><td class="num">${m.invoiceCount}</td><td class="num">${money(m.billed)}</td><td class="num">${money(m.remaining)}</td><td class="num">${money(m.paid)}</td><td class="num">${money(m.balance)}</td><td class="num">${money(m.overdue)}</td><td class="num">${money(m.retention)}</td><td class="project-action-cell"><div class="project-row-actions"><a class="project-action" href="companies.html?project_action=open&project_id=${encodeURIComponent(p.id)}">Open</a>${projectAccess.edit?`<a class="project-action" href="companies.html?project_action=edit&project_id=${encodeURIComponent(p.id)}">Edit</a>`:''}${projectAccess.remove?`<button class="project-action danger" type="button" data-project-delete="${esc(p.id)}">Delete</button>`:''}</div></td></tr>`);
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Project</th><th>Customer</th><th>Department</th><th>Status</th><th>PO Count</th><th>PO Value Ex VAT</th><th>Invoices</th><th>Invoiced Ex VAT</th><th>Remaining PO Value</th><th>Collected</th><th>Open Balance</th><th>Overdue</th><th>Retention</th><th class="project-action-cell">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No projects match the selected filters.</div>';
+ $('tableWrap').innerHTML=rows.length?`<table class="register-table register-projects"><colgroup><col style="width:180px"><col style="width:180px"><col style="width:135px"><col style="width:100px"><col style="width:90px"><col style="width:165px"><col style="width:80px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:200px"></colgroup><thead><tr><th scope="col">Project</th><th scope="col">Customer</th><th scope="col">Department</th><th scope="col">Project Status</th><th scope="col">Purchase Orders</th><th scope="col">PO Value Ex VAT</th><th scope="col">Invoices</th><th scope="col">Invoiced Ex VAT</th><th scope="col">Uninvoiced PO Value Ex VAT</th><th scope="col">Invoice Collections</th><th scope="col">Open Collection Balance</th><th scope="col">Overdue Collection</th><th scope="col">Retention Balance</th><th scope="col" class="project-action-cell">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No projects match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-project-drill]').forEach(b=>b.addEventListener('click',()=>toggleProjectDetail(b.dataset.projectDrill,b)));
  $('tableWrap').querySelectorAll('[data-project-delete]').forEach(b=>b.addEventListener('click',()=>deleteRegisteredProject(b.dataset.projectDelete,b)));
  $('resultCount').textContent=`Showing ${filtered.length} of ${allProjects.length} projects`;
@@ -152,8 +153,8 @@ function toggleInvoiceDetail(projectId,index,button){
  const tr=document.createElement('tr');tr.className='invoice-detail-row';tr.dataset.invoiceDetail=key;tr.innerHTML=`<td colspan="7"><div class="invoice-detail-grid">${fields.map(([k,v])=>`<div class="invoice-detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('')}</div></td>`;button.closest('tr').after(tr);button.setAttribute('aria-expanded','true');button.textContent=button.textContent.replace(' ▾',' ▴');
 }
 function exportCSV(){
- const headers=['Project ID','Project','Customer','Department','Status','PO Count','PO Value Ex VAT','Invoice Count','Invoiced Ex VAT','Collected','Open Balance','Overdue','Retention'];
- const rows=filtered.map(p=>{const m=invoiceMetrics(p);return[p.id,p.project_name,p.company,p.department,p.status,m.poCount,m.poValue,m.invoiceCount,m.billed,m.paid,m.balance,m.overdue,m.retention]});
+ const headers=["Project ID","Project","Customer","Department","Project Status","Purchase Orders","PO Value Ex VAT","Invoices","Invoiced Ex VAT","Uninvoiced PO Value Ex VAT","Invoice Collections","Open Collection Balance","Overdue Collection","Retention Balance"];
+ const rows=filtered.map(p=>{const m=invoiceMetrics(p);return[p.id,p.project_name,p.company,p.department,p.status,m.poCount,m.poValue,m.invoiceCount,m.billed,m.remaining,m.paid,m.balance,m.overdue,m.retention]});
  const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='projects-financial-summary.csv';a.click();URL.revokeObjectURL(url);
 }
@@ -174,6 +175,8 @@ PEAnnual.render('kpis','projectChart',{profile:'projects',projectIds:filtered.ma
 })();
 </script>
 </body></html>
+
+
 
 
 
