@@ -42,6 +42,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
+<script src="retention-calculation.js?v=20261118a"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -233,6 +234,11 @@ async function saveEdit(event){
  if(patch.paid_amount>patch.invoice_amount){if(!confirm('Paid amount exceeds the invoice amount before VAT. Save anyway?'))return;}
  $('saveEdit').disabled=true;$('saveEdit').textContent='Saving...';$('modalMessage').textContent='';
  try{
+  if(patch.invoice_amount!==num(editingRecord.invoice_amount)&&editingRecord.po_no){
+   const orderResult=await db.from('pos').select('*').eq('po_no',editingRecord.po_no).maybeSingle();
+   if(orderResult.error)throw orderResult.error;
+   if(orderResult.data){const retention=PERetention.calculate(patch.invoice_amount,orderResult.data);patch.retention_amount=retention.amount;patch.retention_vat=retention.vat;}
+  }
   const {data,error}=await db.from('invoices').update(patch).eq('id',editingRecord.id).select('id').maybeSingle();
   if(error)throw error;if(!data)throw new Error('No row was updated. Check your Supabase update permissions (RLS).');
   $('modalMessage').textContent='Invoice updated successfully.';$('modalMessage').style.color='#0f766e';
