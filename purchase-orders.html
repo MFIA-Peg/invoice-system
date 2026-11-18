@@ -41,6 +41,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
+<script src="retention-calculation.js?v=20261118a"></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -144,7 +145,7 @@ function togglePODetail(poNo,button){
   ['Project',po.project_name],['PO Date',po.po_date],['Expiry Date',po.expiry_date],
   ['PO Value Ex VAT',money(po.po_value_ex_vat)],['VAT',po.vat],
   ['Advance %',po.advance_payment_percentage],['Advance Received',money(po.advance_received_amount)],
-  ['Retention Applicable',po.retention_applicable],['Retention %',po.retention_percentage],
+  ['Retention Applicable',po.retention_applicable],['Retention Calculation',PERetention.label(po)],['Retention %',po.retention_percentage],
   ['Retention Period (days)',po.retention_period_days],['Status',po.status],
   ['Notes',po.notes]
  ].filter(x=>x[1]!==null&&x[1]!==undefined&&x[1]!=='');
@@ -217,8 +218,8 @@ function renderTotalsChart(values){
 }
 
 function exportCSV(){
- const headers=['PO Number','Customer','Department','Project','PO Date','Expiry Date','PO Value Ex VAT','VAT Applicable','Invoice Count','Invoiced Ex VAT','Remaining Ex VAT','Advance Percentage','Contract Advance','Advance Received (Actual)','Advance Amortised','Unamortised Contract Advance','Retention Applicable','Retention Percentage','Retention Period Days','Status','Notes'];
- const rows=filtered.map(p=>{const m=invoiceTotals(p),adv=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return [p.po_no,p.company,p.department,p.project_name,p.po_date,p.expiry_date,p.po_value_ex_vat,p.vat,m.count,m.invoiced,m.remaining,p.advance_payment_percentage,adv,p.advance_received_amount,m.amort,Math.max(0,adv-m.amort),p.retention_applicable,p.retention_percentage,p.retention_period_days,p.status,p.notes];});
+ const headers=['PO Number','Customer','Department','Project','PO Date','Expiry Date','PO Value Ex VAT','VAT Applicable','Invoice Count','Invoiced Ex VAT','Remaining Ex VAT','Advance Percentage','Contract Advance','Advance Received (Actual)','Advance Amortised','Unamortised Contract Advance','Retention Applicable','Retention Calculation','Retention Percentage','Retention Period Days','Status','Notes'];
+ const rows=filtered.map(p=>{const m=invoiceTotals(p),adv=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return [p.po_no,p.company,p.department,p.project_name,p.po_date,p.expiry_date,p.po_value_ex_vat,p.vat,m.count,m.invoiced,m.remaining,p.advance_payment_percentage,adv,p.advance_received_amount,m.amort,Math.max(0,adv-m.amort),p.retention_applicable,PERetention.label(p),p.retention_percentage,p.retention_period_days,p.status,p.notes];});
  const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='purchase-orders.csv';a.click();URL.revokeObjectURL(url);
 }
