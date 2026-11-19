@@ -28,7 +28,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261117b"></script>
+<script src="annual-analytics.js?v=20261119a"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -72,7 +72,7 @@ const money=v=>new Intl.NumberFormat('en-SA',{minimumFractionDigits:2,maximumFra
 const num=v=>Number(v||0)||0;
 const norm=v=>String(v??'').trim().toLocaleLowerCase();
 async function allFinancialRows(table){let result=[],from=0;for(;;){const {data,error}=await db.from(table).select('*').order('id').range(from,from+999);if(error)throw new Error(table+': '+error.message);result.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error(table+': pagination limit exceeded');}return result;}
-function invoiceFinance(i,po){const base=Math.max(0,num(i.invoice_amount)-num(i.advance_amortisation));const total=base*(po?.vat?1.15:1);const retention=num(i.retention_amount)+num(i.retention_vat);const retentionBalance=Math.max(0,retention-num(i.retention_released_amount));const collected=Math.max(0,num(i.paid_amount));const balance=Math.max(0,total-retention-collected);let due=String(i.due_date||'').slice(0,10);if(!due&&i.approval_date&&i.payment_terms!=null){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00Z');if(!Number.isNaN(d.getTime())){d.setUTCDate(d.getUTCDate()+num(i.payment_terms));due=d.toISOString().slice(0,10);}}return{total,collected,balance,retentionBalance,due};}
+function invoiceFinance(i,po){const base=Math.max(0,num(i.invoice_amount)-num(i.advance_amortisation));const total=base*(po?.vat?1.15:1);const retention=num(i.retention_amount)+num(i.retention_vat);const retentionOnly=String(i.status||'').trim().toUpperCase()==='RETENTION';const recordedRetention=Math.max(0,retention-num(i.retention_released_amount));const retentionBalance=retentionOnly?Math.min(recordedRetention,Math.max(0,total-num(i.paid_amount)-num(i.retention_released_amount))):recordedRetention;const collected=Math.max(0,num(i.paid_amount));const balance=retentionOnly?0:Math.max(0,total-retention-collected);let due=String(i.due_date||'').slice(0,10);if(!due&&i.approval_date&&i.payment_terms!=null){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00Z');if(!Number.isNaN(d.getTime())){d.setUTCDate(d.getUTCDate()+num(i.payment_terms));due=d.toISOString().slice(0,10);}}return{total,collected,balance,retentionBalance,due};}
 function emptyFinance(){return{po:0,billing:0,collected:0,outstanding:0,pending:0,overdue:0,notDue:0,retention:0,unclassified:0};}
 async function loadDepartmentFinancials(){state.financeError=null;state.financial=new Map(state.departments.map(d=>[d.id,emptyFinance()]));try{
  await PEAnnual.load(db);
@@ -148,11 +148,3 @@ if(!state.financeError)PEAnnual.render('financeKpis','financeChart',{departments
 })();
 </script>
 </body></html>
-
-
-
-
-
-
-
-

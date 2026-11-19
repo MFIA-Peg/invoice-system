@@ -38,8 +38,10 @@
     const net = Math.max(0, number(invoice.invoice_amount) - number(invoice.advance_amortisation));
     const vat = order?.vat ? Math.round((net * 0.15 + Number.EPSILON) * 100) / 100 : 0;
     const total = net + vat;
-    const retention = Math.max(0, number(invoice.retention_amount) + number(invoice.retention_vat) - number(invoice.retention_released_amount));
-    const balance = Math.max(0, total - number(invoice.retention_amount) - number(invoice.retention_vat) - number(invoice.paid_amount));
+    const retentionOnly=String(invoice.status||'').trim().toUpperCase()==='RETENTION';
+    const recordedRetention = Math.max(0, number(invoice.retention_amount) + number(invoice.retention_vat) - number(invoice.retention_released_amount));
+    const retention = retentionOnly?Math.min(recordedRetention,Math.max(0,total-number(invoice.paid_amount)-number(invoice.retention_released_amount))):recordedRetention;
+    const balance = retentionOnly?0:Math.max(0, total - number(invoice.retention_amount) - number(invoice.retention_vat) - number(invoice.paid_amount));
     return {net, vat, total, retention, balance};
   }
   function snapshot(scope = {}) {
@@ -189,4 +191,3 @@
   }
   global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics, records: () => data};
 })(window);
-
