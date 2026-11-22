@@ -78,11 +78,12 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="field"><label for="dateTo">Approval / Start To</label><input id="dateTo" type="date"></div>
 <div class="field"><label for="dueFrom">Due Date From</label><input id="dueFrom" type="date"></div>
 <div class="field"><label for="dueTo">Due Date To</label><input id="dueTo" type="date"></div>
+<div class="field"><label for="invoiceState">Invoice Status</label><select id="invoiceState" aria-label="Invoice Status"><option value="">All</option></select></div>
 <div class="field"><label for="status">Payment Status</label><select id="status" data-filter-source="statusOptions" aria-label="Payment Status"><option value="">All</option></select><datalist id="statusOptions"></datalist></div>
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div><div class="tablewrap" id="tableWrap"><div class="empty">Loading invoices...</div></div><div class="footer"><span>Read source: invoice_details_with_retention · Edit source: invoices.</span><span>Currency: SAR</span></div></section>
 </main>
-<dialog id="invoiceHistory" aria-labelledby="invoiceHistoryTitle"><div class="panelhead"><h2 id="invoiceHistoryTitle">Invoice comments</h2><button type="button" id="closeHistory">Close</button></div><div id="invoiceHistoryContent" aria-live="polite"></div></dialog>
+<dialog id="invoiceHistory" aria-labelledby="invoiceHistoryTitle"><div class="panelhead"><h2 id="invoiceHistoryTitle">Invoice comments</h2><button type="button" id="closeHistory">Close</button></div><div class="field"><label for="invoiceComment">New comment</label><textarea id="invoiceComment" rows="4" placeholder="Write a comment… saved automatically after you stop typing." style="width:100%;resize:vertical;box-sizing:border-box;padding:10px"></textarea></div><div id="invoiceCommentStatus" role="status" aria-live="polite"></div><div class="actions" style="margin:10px 0"><button type="button" id="newInvoiceComment">New comment</button><button type="button" id="retryInvoiceComment" hidden>Retry saving</button></div><div id="invoiceHistoryContent" aria-live="polite"></div></dialog>
 <dialog id="createPicker" aria-labelledby="createTitle" style="width:min(560px,90vw);box-sizing:border-box;padding:22px;border:1px solid #cbd5e1;border-radius:14px;color:#14263d"><form id="createForm"><h2 id="createTitle" style="margin-top:0">Add Invoice</h2><div class="field"><label for="createSource">Purchase order</label><select id="createSource" required></select></div><div class="actions" style="margin-top:16px"><button type="submit" id="createContinue">Continue</button><button type="button" class="secondary" id="closeCreate">Cancel</button></div></form></dialog>
 
 <div class="modal-backdrop" id="editBackdrop" role="dialog" aria-modal="true" aria-labelledby="editTitle">
@@ -116,7 +117,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
 const SUPABASE_KEY='sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let allInvoices=[],projects=[],pos=[],filtered=[],editingRecord=null;
+let allInvoices=[],projects=[],pos=[],filtered=[],editingRecord=null,commentAuthor='';
 const $=id=>document.getElementById(id),num=v=>Number(v||0);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',minimumFractionDigits:2,maximumFractionDigits:2}).format(num(v));
@@ -143,7 +144,7 @@ async function checkSession(){
  const {data:p,error:e}=await db.from('users_profile').select('id,username,full_name,role,active,must_change_password').eq('auth_user_id',user.id).maybeSingle();
  if(e)throw e;if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
  if(p.must_change_password===true){location.replace('change-password.html');return false;}
- sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
+ commentAuthor=p.full_name||p.username||'';sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
 }
 async function fetchRows(table,columns='*',orderBy='id'){
  let rows=[],from=0;
@@ -166,6 +167,9 @@ function populateFilters(){
  setOptions('project',[...projects.map(x=>x.project_name),...allInvoices.map(x=>x.project_name)]);
  setOptions('po',[...pos.map(x=>x.po_no),...allInvoices.map(x=>x.po_no)]);
  setOptions('status',allInvoices.map(invoiceStatus));
+ const oldState=$('invoiceState').value;
+ $('invoiceState').innerHTML='<option value="">All</option>'+[...new Set(allInvoices.map(x=>String(x.status||'').trim()).filter(Boolean))].sort().map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+ $('invoiceState').value=oldState;
 }
 function relatedFor(x){
  const pr=projects.find(p=>String(p.id)===String(x.project_id))||projects.find(p=>p.project_name===x.project_name);
@@ -183,6 +187,7 @@ function applyFilters(){
   if(p&&String(x.project_name||'').toLowerCase()!==p.toLowerCase())return false;
   if(po&&String(x.po_no||'').toLowerCase()!==po.toLowerCase())return false;
   if(s&&invoiceStatus(x).toLowerCase()!==s.toLowerCase())return false;
+  if($('invoiceState').value.trim()&&String(x.status||'').trim().toLowerCase()!==$('invoiceState').value.trim().toLowerCase())return false;
   if(from&&(!date||date<from))return false;if(to&&(!date||date>to))return false;
   if(dueFrom&&(!due||due<dueFrom))return false;if(dueTo&&(!due||due>dueTo))return false;
   if(q&&![x.invoice_no,x.po_no,x.project_name,x.description,x.status,invoiceStatus(x),r.company,r.department].join(' ').toLowerCase().includes(q))return false;
@@ -218,11 +223,58 @@ function renderChart(v){
  $('invoiceChart').innerHTML=items.every(x=>!x[1])?'<div class="empty">No financial values for the selected invoices.</div>':`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Invoice financial totals">${bars}</svg>`;
 }
 
-let historyRequest=0;
-$('closeHistory').addEventListener('click',()=>{$('invoiceHistory').close();historyRequest++;});
+let historyRequest=0,commentInvoice=null,commentId=null,commentSaved='',commentTimer=null,commentSaving=null;
+const commentTimestamp=value=>{
+ if(!value)return 'Undated';
+ const raw=String(value),d=new Date(/[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw)?raw:raw+'Z');
+ return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d)+' · Riyadh':raw;
+};
+async function closeInvoiceHistory(){
+ clearTimeout(commentTimer);
+ if(!await saveInvoiceComment())return;
+ $('invoiceHistory').close();historyRequest++;commentInvoice=null;
+}
+$('closeHistory').addEventListener('click',closeInvoiceHistory);
+$('invoiceHistory').addEventListener('cancel',event=>{event.preventDefault();closeInvoiceHistory();});
+$('invoiceComment').addEventListener('input',()=>{
+ clearTimeout(commentTimer);$('invoiceCommentStatus').textContent='Unsaved changes…';
+ $('retryInvoiceComment').hidden=true;commentTimer=setTimeout(saveInvoiceComment,1000);
+});
+$('retryInvoiceComment').addEventListener('click',saveInvoiceComment);
+$('newInvoiceComment').addEventListener('click',async()=>{
+ clearTimeout(commentTimer);if(!await saveInvoiceComment())return;
+ commentId=null;commentSaved='';$('invoiceComment').value='';$('invoiceCommentStatus').textContent='Write a new comment.';$('invoiceComment').focus();
+});
+window.addEventListener('beforeunload',event=>{
+ if(commentSaving||$('invoiceComment').value.trim()!==commentSaved){event.preventDefault();event.returnValue='';}
+});
+async function saveInvoiceComment(){
+ if(commentSaving){const ok=await commentSaving;if(!ok)return false;return saveInvoiceComment();}
+ const note=$('invoiceComment').value.trim();
+ if(!commentInvoice||!note||note===commentSaved)return true;
+ const invoiceNo=commentInvoice.invoice_no;
+ commentSaving=(async()=>{
+  $('invoiceCommentStatus').textContent='Saving…';$('retryInvoiceComment').hidden=true;
+  try{
+   const query=commentId==null?db.from('invoice_followups').insert({invoice_no:invoiceNo,followup_note:note,followup_by:commentAuthor||sessionStorage.getItem('pe_username')||'User'}):db.from('invoice_followups').update({followup_note:note}).eq('id',commentId).eq('invoice_no',invoiceNo);
+   const {data,error}=await query.select('id,invoice_no,followup_date,followup_note,followup_by').single();
+   if(error)throw error;if(!data)throw new Error('The saved comment was not returned.');
+   commentId=data.id;commentSaved=note;
+   const entry=document.createElement('article');entry.className='invoice-history-entry';entry.dataset.commentId=data.id;
+   entry.innerHTML='<strong>'+esc(commentTimestamp(data.followup_date))+'</strong> · '+esc(data.followup_by||'—')+'<p>'+esc(data.followup_note)+'</p>';
+   const host=$('invoiceHistoryContent'),old=[...host.querySelectorAll('[data-comment-id]')].find(e=>e.dataset.commentId===String(data.id));
+   if(old)old.replaceWith(entry);else{if(!host.querySelector('.invoice-history-entry'))host.innerHTML='';host.prepend(entry);}
+   $('invoiceCommentStatus').textContent='Saved · '+commentTimestamp(data.followup_date);return true;
+  }catch(error){$('invoiceCommentStatus').textContent='Not saved: '+(error.message||error)+'. Your text is still here.';$('retryInvoiceComment').hidden=false;return false;}
+ })();
+ const ok=await commentSaving;commentSaving=null;
+ if(ok&&$('invoiceComment').value.trim()!==note)return saveInvoiceComment();
+ return ok;
+}
 async function openInvoiceHistory(invoice){
  if(!invoice)return;
  const request=++historyRequest,host=$('invoiceHistoryContent');
+ commentInvoice=invoice;commentId=null;commentSaved='';$('invoiceComment').value='';$('invoiceComment').disabled=true;$('invoiceCommentStatus').textContent='Saved automatically after you stop typing. Times shown in Riyadh.';$('retryInvoiceComment').hidden=true;
  $('invoiceHistoryTitle').textContent='Invoice comments — '+(invoice.invoice_no||'');
  host.textContent='Loading historical comments...';$('invoiceHistory').showModal();
  if(!invoice.invoice_no){host.textContent='This invoice has no invoice number for matching historical comments.';return;}
@@ -234,11 +286,12 @@ async function openInvoiceHistory(invoice){
    comments.push(...(data||[]));if(!data||data.length<1000)break;
   }
   if(request!==historyRequest)return;
-  host.innerHTML=comments.length?comments.map(c=>'<article class="invoice-history-entry"><strong>'+esc(displayDate(c.followup_date)||'Undated')+'</strong> · '+esc(c.followup_by||'—')+'<p>'+esc(c.followup_note||'No comment text')+'</p>'+
+  $('invoiceComment').disabled=false;
+  host.innerHTML=comments.length?comments.map(c=>'<article class="invoice-history-entry" data-comment-id="'+esc(c.id)+'"><strong>'+esc(commentTimestamp(c.followup_date))+'</strong> · '+esc(c.followup_by||'—')+'<p>'+esc(c.followup_note||'No comment text')+'</p>'+
    (c.collection_action?'<p>Collection action: '+esc(c.collection_action)+'</p>':'')+
    (c.next_followup_date?'<p>Next follow-up: '+esc(displayDate(c.next_followup_date))+'</p>':'')+
    (c.promised_payment_date?'<p>Promised payment: '+esc(displayDate(c.promised_payment_date))+'</p>':'')+'</article>').join(''):'<p>No historical comments are recorded for this invoice.</p>';
- }catch(error){if(request===historyRequest)host.textContent='Unable to load invoice comments: '+(error.message||error);}
+ }catch(error){if(request===historyRequest){host.textContent='Unable to load invoice comments: '+(error.message||error);$('invoiceComment').disabled=false;}}
 }
 
 function openEdit(index){
@@ -316,8 +369,8 @@ function openCreatePicker(){
 }
 $('openCreate').addEventListener('click',openCreatePicker);
 $('closeCreate').addEventListener('click',()=>$('createPicker').close());
-$('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status'].forEach(id=>$(id).value='');applyFilters();});
-['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status'].forEach(id=>$(id).addEventListener('input',applyFilters));
+$('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status','invoiceState'].forEach(id=>$(id).value='');applyFilters();});
+['search','company','department','project','po','dateFrom','dateTo','dueFrom','dueTo','status','invoiceState'].forEach(id=>$(id).addEventListener('input',applyFilters));
 $('editForm').addEventListener('submit',saveEdit);$('closeModal').addEventListener('click',closeModal);$('cancelEdit').addEventListener('click',closeModal);
 $('editBackdrop').addEventListener('click',e=>{if(e.target===$('editBackdrop'))closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('editBackdrop').classList.contains('open'))closeModal()});
