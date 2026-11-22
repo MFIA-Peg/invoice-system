@@ -70,7 +70,9 @@
       return inYear(value) && (!scope.dueFrom || value >= scope.dueFrom) && (!scope.dueTo || value <= scope.dueTo);
     });
     const collections = data.collections.filter(collection => scopedIds.has(String(collection.invoice_id)) &&
-      (!collectionIds || collectionIds.has(String(collection.id))) && inYear(collection.collection_date));
+      (!collectionIds || collectionIds.has(String(collection.id))) && inYear(collection.collection_date) &&
+      (!scope.collectionFrom || date(collection.collection_date) >= scope.collectionFrom) &&
+      (!scope.collectionTo || date(collection.collection_date) <= scope.collectionTo));
     const totals = {net: 0, vat: 0, total: 0, collected: 0, balance: 0, overdue: 0, pending: 0, retention: 0};
     for (const invoice of annual) {
       const m = metrics(invoice, orderMap.get(String(invoice.po_no)));
@@ -84,7 +86,8 @@
       }
     }
     totals.collected = collections.reduce((sum, collection) => sum + number(collection.amount), 0);
-    const orders = data.orders.filter(order => dimension(order, order) && inYear(order.po_date));
+    const orders = data.orders.filter(order => dimension(order, order) && inYear(order.po_date) &&
+      (!scope.orderFrom || date(order.po_date) >= scope.orderFrom) && (!scope.orderTo || date(order.po_date) <= scope.orderTo));
     const poValue = orders.reduce((sum, order) => sum + number(order.po_value_ex_vat), 0);
     const billedByOrder = new Map();
     for (const invoice of scoped) {

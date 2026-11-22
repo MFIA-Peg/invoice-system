@@ -61,7 +61,8 @@
     if(f.from&&f.to&&f.from>f.to){el('dashboardFilterError').textContent='The start date must be on or before the end date.';return;}
     el('dashboardFilterError').textContent='';
     const dimensionRows=rows.filter(r=>matches(r,f,{period:false}));
-    const scope={invoiceIds:dimensionRows.map(r=>r.i.id),dueFrom:f.from,dueTo:f.to,
+    const scope={invoiceIds:dimensionRows.map(r=>r.i.id),dueFrom:f.from,dueTo:f.to,collectionFrom:f.from,collectionTo:f.to,orderFrom:f.from,orderTo:f.to,
+      orderNos:(f.invoiceStatus||f.paymentStatus||f.attention)?[...new Set(dimensionRows.filter(r=>!r.cancelled).map(r=>r.po?.po_no??r.i.po_no))]:undefined,
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     const s=PEAnnual.render('kpis',null,scope);
