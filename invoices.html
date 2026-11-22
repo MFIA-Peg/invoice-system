@@ -43,7 +43,23 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <script src="retention-calculation.js?v=20261118a"></script>
-</head>
+
+<style>
+#tableWrap table{table-layout:fixed;width:max-content;min-width:0}
+#tableWrap th,#tableWrap td{box-sizing:border-box;padding:8px;white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+#tableWrap tr>:nth-child(1){width:130px}#tableWrap tr>:nth-child(2){width:170px}
+#tableWrap tr>:nth-child(3){width:170px}#tableWrap tr>:nth-child(4){width:135px}
+#tableWrap tr>:nth-child(5),#tableWrap tr>:nth-child(6){width:calc(10ch + 18px);white-space:nowrap;font-variant-numeric:tabular-nums}
+#tableWrap td.num{width:calc(14ch + 18px);white-space:nowrap;overflow-wrap:normal}
+#tableWrap th:nth-child(n+7):nth-child(-n+14){width:calc(14ch + 18px)}
+#tableWrap tr>:nth-child(15),#tableWrap tr>:nth-child(16){width:125px}
+#tableWrap tr>:nth-child(17){width:265px}
+#tableWrap .invoice-drill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+#invoiceHistory{width:min(760px,92vw);max-height:85vh;border:1px solid #cbd5e1;border-radius:12px;padding:22px;color:#14263d}
+#invoiceHistory::backdrop{background:#14263d66}
+.invoice-history-entry{border-top:1px solid #e2e8f0;padding:14px 0;overflow-wrap:anywhere}
+.invoice-history-entry p{white-space:pre-wrap;margin:8px 0}
+</style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -66,6 +82,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div><div class="tablewrap" id="tableWrap"><div class="empty">Loading invoices...</div></div><div class="footer"><span>Read source: invoice_details_with_retention · Edit source: invoices.</span><span>Currency: SAR</span></div></section>
 </main>
+<dialog id="invoiceHistory" aria-labelledby="invoiceHistoryTitle"><div class="panelhead"><h2 id="invoiceHistoryTitle">Invoice comments</h2><button type="button" id="closeHistory">Close</button></div><div id="invoiceHistoryContent" aria-live="polite"></div></dialog>
 <dialog id="createPicker" aria-labelledby="createTitle" style="width:min(560px,90vw);box-sizing:border-box;padding:22px;border:1px solid #cbd5e1;border-radius:14px;color:#14263d"><form id="createForm"><h2 id="createTitle" style="margin-top:0">Add Invoice</h2><div class="field"><label for="createSource">Purchase order</label><select id="createSource" required></select></div><div class="actions" style="margin-top:16px"><button type="submit" id="createContinue">Continue</button><button type="button" class="secondary" id="closeCreate">Cancel</button></div></form></dialog>
 
 <div class="modal-backdrop" id="editBackdrop" role="dialog" aria-modal="true" aria-labelledby="editTitle">
@@ -102,8 +119,10 @@ const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let allInvoices=[],projects=[],pos=[],filtered=[],editingRecord=null;
 const $=id=>document.getElementById(id),num=v=>Number(v||0);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(v));
+const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',minimumFractionDigits:2,maximumFractionDigits:2}).format(num(v));
+const tableMoney=v=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num(v));
 const dateOnly=s=>s?String(s).slice(0,10):'';
+const displayDate=s=>{const d=dateOnly(s);return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(5,7)+'/'+d.slice(8,10)+'/'+d.slice(0,4):'';};
 const today=()=>new Date().toISOString().slice(0,10);
 function invoiceVat(x){return num(x.vat_after_advance??x.vat_amount)}
 function invoiceGross(x){return num(x.invoice_total_after_advance??x.invoice_total)}
@@ -186,9 +205,10 @@ function render(){
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-edit-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)))} ✎</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(dateOnly(x.approval_date||x.start_date))}</td><td>${esc(dateOnly(x.due_date))}</td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${money(invoiceVat(x))}</td><td class="num">${money(invoiceGross(x))}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(invoiceBalance(x))}</td><td class="num">${money(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td>${registerRecordLinks('invoice',x)}</td></tr>`});
- $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Edit</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
+ const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button type="button" data-edit-invoice="${i}">Edit</button> ${registerRecordLinks('invoice',x)}</td></tr>`});
+ $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Comments</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-edit-invoice]').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.dataset.editInvoice))));
+ $('tableWrap').querySelectorAll('[data-history-invoice]').forEach(b=>b.addEventListener('click',()=>openInvoiceHistory(filtered[Number(b.dataset.historyInvoice)])));
  $('resultCount').textContent=`Showing ${a.length} of ${allInvoices.length} invoices`;
 }
 function renderChart(v){
@@ -197,6 +217,30 @@ function renderChart(v){
  const bars=items.map(([label,value],i)=>{const y=top+i*rowH,w=Math.max(0,value/max*barW),color=['#2563eb','#0f766e','#64748b','#7c3aed','#d97706','#b42318','#0891b2'][i];return `<text x="${left-12}" y="${y+18}" text-anchor="end" fill="#475569" font-size="14" font-weight="600">${esc(label)}</text><rect x="${left}" y="${y+2}" width="${barW}" height="21" rx="6" fill="#e8eef5"/><rect x="${left}" y="${y+2}" width="${w}" height="21" rx="6" fill="${color}"/><text x="${left+barW+9}" y="${y+18}" fill="#14263d" font-size="13" font-weight="700">${esc(money(value))}</text>`}).join('');
  $('invoiceChart').innerHTML=items.every(x=>!x[1])?'<div class="empty">No financial values for the selected invoices.</div>':`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Invoice financial totals">${bars}</svg>`;
 }
+
+let historyRequest=0;
+$('closeHistory').addEventListener('click',()=>{$('invoiceHistory').close();historyRequest++;});
+async function openInvoiceHistory(invoice){
+ if(!invoice)return;
+ const request=++historyRequest,host=$('invoiceHistoryContent');
+ $('invoiceHistoryTitle').textContent='Invoice comments — '+(invoice.invoice_no||'');
+ host.textContent='Loading historical comments...';$('invoiceHistory').showModal();
+ if(!invoice.invoice_no){host.textContent='This invoice has no invoice number for matching historical comments.';return;}
+ try{
+  const comments=[];
+  for(let from=0;;from+=1000){
+   const {data,error}=await db.from('invoice_followups').select('id,invoice_no,followup_date,followup_note,next_followup_date,followup_by,collection_action,promised_payment_date').eq('invoice_no',invoice.invoice_no).order('followup_date',{ascending:false,nullsFirst:false}).order('id',{ascending:false}).range(from,from+999);
+   if(error)throw error;
+   comments.push(...(data||[]));if(!data||data.length<1000)break;
+  }
+  if(request!==historyRequest)return;
+  host.innerHTML=comments.length?comments.map(c=>'<article class="invoice-history-entry"><strong>'+esc(displayDate(c.followup_date)||'Undated')+'</strong> · '+esc(c.followup_by||'—')+'<p>'+esc(c.followup_note||'No comment text')+'</p>'+
+   (c.collection_action?'<p>Collection action: '+esc(c.collection_action)+'</p>':'')+
+   (c.next_followup_date?'<p>Next follow-up: '+esc(displayDate(c.next_followup_date))+'</p>':'')+
+   (c.promised_payment_date?'<p>Promised payment: '+esc(displayDate(c.promised_payment_date))+'</p>':'')+'</article>').join(''):'<p>No historical comments are recorded for this invoice.</p>';
+ }catch(error){if(request===historyRequest)host.textContent='Unable to load invoice comments: '+(error.message||error);}
+}
+
 function openEdit(index){
  const viewRow=filtered[index];if(!viewRow)return;
  editingRecord=null;$('modalMessage').textContent='Loading editable invoice record...';$('modalMessage').style.color='#64748b';
