@@ -42,7 +42,12 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
 <script src="retention-calculation.js?v=20261118a"></script>
-</head>
+<style>
+.po-invoices .po-linked-invoices{table-layout:auto;min-width:100%;width:max-content}
+.po-invoices .po-linked-invoices th,.po-invoices .po-linked-invoices td{padding:9px 12px;white-space:normal;overflow-wrap:anywhere}
+.po-invoices .po-linked-invoices td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
+.po-invoices .po-linked-invoices th:nth-child(2),.po-invoices .po-linked-invoices th:nth-child(3),.po-invoices .po-linked-invoices td:nth-child(2),.po-invoices .po-linked-invoices td:nth-child(3){white-space:nowrap}
+</style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -132,6 +137,29 @@ function render(){
 }
 
 
+
+function linkedPOInvoices(po){
+ return invoices.filter(x=>{
+  if(x.pos_id!=null&&po.id!=null)return String(x.pos_id)===String(po.id);
+  return String(x.po_no||'')===String(po.po_no||'')&&
+    (x.project_id==null||po.project_id==null||String(x.project_id)===String(po.project_id));
+ });
+}
+function poInvoiceDate(value){
+ const d=String(value||'').slice(0,10);
+ return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(5,7)+'/'+d.slice(8,10)+'/'+d.slice(0,4):'—';
+}
+function poInvoicePayment(x){
+ const total=num(x.net_payable_after_advance??x.net_payable??x.invoice_total_after_advance??x.invoice_total),paid=num(x.paid_amount),retention=num(x.retention_balance),balance=Math.max(0,num(x.collection_balance_after_advance??x.open_balance));
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ if(total>0&&paid>=total-.005&&retention<=.005)return 'Paid';
+ if(balance>.005&&x.due_date&&String(x.due_date).slice(0,10)<today)return 'Overdue';
+ if(paid>.005&&balance>.005)return 'Partially Paid';
+ if(paid<=.005&&balance>.005)return 'Unpaid';
+ if(balance<=.005&&retention>.005)return 'Retention Only';
+ return x.payment_status||'Unclassified';
+}
+
 function togglePODetail(poNo,button){
  const existing=$('tableWrap').querySelector(`[data-po-detail="${CSS.escape(String(poNo))}"]`);
  if(existing){existing.remove();button.setAttribute('aria-expanded','false');button.textContent=String(poNo)+' ▾';return;}
@@ -139,58 +167,17 @@ function togglePODetail(poNo,button){
  $('tableWrap').querySelectorAll('.po-detail-row').forEach(x=>x.remove());
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.dataset.drillPo+' ▾';});
  const po=allPO.find(x=>String(x.po_no)===String(poNo));if(!po)return;
- const inv=invoices.filter(x=>String(x.po_no)===String(poNo)&&PEWorkspace.matches('invoice',x));
- const entries=[
-  ['PO Number',po.po_no],['Customer',po.company],['Department',po.department],
-  ['Project',po.project_name],['PO Date',po.po_date],['Expiry Date',po.expiry_date],
-  ['PO Value Ex VAT',money(po.po_value_ex_vat)],['VAT',po.vat],
-  ['Advance %',po.advance_payment_percentage],['Advance Received',money(po.advance_received_amount)],
-  ['Retention Applicable',po.retention_applicable],['Retention Calculation',PERetention.label(po)],['Retention %',po.retention_percentage],
-  ['Retention Period (days)',po.retention_period_days],['Status',po.status],
-  ['Notes',po.notes]
- ].filter(x=>x[1]!==null&&x[1]!==undefined&&x[1]!=='');
- const cards=entries.map(([k,v])=>`<div class="po-detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('');
- const invoiceRows=inv.length?`<div class="tablewrap"><table style="min-width:600px"><thead><tr><th>Invoice Reference</th><th>Invoice Amount</th><th>Advance Amortisation</th><th>Net Invoice</th></tr></thead><tbody>${inv.map((x,i)=>`<tr><td><button type="button" class="invoice-drill" data-invoice-drill="${esc(poNo)}::${i}" aria-expanded="false">${esc(x.invoice_no||x.invoice_number||x.invoice_id||('Invoice '+(i+1)))} ▾</button></td><td class="num">${money(x.invoice_amount)}</td><td class="num">${money(x.advance_amortisation)}</td><td class="num">${money(x.invoice_total_after_advance??x.invoice_total)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoice records are currently linked to this purchase order.</div>';
+ const inv=linkedPOInvoices(po);
+ const invoiceRows=inv.length?`<div class="tablewrap"><table class="po-linked-invoices"><thead><tr><th>Invoice Number</th><th>Invoice Date</th><th>Due Date</th><th>Total Incl VAT</th><th>Collected</th><th>Open Balance</th><th>Invoice Status</th><th>Payment Status</th></tr></thead><tbody>${inv.map(x=>`<tr><td>${esc(x.invoice_no||'—')}</td><td>${esc(poInvoiceDate(x.invoice_date||x.start_date))}</td><td>${esc(poInvoiceDate(x.due_date))}</td><td class="num">${money(x.invoice_total_after_advance??x.invoice_total)}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(x.collection_balance_after_advance??x.open_balance)}</td><td>${esc(x.status||'—')}</td><td>${esc(poInvoicePayment(x))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoice records are currently linked to this purchase order.</div>';
  const tr=document.createElement('tr');tr.className='po-detail-row';tr.dataset.poDetail=poNo;
- tr.innerHTML=`<td colspan="15"><div class="po-detail">${cards}</div><div class="po-invoices"><h3>Linked invoices (${inv.length})</h3>${invoiceRows}</div></td>`;
+ tr.innerHTML=`<td colspan="15"><div class="po-invoices"><h3>Linked invoices (${inv.length})</h3>${invoiceRows}</div></td>`;
  const main=$('tableWrap').querySelector(`[data-po-row="${CSS.escape(String(poNo))}"]`);
  if(main){main.after(tr);button.setAttribute('aria-expanded','true');button.textContent=String(poNo)+' ▴';
- tr.querySelectorAll('[data-invoice-drill]').forEach(b=>b.addEventListener('click',()=>toggleInvoiceDetail(poNo,Number(b.dataset.invoiceDrill.split('::')[1]),b)));}
+}
 
 }
 
 
-function toggleInvoiceDetail(poNo,index,button){
- const key=String(poNo)+'::'+index;
- const old=$('tableWrap').querySelector(`[data-invoice-detail="${CSS.escape(key)}"]`);
- if(old){old.remove();button.setAttribute('aria-expanded','false');button.textContent=button.textContent.replace(' ▴',' ▾');return;}
- // One invoice detail panel per expanded PO at a time.
- const poRow=$('tableWrap').querySelector(`[data-po-detail="${CSS.escape(String(poNo))}"]`);
- if(!poRow)return;
- poRow.querySelectorAll('.invoice-detail-row').forEach(x=>x.remove());
- poRow.querySelectorAll('[data-invoice-drill]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.textContent.replace(' ▴',' ▾');});
- const inv=invoices.filter(x=>String(x.po_no)===String(poNo)&&PEWorkspace.matches('invoice',x));
- const x=inv[index];if(!x)return;
- const fields=[
-  ['Invoice No.',x.invoice_no||x.invoice_number||x.invoice_id],
-  ['PO No.',x.po_no],['Project',x.project_name],['Invoice Date',x.invoice_date||x.start_date],
-  ['Approval Date',x.approval_date],['Due Date',x.due_date],
-  ['Invoice Amount Ex VAT',money(x.invoice_amount)],
-  ['Advance Amortisation',money(x.advance_amortisation)],
-  ['Net Invoice Amount',money(x.net_invoice_amount??x.invoice_amount)],
-  ['VAT',money(x.vat_after_advance??x.vat_amount)],
-  ['Invoice Total Incl. VAT',money(x.invoice_total_after_advance??x.invoice_total)],
-  ['Paid Amount',money(x.paid_amount)],
-  ['Open Balance',money(x.collection_balance_after_advance??x.open_balance)],
-  ['Retention Balance',money(x.retention_balance)],
-  ['Invoice Status',x.status],['Payment Status',x.payment_status],
-  ['Description',x.description],['Notes',x.notes]
- ].filter(([k,v])=>v!==null&&v!==undefined&&v!=='');
- const tr=document.createElement('tr');tr.className='invoice-detail-row';tr.dataset.invoiceDetail=key;
- tr.innerHTML=`<td colspan="4"><div class="invoice-detail-grid">${fields.map(([k,v])=>`<div class="invoice-detail-card"><b>${esc(k)}</b>${esc(v)}</div>`).join('')}</div></td>`;
- const clickedRow=button.closest('tr');clickedRow.after(tr);
- button.setAttribute('aria-expanded','true');button.textContent=button.textContent.replace(' ▾',' ▴');
-}
 
 function renderTotalsChart(values){
  const host=$('poTotalsChart');
