@@ -172,7 +172,24 @@
       countCard('Open POs', s.orders.filter(order => !order.archive && !/closed/i.test(order.status || '')).length, poBasis),
       moneyCard('Advance Received', s.advance, poBasis)
     ];
-    if (profile === 'invoices') cards = [countCard('Invoices', s.annual.length, 'Invoice due date'), ...cards.filter(card => !['Pending Approval'].includes(card[0]))].slice(0, 8);
+    if (profile === 'invoices') {
+      const draft = s.scoped.filter(i => String(i.status || '').trim().toLowerCase() === 'draft' && inYear(i.start_date));
+      const waiting = s.scoped.filter(i => /^(?:2-)?waiting for approval$/i.test(String(i.status || '').trim()) && inYear(i.start_date));
+      const counted = (label, value, basis, count) => [label, value, basis, false, count];
+      const countMetric = key => s.annual.filter(i => Math.abs(metrics(i,s.orderMap.get(String(i.po_no)))[key]) > .005).length;
+      const sumStatus = rows => rows.reduce((sum,i) => sum + metrics(i,s.orderMap.get(String(i.po_no))).total,0);
+      cards = [
+        counted('Invoice Value Ex VAT',s.totals.net,'Invoice due date',s.annual.length),
+        counted('VAT',s.totals.vat,'Invoice due date',countMetric('vat')),
+        counted('Invoice Total',s.totals.total,'Invoice due date',s.annual.length),
+        counted('Collected',s.totals.collected,'Payment date',new Set(s.collections.map(c=>String(c.invoice_id))).size),
+        counted('Open Balance',s.totals.balance,'Invoice due date',countMetric('balance')),
+        counted('Overdue',s.totals.overdue,'Invoice due date',s.annual.filter(i=>due(i)<today&&metrics(i,s.orderMap.get(String(i.po_no))).balance>.005).length),
+        counted('Retention',s.totals.retention,'Invoice due date',countMetric('retention')),
+        counted('Draft',sumStatus(draft),'Invoice date · including VAT',draft.length),
+        counted('Waiting For approval',sumStatus(waiting),'Invoice date · including VAT',waiting.length)
+      ];
+    }
     if (profile === 'collections') {
       const amounts = s.collections.map(collection => number(collection.amount));
       const methodCount = new Set(s.collections.map(collection => collection.payment_method).filter(Boolean)).size;
@@ -185,9 +202,9 @@
         moneyCard('Largest Collection', Math.max(0, ...amounts), 'Payment date'),
         ['Latest Collection', s.collections.map(collection => date(collection.collection_date)).sort().at(-1) || '—', 'Payment date', 'date']];
     }
-    host.innerHTML = '<p class="pe-annual-note">' + note + '</p>' + cards.map(([label, value, basis, kind]) =>
+    host.innerHTML = '<p class="pe-annual-note">' + note + '</p>' + cards.map(([label, value, basis, kind, invoiceCount]) =>
       '<article class="kpi"><div class="label">' + label + '</div><div class="value">' + esc(kind === 'date' ? value : kind ? Number(value).toLocaleString('en-SA') : currency.format(value)) +
-      '</div><div class="sub">' + year + ' · ' + basis + '</div></article>'
+      '</div><div class="sub">' + year + ' · ' + basis + (invoiceCount == null ? '' : '<br><span class="pe-invoice-count">' + invoiceCount + ' invoices</span>') + '</div></article>'
     ).join('');
     host.style.setProperty('--kpi-columns', String(Math.ceil(cards.length / 2)));
     if (chartId) chart(chartId, cards.filter(card => !card[3]).map(([label, value]) => [label, value]));
