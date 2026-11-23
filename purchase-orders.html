@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-fast-register>
 <head>
 <style>html{font-size:18px}</style>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -49,8 +49,14 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 .po-invoices .po-linked-invoices th:nth-child(2),.po-invoices .po-linked-invoices th:nth-child(3),.po-invoices .po-linked-invoices td:nth-child(2),.po-invoices .po-linked-invoices td:nth-child(3){white-space:nowrap}
 </style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
 <script src="access-control.js?v=20261123c"></script>
-<script src="unified-ui.js?v=20261123d" defer></script>
-</head>
+<script src="unified-ui.js?v=20261123f" defer></script>
+<style id="fast-register-style">
+#tableWrap table{width:100%!important;table-layout:fixed!important;min-width:1100px!important;font-size:10px!important}
+#tableWrap th,#tableWrap td{padding:6px 3px!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere;line-height:1.3!important}
+#tableWrap td.num{font-size:9px!important;white-space:nowrap!important;font-variant-numeric:tabular-nums}
+#tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
+#registerPager button{min-width:36px;padding:7px 10px}
+</style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -85,15 +91,15 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(v));
 function showError(s){$('errorBox').textContent=s;$('errorBox').style.display=s?'block':'none';}
 async function checkSession(){
- const {data:{user},error}=await db.auth.getUser();
+ const {data:{session},error}=await db.auth.getSession();const user=session?.user;
  if(error||!user){location.replace('login.html');return false;}
- const {data:p,error:e}=await db.from('users_profile')
+ const accessRequest=PEAccess.load(db);
+ const [{data:p,error:e}]=await Promise.all([db.from('users_profile')
    .select('id,username,full_name,role,active,must_change_password')
-   .eq('auth_user_id',user.id).maybeSingle();
+   .eq('auth_user_id',user.id).maybeSingle(),accessRequest]);
  if(e) throw e;
  if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
  if(p.must_change_password===true){location.replace('change-password.html');return false;}
- await PEAccess.load(db);
  sessionStorage.setItem('pe_user_role',p.role||'');
  sessionStorage.setItem('pe_username',p.username||'');
  sessionStorage.setItem('pe_full_name',p.full_name||'');
@@ -102,20 +108,35 @@ async function checkSession(){
  return true;
 }
 async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
+let registerPage=1,preparedRegisterData;
+function renderRegisterPager(){
+ const pages=Math.max(1,Math.ceil(filtered.length/50));registerPage=Math.min(registerPage,pages);
+ let host=$('registerPager');if(!host){host=document.createElement('nav');host.id='registerPager';host.setAttribute('aria-label','Register pages');$('tableWrap').after(host);}
+ host.innerHTML='<button type="button" id="registerPrev" aria-label="Previous page" '+(registerPage===1?'disabled':'')+'>‹</button><span>Page '+registerPage+' of '+pages+' · '+filtered.length+' records</span><button type="button" id="registerNext" aria-label="Next page" '+(registerPage===pages?'disabled':'')+'>›</button>';
+ $('registerPrev').onclick=()=>{registerPage--;render();};$('registerNext').onclick=()=>{registerPage++;render();};
+}
+function prepareRegisterData(){
+ if(!preparedRegisterData){
+  const invoiceRequest=fetchRows('invoice_details_with_retention','*');
+  preparedRegisterData=Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]).then(([,invoices])=>({...PEAnnual.records(),invoices}));
+ }
+ return preparedRegisterData;
+}
+
 async function loadAll(){
  await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- const invoiceRequest=fetchRows('invoice_details_with_retention','*');const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);
- const {projects:p,orders:po}=PEAnnual.records();
+ const {invoices:iv,projects:p,orders:po}=await prepareRegisterData();
   projects=p;allPO=po;invoices=iv;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
- finally{$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
+ finally{preparedRegisterData=null;$('refresh').disabled=false;$('refresh').textContent='↻ Refresh';}
 }
 function setOptions(id,values,label){const el=$(id),old=el.value,vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));const list=$(id+'Options');if(list)list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('');el.value=old;}
 function populateFilters(){setOptions('company',allPO.map(x=>x.company),'customers');setOptions('department',allPO.map(x=>x.department),'departments');setOptions('project',allPO.map(x=>x.project_name),'projects');}
 function invoiceTotals(po){const rows=invoices.filter(i=>String(i.po_no)===String(po.po_no));const invoiced=rows.reduce((s,x)=>s+num(x.invoice_amount),0);const gross=rows.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0);const amort=rows.reduce((s,x)=>s+num(x.advance_amortisation),0);return{count:rows.length,invoiced,gross,amort,remaining:Math.max(0,num(po.po_value_ex_vat)-invoiced)};}
 function applyFilters(){
+ registerPage=1;
  const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
  filtered=allPO.filter(x=>PEWorkspace.matches('order',x)&&(!q||[x.po_no,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c.toLowerCase())&&(!d||String(x.department||'').toLowerCase()===d.toLowerCase())&&(!p||String(x.project_name||'').toLowerCase()===p.toLowerCase())&&(!s||(String(x.status||'Open').toLowerCase()===(s.toLowerCase()))));
  render();
@@ -130,16 +151,17 @@ function registerRecordLinks(type,row){
 }
 
 function render(){
+ renderRegisterPager();
  const sum=(fn)=>filtered.reduce((s,x)=>s+fn(x),0),active=filtered.filter(x=>!x.archive&&String(x.status||'Open').toLowerCase()!=='closed');
  const invoiced=sum(x=>invoiceTotals(x).invoiced),poValue=sum(x=>num(x.po_value_ex_vat)),remaining=sum(x=>invoiceTotals(x).remaining),advance=sum(x=>num(x.advance_received_amount));
  const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
  renderTotalsChart({poValue,invoiced,remaining,advance,amortised:sum(x=>invoiceTotals(x).amort)});
- const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-access-department="${esc(po.department)}" data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><div class="register-actions">${registerRecordLinks('po',po)}${PEAccess.can('orders','delete')?`<button type="button" class="danger" data-po-delete="${po.id}">Delete</button>`:''}<a class="btn secondary" href="reports.html?report=invoices&amp;po_no=${encodeURIComponent(po.po_no)}">PO Report</a></div></td></tr>`;});
+ const rows=filtered.slice((registerPage-1)*50,registerPage*50).map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-access-department="${esc(po.department)}" data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><div class="register-actions">${registerRecordLinks('po',po)}${PEAccess.can('orders','delete')?`<button type="button" class="danger" data-po-delete="${po.id}">Delete</button>`:''}<a class="btn secondary" href="reports.html?report=invoices&amp;po_no=${encodeURIComponent(po.po_no)}">PO Report</a></div></td></tr>`;});
  $('tableWrap').innerHTML=rows.length?`<table class="register-table register-pos"><colgroup><col style="width:145px"><col style="width:180px"><col style="width:135px"><col style="width:180px"><col style="width:110px"><col style="width:165px"><col style="width:80px"><col style="width:165px"><col style="width:165px"><col style="width:90px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:100px"><col style="width:275px"></colgroup><thead><tr><th scope="col">PO Number</th><th scope="col">Customer</th><th scope="col">Department</th><th scope="col">Project</th><th scope="col">PO Date</th><th scope="col">PO Value Ex VAT</th><th scope="col">Invoices</th><th scope="col">Invoiced Ex VAT</th><th scope="col">Uninvoiced Value Ex VAT</th><th scope="col">Advance %</th><th scope="col">Contract Advance</th><th scope="col">Advance Amortised</th><th scope="col">Unamortised Contract Advance</th><th scope="col">PO Status</th><th scope="col">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-po-delete]').forEach(b=>b.onclick=()=>deleteRegisteredPO(b.dataset.poDelete));
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(btn=>btn.addEventListener('click',()=>togglePODetail(btn.dataset.drillPo,btn)));
- $('resultCount').textContent=`Showing ${filtered.length} of ${allPO.length} purchase orders`;
+ $('resultCount').textContent=`Matching ${filtered.length} of ${allPO.length} purchase orders · Page ${registerPage}`;
 }
 
 
@@ -243,7 +265,7 @@ $('closeCreate').addEventListener('click',()=>$('createPicker').close());
 $('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{$('search').value='';['company','department','project','status'].forEach(id=>$(id).value='');applyFilters();});
 ['search','company','department','project','status'].forEach(id=>$(id).addEventListener(['search','company','department','project'].includes(id)?'input':'change',applyFilters));
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html');});
-(async()=>{if(await checkSession())await loadAll();})();
+(async()=>{try{if((await Promise.all([checkSession(),prepareRegisterData()]))[0])await loadAll();}catch(error){showError('Unable to load purchase orders: '+error.message);preparedRegisterData=null;}})();
 </script>
 
 <script>

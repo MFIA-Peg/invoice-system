@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-fast-register>
 <head>
 <style>html{font-size:18px}</style>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -97,8 +97,14 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #receivedPaymentForm textarea{width:100%;box-sizing:border-box}
 </style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
 <script src="access-control.js?v=20261123c"></script>
-<script src="unified-ui.js?v=20261123d" defer></script>
-</head>
+<script src="unified-ui.js?v=20261123f" defer></script>
+<style id="fast-register-style">
+#tableWrap table{width:100%!important;table-layout:fixed!important;min-width:1100px!important;font-size:10px!important}
+#tableWrap th,#tableWrap td{padding:6px 3px!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere;line-height:1.3!important}
+#tableWrap td.num{font-size:9px!important;white-space:nowrap!important;font-variant-numeric:tabular-nums}
+#tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
+#registerPager button{min-width:36px;padding:7px 10px}
+</style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -179,12 +185,13 @@ function invoiceStatus(x){
 }
 function showError(s){$('errorBox').textContent=s;$('errorBox').style.display=s?'block':'none'}
 async function checkSession(){
- const {data:{user},error}=await db.auth.getUser();
+ const {data:{session},error}=await db.auth.getSession();const user=session?.user;
  if(error||!user){location.replace('login.html');return false;}
- const {data:p,error:e}=await db.from('users_profile').select('id,username,full_name,role,active,must_change_password').eq('auth_user_id',user.id).maybeSingle();
+ const accessRequest=PEAccess.load(db);
+ const [{data:p,error:e}]=await Promise.all([db.from('users_profile').select('id,username,full_name,role,active,must_change_password').eq('auth_user_id',user.id).maybeSingle(),accessRequest]);
  if(e)throw e;if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
  if(p.must_change_password===true){location.replace('change-password.html');return false;}
- commentAuthor=p.full_name||p.username||'';await PEAccess.load(db);
+ commentAuthor=p.full_name||p.username||'';
  sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
 }
 async function fetchRows(table,columns='*',orderBy='id'){
@@ -193,15 +200,29 @@ async function fetchRows(table,columns='*',orderBy='id'){
  return rows;
 }
 function setOptions(id,values){const list=$(id+'Options');if(!list)return;const vals=[...new Set(values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
+let registerPage=1,preparedRegisterData;
+function renderRegisterPager(){
+ const pages=Math.max(1,Math.ceil(filtered.length/50));registerPage=Math.min(registerPage,pages);
+ let host=$('registerPager');if(!host){host=document.createElement('nav');host.id='registerPager';host.setAttribute('aria-label','Register pages');$('tableWrap').after(host);}
+ host.innerHTML='<button type="button" id="registerPrev" aria-label="Previous page" '+(registerPage===1?'disabled':'')+'>‹</button><span>Page '+registerPage+' of '+pages+' · '+filtered.length+' records</span><button type="button" id="registerNext" aria-label="Next page" '+(registerPage===pages?'disabled':'')+'>›</button>';
+ $('registerPrev').onclick=()=>{registerPage--;render();};$('registerNext').onclick=()=>{registerPage++;render();};
+}
+function prepareRegisterData(){
+ if(!preparedRegisterData){
+  const invoiceRequest=fetchRows('invoice_details_with_retention','*',null);
+  preparedRegisterData=Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]).then(([,invoices])=>({...PEAnnual.records(),invoices}));
+ }
+ return preparedRegisterData;
+}
+
 async function loadAll(){
  await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='⋯';showError('');
  try{
- const invoiceRequest=fetchRows('invoice_details_with_retention','*',null);const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);
- const {projects:p,orders:po}=PEAnnual.records();
+ const {invoices:iv,projects:p,orders:po}=await prepareRegisterData();
   allInvoices=iv;projects=p;pos=po;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load invoices: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Could not load invoice data. Check database permissions and view availability.</div>'}
- finally{$('refresh').disabled=false;$('refresh').textContent='↻'}
+ finally{preparedRegisterData=null;$('refresh').disabled=false;$('refresh').textContent='↻'}
 }
 function populateFilters(){
  setOptions('company',[...projects.map(x=>x.company),...pos.map(x=>x.company),...allInvoices.map(x=>relatedFor(x).company)]);
@@ -219,6 +240,7 @@ function relatedFor(x){
  return {pr,po,company:x.company||po?.company||pr?.company||'Unassigned',department:x.department||po?.department||pr?.department||'Unassigned'};
 }
 function applyFilters(){
+ registerPage=1;
  const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim(),d=$('department').value.trim(),p=$('project').value.trim(),po=$('po').value.trim(),s=$('status').value.trim();
  const from=$('dateFrom').value,to=$('dateTo').value,dueFrom=$('dueFrom').value,dueTo=$('dueTo').value;
  filtered=allInvoices.filter(x=>{
@@ -247,28 +269,20 @@ function registerRecordLinks(type,row){
 }
 
 function render(){
+ renderRegisterPager();
  const a=filtered,sum=f=>a.reduce((s,x)=>s+f(x),0);
  const values={ex:sum(x=>num(x.invoice_amount)),vat:sum(invoiceVat),gross:sum(invoiceGross),paid:sum(x=>num(x.paid_amount)),balance:sum(invoiceBalance),retention:sum(x=>num(x.retention_balance)),overdue:sum(x=>invoiceStatus(x)==='Overdue'?invoiceBalance(x):0)};
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr data-access-department="${esc(relatedFor(x).department)}"><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button class="invoice-icon-action" type="button" title="Received Payments" aria-label="Received Payments" data-received-payments="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></button> ${registerRecordLinks('invoice',x)} ${PEAccess.can('invoices','delete')?`<button type="button" class="danger invoice-icon-action" title="Delete Invoice" aria-label="Delete Invoice" data-invoice-delete="${i}">⌫</button>`:''}</td></tr>`});
+ const offset=(registerPage-1)*50;const rows=a.slice(offset,offset+50).map((x,index)=>{const i=offset+index;const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr data-access-department="${esc(relatedFor(x).department)}"><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button class="invoice-icon-action" type="button" title="Received Payments" aria-label="Received Payments" data-received-payments="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></button> ${registerRecordLinks('invoice',x)} ${PEAccess.can('invoices','delete')?`<button type="button" class="danger invoice-icon-action" title="Delete Invoice" aria-label="Delete Invoice" data-invoice-delete="${i}">⌫</button>`:''}</td></tr>`});
  $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Comments</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-invoice-delete]').forEach(b=>b.onclick=()=>deleteRegisteredInvoice(filtered[Number(b.dataset.invoiceDelete)]));
  $('tableWrap').querySelectorAll('[data-received-payments]').forEach(b=>b.addEventListener('click',()=>openReceivedPayments(filtered[Number(b.dataset.receivedPayments)])));
  $('tableWrap').querySelectorAll('[data-history-invoice]').forEach(b=>b.addEventListener('click',()=>openInvoiceHistory(filtered[Number(b.dataset.historyInvoice)])));
- requestAnimationFrame(fitInvoiceCells);
- $('resultCount').textContent=`Showing ${a.length} of ${allInvoices.length} invoices`;
+ $('resultCount').textContent=`Matching ${a.length} of ${allInvoices.length} invoices · Page ${registerPage}`;
 }
 
-function fitInvoiceCells(){
- document.querySelectorAll('#tableWrap td.num,#tableWrap tbody td:nth-child(5),#tableWrap tbody td:nth-child(6)').forEach(cell=>{
-  cell.style.fontSize='';
-  let size=parseFloat(getComputedStyle(cell).fontSize);
-  while(cell.scrollWidth>cell.clientWidth&&size>8){size-=.25;cell.style.fontSize=size+'px';}
- });
-}
-new ResizeObserver(()=>requestAnimationFrame(fitInvoiceCells)).observe($('tableWrap'));
 
 function renderChart(v){
  const items=[['Invoice Value Ex VAT',v.ex],['VAT',v.vat],['Invoice Total',v.gross],['Collected',v.paid],['Open Balance',v.balance],['Overdue',v.overdue],['Retention',v.retention]],max=Math.max(1,...items.map(x=>x[1]));
@@ -537,7 +551,7 @@ $('editForm').addEventListener('submit',saveEdit);$('closeModal').addEventListen
 $('editBackdrop').addEventListener('click',e=>{if(e.target===$('editBackdrop'))closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('editBackdrop').classList.contains('open'))closeModal()});
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')});
-(async()=>{try{if(await checkSession())await loadAll()}catch(e){showError('Session verification failed: '+(e.message||e))}})();
+(async()=>{try{if((await Promise.all([checkSession(),prepareRegisterData()]))[0])await loadAll()}catch(e){preparedRegisterData=null;showError('Session verification failed: '+(e.message||e))}})();
 </script>
 
 <script>
