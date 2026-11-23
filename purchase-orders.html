@@ -47,7 +47,10 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 .po-invoices .po-linked-invoices th,.po-invoices .po-linked-invoices td{padding:9px 12px;white-space:normal;overflow-wrap:anywhere}
 .po-invoices .po-linked-invoices td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
 .po-invoices .po-linked-invoices th:nth-child(2),.po-invoices .po-linked-invoices th:nth-child(3),.po-invoices .po-linked-invoices td:nth-child(2),.po-invoices .po-linked-invoices td:nth-child(3){white-space:nowrap}
-</style></head>
+</style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
+</head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -90,6 +93,7 @@ async function checkSession(){
  if(e) throw e;
  if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
  if(p.must_change_password===true){location.replace('change-password.html');return false;}
+ await PEAccess.load(db);
  sessionStorage.setItem('pe_user_role',p.role||'');
  sessionStorage.setItem('pe_username',p.username||'');
  sessionStorage.setItem('pe_full_name',p.full_name||'');
@@ -99,6 +103,7 @@ async function checkSession(){
 }
 async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
 async function loadAll(){
+ await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
  const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);
@@ -130,8 +135,9 @@ function render(){
  const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
  renderTotalsChart({poValue,invoiced,remaining,advance,amortised:sum(x=>invoiceTotals(x).amort)});
- const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><div class="register-actions">${registerRecordLinks('po',po)}<a class="btn secondary" href="reports.html?report=invoices&amp;po_no=${encodeURIComponent(po.po_no)}">PO Report</a></div></td></tr>`;});
+ const rows=filtered.map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><div class="register-actions">${registerRecordLinks('po',po)}${PEAccess.can('orders','delete')?`<button type="button" class="danger" data-po-delete="${po.id}">Delete</button>`:''}<a class="btn secondary" href="reports.html?report=invoices&amp;po_no=${encodeURIComponent(po.po_no)}">PO Report</a></div></td></tr>`;});
  $('tableWrap').innerHTML=rows.length?`<table class="register-table register-pos"><colgroup><col style="width:145px"><col style="width:180px"><col style="width:135px"><col style="width:180px"><col style="width:110px"><col style="width:165px"><col style="width:80px"><col style="width:165px"><col style="width:165px"><col style="width:90px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:100px"><col style="width:275px"></colgroup><thead><tr><th scope="col">PO Number</th><th scope="col">Customer</th><th scope="col">Department</th><th scope="col">Project</th><th scope="col">PO Date</th><th scope="col">PO Value Ex VAT</th><th scope="col">Invoices</th><th scope="col">Invoiced Ex VAT</th><th scope="col">Uninvoiced Value Ex VAT</th><th scope="col">Advance %</th><th scope="col">Contract Advance</th><th scope="col">Advance Amortised</th><th scope="col">Unamortised Contract Advance</th><th scope="col">PO Status</th><th scope="col">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
+ $('tableWrap').querySelectorAll('[data-po-delete]').forEach(b=>b.onclick=()=>deleteRegisteredPO(b.dataset.poDelete));
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(btn=>btn.addEventListener('click',()=>togglePODetail(btn.dataset.drillPo,btn)));
  $('resultCount').textContent=`Showing ${filtered.length} of ${allPO.length} purchase orders`;
 }
@@ -160,6 +166,10 @@ function poInvoicePayment(x){
  return x.payment_status||'Unclassified';
 }
 
+async function deleteRegisteredPO(id){
+ const po=allPO.find(p=>String(p.id)===String(id));if(!po||!PEAccess.can('orders','delete')||!confirm('Delete purchase order "'+po.po_no+'"?'))return;
+ try{await PEAccess.require(db,'orders','delete');const result=await db.from('pos').delete().eq('id',id).select('id');if(result.error)throw result.error;if(result.data?.length!==1)throw new Error('PO was not deleted. Refresh and check access.');await loadAll();}catch(e){showError('Delete blocked: '+(e.message||e));}
+}
 function togglePODetail(poNo,button){
  const existing=$('tableWrap').querySelector(`[data-po-detail="${CSS.escape(String(poNo))}"]`);
  if(existing){existing.remove();button.setAttribute('aria-expanded','false');button.textContent=String(poNo)+' ▾';return;}

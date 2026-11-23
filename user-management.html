@@ -28,6 +28,9 @@ header h1{font-size:22px;margin:0}header p{margin:5px 0 0;color:#cbd5e1;font-siz
 }
 </style>
 <script src="searchable-selects.js?v=20261118a" defer></script>
+<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
 <header>
@@ -54,6 +57,8 @@ const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const validPassword = value => value.length >= 6 && /[A-Za-z]/.test(value) && /[0-9]/.test(value);
+let customers=[],selectedCustomerIds=new Set();
+const accessModules=[['customers','Customers'],['departments','Departments'],['projects','Projects'],['orders','Purchase Orders'],['invoices','Invoices'],['collections','Collections']];
 let managerProfile=null, users=[], projects=[], departments=[], projectDepartments=new Map(), selectedProjectIds=new Set(), selectedDepartmentNames=new Set(), manuallySelectedProjectIds=new Set(), excludedAutoProjectIds=new Set(), currentUser=null, currentMode='list';
 
 function showStatus(message,type=''){const el=$('formStatus');if(el){el.textContent=message;el.className='status '+type;}}
@@ -68,20 +73,22 @@ async function initializePage(){
     const {data:profile,error}=await client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').eq('auth_user_id',session.user.id).maybeSingle();
     if(error)throw error;
     if(!profile||profile.active!==true||profile.role!=='finance_manager')throw new Error('Access denied. Finance Manager permission is required.');
-    managerProfile=profile;
+    await PEAccess.load(client);managerProfile=profile;
     await loadManagementData();
   }catch(error){fail(error.message||'Unable to initialize User Management.');}
 }
 
 async function loadManagementData(){
-  const [u,pr,po]=await Promise.all([
+  const [u,pr,po,ds,cs]=await Promise.all([
     client.from('users_profile').select('id,username,full_name,role,active,auth_user_id').order('id'),
-    client.from('projects').select('id,project_name,company').order('project_name'),
-    client.from('pos').select('project_id,department')
+    client.from('projects').select('id,project_name,company,department').order('project_name'),
+    client.from('pos').select('project_id,department'),
+    client.from('departments').select('id,name').order('name'),client.from('customer_companies').select('id,name').order('name')
   ]);
-  for(const result of [u,pr,po])if(result.error)throw result.error;
+  for(const result of [u,pr,po,ds,cs])if(result.error)throw result.error;
   users=u.data||[];projects=pr.data||[];projectDepartments=new Map();
-  departments=[...new Set((po.data||[]).map(x=>String(x.department||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  customers=cs.data||[];departments=(ds.data||[]).map(d=>d.name);
+ for(const row of projects){const dept=String(row.department||'').trim();if(!projectDepartments.has(dept))projectDepartments.set(dept,new Set());projectDepartments.get(dept).add(Number(row.id));}
   for(const row of po.data||[]){const pid=Number(row.project_id),dept=String(row.department||'').trim();if(!pid||!dept)continue;if(!projectDepartments.has(dept))projectDepartments.set(dept,new Set());projectDepartments.get(dept).add(pid);}
   renderUserList();showView('list');
 }
@@ -109,17 +116,38 @@ function renderProjectChecks(){
   document.querySelectorAll('.project-check').forEach(cb=>cb.addEventListener('change',()=>onProjectToggle(Number(cb.value),cb.checked)));
   const selectedCount=$('selectedProjectCount');if(selectedCount)selectedCount.textContent=`${selectedProjectIds.size} selected`;
 }
-function renderAccessSections(permissions={can_view:false,can_add:false,can_edit:false,can_delete:false}){
-  return `
-    <div class="section"><div class="section-title">Department Access</div><div class="section-body"><p class="muted">Select departments first. Projects linked to the selected departments will be checked automatically. You can then adjust project access below.</p><div id="departmentAccessList" class="access-list"></div></div></div>
-    <div class="section"><div class="section-title">Project Access</div><div class="section-body"><div class="access-toolbar"><input id="projectSearch" class="search" type="search" placeholder="Search projects by name or company"><strong id="selectedProjectCount" class="muted">0 selected</strong></div><div id="projectAccessList" class="access-list"></div><p class="muted">Project access and department access are both required. Selecting a project does not grant access to departments that have not been assigned.</p></div></div>
-    <div class="section"><div class="section-title">Data Permissions</div><div class="section-body"><div class="check-grid">${[['can_view','View'],['can_add','Add'],['can_edit','Edit'],['can_delete','Delete']].map(([key,label])=>`<label class="check-card"><input type="checkbox" id="${key}" ${permissions[key]?'checked':''}><span>${label}</span></label>`).join('')}</div></div></div>`;
+
+function renderCustomerChecks(){
+ const query=($('customerSearch')?.value||'').trim().toLowerCase();
+ const visible=customers.filter(c=>c.name.toLowerCase().includes(query));
+ $('customerAccessList').innerHTML=visible.map(c=>'<label class="access-item"><input type="checkbox" class="customer-check" value="'+c.id+'" '+(selectedCustomerIds.has(Number(c.id))?'checked':'')+'><span>'+escapeHtml(c.name)+'</span></label>').join('')||'<p>No matching customers.</p>';
+ document.querySelectorAll('.customer-check').forEach(cb=>cb.onchange=()=>{if(cb.checked)selectedCustomerIds.add(Number(cb.value));else selectedCustomerIds.delete(Number(cb.value));});
 }
-function attachAccessHandlers(){renderDepartmentChecks();renderProjectChecks();$('projectSearch').addEventListener('input',renderProjectChecks);}
-function getPermissionPayload(){return{can_view:$('can_view').checked,can_add:$('can_add').checked,can_edit:$('can_edit').checked,can_delete:$('can_delete').checked};}
+function renderAccessSections(permissions={}){
+ const modules=permissions.module_permissions||{};
+ return '<div class="section"><div class="section-title">Screen Permissions</div><div class="section-body"><p class="muted">Set permissions separately for each screen. View only: select View and leave Add, Edit and Delete unchecked.</p><table class="pe-permission-grid"><thead><tr><th>Screen</th><th>View</th><th>Add</th><th>Edit</th><th>Delete</th></tr></thead><tbody>'+accessModules.map(([module,label])=>'<tr><th scope="row">'+label+'</th>'+['view','add','edit','delete'].map(action=>'<td><input type="checkbox" id="perm_'+module+'_'+action+'" data-module="'+module+'" data-operation="'+action+'" aria-label="'+label+' '+action+'" '+(modules[module]?.[action]?'checked':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></div>'+
+ '<div class="section"><div class="section-title">Customer Access</div><div class="section-body"><p class="muted">Only selected customers are available. Orders, invoices and collections must also match the selected departments and projects.</p><div class="pe-scope-toolbar"><input id="customerSearch" class="search" type="search" placeholder="Search customers"><button type="button" id="selectVisibleCustomers">Select matching</button><button type="button" id="clearCustomers">Clear customers</button></div><div id="customerAccessList" class="access-list"></div></div></div>'+
+ '<div class="section"><div class="section-title">Department Access</div><div class="section-body"><p class="muted">Choose accessible departments. Related projects are suggested below and can be adjusted.</p><div id="departmentAccessList" class="access-list"></div></div></div>'+
+ '<div class="section"><div class="section-title">Project Access</div><div class="section-body"><div class="access-toolbar"><input id="projectSearch" class="search" type="search" placeholder="Search projects by name or customer"><strong id="selectedProjectCount" class="muted">0 selected</strong></div><div id="projectAccessList" class="access-list"></div><p class="muted">A selected project is accessible only when its customer and department are selected too.</p></div></div>';
+}
+function attachAccessHandlers(){
+ renderDepartmentChecks();renderProjectChecks();renderCustomerChecks();
+ $('projectSearch').addEventListener('input',renderProjectChecks);$('customerSearch').addEventListener('input',renderCustomerChecks);
+ $('selectVisibleCustomers').onclick=()=>{const q=$('customerSearch').value.trim().toLowerCase();customers.filter(c=>c.name.toLowerCase().includes(q)).forEach(c=>selectedCustomerIds.add(Number(c.id)));renderCustomerChecks();};
+ $('clearCustomers').onclick=()=>{selectedCustomerIds.clear();renderCustomerChecks();};
+ accessModules.forEach(([module])=>{
+  const update=()=>{const view=$('perm_'+module+'_view').checked;for(const action of ['add','edit','delete']){const input=$('perm_'+module+'_'+action);input.disabled=!view;if(!view)input.checked=false;}};
+  $('perm_'+module+'_view').addEventListener('change',update);update();
+ });
+}
+function getPermissionPayload(){
+ const modules={};
+ for(const [module]of accessModules){modules[module]={};for(const action of ['view','add','edit','delete'])modules[module][action]=$('perm_'+module+'_'+action).checked;}
+ return {modules,customer_ids:[...selectedCustomerIds],...Object.fromEntries(['view','add','edit','delete'].map(action=>['can_'+action,Object.values(modules).some(m=>m[action])]))};
+}
 
 function openAddUser(){
-  currentUser=null;resetAccessState();$('editorTitle').textContent='Add User';
+  currentUser=null;selectedCustomerIds=new Set();resetAccessState();$('editorTitle').textContent='Add User';
   $('editor').innerHTML=`
     <form id="userForm" autocomplete="off">
       <div class="section"><div class="section-title">User Details</div><div class="section-body"><div class="field-grid">
@@ -138,13 +166,15 @@ function openAddUser(){
 async function openExistingUser(id){
   const user=users.find(x=>Number(x.id)===id);if(!user)return;currentUser=user;
   $('editorTitle').textContent='Manage User: '+(user.full_name||user.username);
-  const [perm,pa,da]=await Promise.all([
-    client.from('user_permissions').select('can_view,can_add,can_edit,can_delete').eq('user_id',id).maybeSingle(),
+  const [perm,pa,da,ca]=await Promise.all([
+    client.from('user_permissions').select('*').eq('user_id',id).maybeSingle(),
     client.from('user_project_access').select('project_id').eq('user_id',id),
-    client.from('user_department_access').select('department').eq('user_id',id)
+    client.from('user_department_access').select('department').eq('user_id',id),
+    client.from('user_customer_access').select('customer_company_id').eq('user_id',id)
   ]);
-  for(const r of [perm,pa,da])if(r.error){alert('Unable to load user access: '+r.error.message);return;}
+  for(const r of [perm,pa,da,ca])if(r.error){alert('Unable to load user access: '+r.error.message);return;}
   resetAccessState((da.data||[]).map(x=>x.department),(pa.data||[]).map(x=>Number(x.project_id)));
+ selectedCustomerIds=new Set((ca.data||[]).map(x=>Number(x.customer_company_id)));
   const isManager=user.role==='finance_manager';
   const canManage=user.role==='user';
   $('editor').innerHTML=`

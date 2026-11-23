@@ -42,6 +42,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>.project-action-cell{position:sticky;right:0;background:#fff;z-index:2;box-shadow:-3px 0 8px #14263d10;min-width:190px}th.project-action-cell{background:#14263d;z-index:3}.project-row-actions{display:flex;gap:6px;align-items:center}.project-action{font:600 12px/1.4 Arial,sans-serif!important;padding:7px 9px!important;border:0;border-radius:6px;background:#2563eb;color:white;text-decoration:none;cursor:pointer}.project-action.danger{background:#b42318}</style><script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
+<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html" aria-current="page">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -81,10 +84,12 @@ async function checkSession(){
  const {data:p,error:e}=await db.from('users_profile').select('id,username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();
  if(e||!p||p.active!==true){await db.auth.signOut();sessionStorage.clear();location.replace('login.html');return false;}
  const manager=['finance_manager','system_admin'].includes(String(p.role||'').toLowerCase().trim());projectAccess={edit:manager,remove:manager};if(!manager){const permissions=await db.from('user_permissions').select('can_edit,can_delete').eq('user_id',p.id).maybeSingle();if(!permissions.error){projectAccess.edit=permissions.data?.can_edit===true;projectAccess.remove=permissions.data?.can_delete===true;}}
- sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
+ await PEAccess.load(db);
+ projectAccess={edit:PEAccess.can('projects','edit'),remove:PEAccess.can('projects','delete')};sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
 }
 async function fetchRows(table,columns){let rows=[],from=0;while(true){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+999);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw new Error('Record limit exceeded');}return rows;}
 async function loadAll(){
+ await PEAccess.load(db);
  $('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
  const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);

@@ -39,6 +39,9 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
 <script src="searchable-selects.js?v=20261118a" defer></script>
+<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap dashboard-content">
 <section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
@@ -92,7 +95,7 @@ drawDonut('po','poChart',['Invoiced','Not Invoiced'],[poInvoiced,poRemaining]);
 document.getElementById('status').textContent=`Showing ${projects.length} projects, ${pos.length} purchase orders and ${dated.length} invoices under the selected dimensions.`;}
 function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
 document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
-async function loadDashboard(){const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{
+async function loadDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{
  await PEAnnual.load(supabaseClient);
 const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
 
@@ -114,7 +117,7 @@ function exportToExcel(){
 window.exportToExcel=exportToExcel;
 
 async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert('Sign out failed: '+error.message);return;}sessionStorage.clear();location.replace('login.html');}
-async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
+async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}await PEAccess.load(supabaseClient);sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261118d"></script>
