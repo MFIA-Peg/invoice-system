@@ -7,6 +7,24 @@
   const num=value=>Number(value||0);
   const money=value=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(num(value));
   const explicit=row=>row?.archive===true||/^(closed|completed|cancelled|canceled|void)$/i.test(text(row?.status).trim());
+  let billingSource,billingIndex;
+  function billing(){
+    const rows=PEAnnual.records().invoices;
+    if(rows!==billingSource){billingSource=rows;billingIndex=new Map();for(const i of rows){if(/draft|cancelled|canceled|void/i.test(text(i.status)))continue;const key=text(i.po_no);let m=billingIndex.get(key);if(!m){m={invoiced:0,gross:0,amort:0,count:0};billingIndex.set(key,m);}m.invoiced+=num(i.invoice_amount);m.gross+=num(i.invoice_total_after_advance??i.invoice_total);m.amort+=num(i.advance_amortisation);m.count++;}}
+    return billingIndex;
+  }
+  function orderState(row,asOf=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())){
+    const m=billing().get(text(row.po_no))||{invoiced:0,gross:0,amort:0,count:0},value=num(row.po_value_ex_vat),invoiced=Math.round(m.invoiced*100)/100,remaining=Math.round((value-invoiced)*100)/100;
+    const completed=value>0&&invoiced>=value-.005,start=text(row.po_date).slice(0,10),end=text(row.expiry_date).slice(0,10),raw=text(row.status).trim();
+    let status='Open';
+    if(/cancelled|canceled|void/i.test(raw))status='Cancelled';
+    else if(completed||/^completed$/i.test(raw))status='Completed';
+    else if(row.archive===true||/^closed$/i.test(raw))status='Closed';
+    else if(start&&end&&start>end)status='Invalid Dates';
+    else if(start&&start>asOf)status='Not Yet Active';
+    else if(end&&end<asOf)status='Expired';
+    return {...m,invoiced,remaining,completed,status,closed:explicit(row)||completed};
+  }
   function invoiceClosed(row){
     if(/^(cancelled|canceled|void)$/i.test(text(row?.status).trim()))return true;
     const records=PEAnnual.records();
@@ -18,17 +36,18 @@
     const d=PEAnnual.records(),ps=d.projects.filter(p=>text(p.company)===text(name)),os=d.orders.filter(p=>text(p.company)===text(name));
     const ids=new Set(ps.map(p=>text(p.id))),nos=new Set(os.map(p=>text(p.po_no)));
     const iv=d.invoices.filter(i=>ids.has(text(i.project_id))||nos.has(text(i.po_no)));
-    return (ps.length+os.length+iv.length)>0&&ps.every(explicit)&&os.every(explicit)&&iv.every(invoiceClosed);
+    return (ps.length+os.length+iv.length)>0&&ps.every(explicit)&&os.every(po=>orderState(po).closed)&&iv.every(invoiceClosed);
   }
   function matches(type,row){
     let closed=false;
     if(type==='invoice')closed=invoiceClosed(row);
-    else if(type==='project'||type==='order')closed=explicit(row);
+    else if(type==='project')closed=explicit(row);
+    else if(type==='order')closed=orderState(row).closed;
     else if(type==='customer'){
       if(closedView){
         const d=PEAnnual.records(),ps=d.projects.filter(p=>p.company===row.name),os=d.orders.filter(p=>p.company===row.name);
         const ids=new Set(ps.map(p=>text(p.id))),nos=new Set(os.map(p=>text(p.po_no)));
-        return ps.some(explicit)||os.some(explicit)||d.invoices.some(i=>(ids.has(text(i.project_id))||nos.has(text(i.po_no)))&&invoiceClosed(i));
+        return ps.some(explicit)||os.some(po=>orderState(po).closed)||d.invoices.some(i=>(ids.has(text(i.project_id))||nos.has(text(i.po_no)))&&invoiceClosed(i));
       }
       closed=customerClosed(row.name);
     }
@@ -161,7 +180,7 @@
     if(drillState.order)drillState.order=d.orders.find(p=>text(p.id)===text(drillState.order.id))||null;
     renderDrill();
   }
-  global.PEWorkspace={matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
+  global.PEWorkspace={orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
 
