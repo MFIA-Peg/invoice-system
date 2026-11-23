@@ -1,0 +1,12 @@
+# Module permissions and scoped access
+User Management has separate View, Add, Edit and Delete flags for Customers, Departments, Projects, Purchase Orders, Invoices and Collections. View-only means View is enabled and the other three flags are disabled. Module edits require View.
+
+Customer, department and project selections are explicit. Financial records require all applicable scope selections, including their linked customer's selection. The existing Finance Manager account is protected. Existing role, account status, password-change flags, financial records and project/department assignments were preserved during migration. Existing customer visibility was used to seed customer assignments.
+
+The module flags govern screens and writes. Scoped parent rows required to identify projects, orders and invoices remain available to dependent financial screens as lookups; this never extends their customer/department/project scopes. Reports hide unavailable module tabs and exports. Both UI guards and database policies validate mutations; the database remains authoritative.
+
+Password gates are restrictive policies. Views use security_invoker. Permission/scope tables cannot be changed by ordinary users. The existing user-management RPC saves the six-module matrix, selected customers, departments, projects and account activity in one transaction. The existing create-user Edge Function forwards the extended permissions object without changing role assignment.
+
+Accessible ID sets are computed through uncorrelated policy subqueries to avoid repeated nested scope checks for every returned row. Scoped project creation uses an authenticated RPC that validates customer/department assignments and grants the creator access to the new project. Database triggers continue to synchronize payment deltas without rewriting historical financial values.
+
+Validation: authenticated role/claim tests in rolled-back transactions cover view-only users, one-project scope, no self-escalation, independent module flags, delegated CRUD, financial view values, collection totals, inactive/initial-password restrictions, administrator access, atomic management saves and malformed input. Isolated browser tests cover layouts from 1280 to 1920px, accessible icons, permission matrix/customer selections, payment operations and edit-only collection controls. Public financial counts/totals and profile role/status snapshots match before/after deployment.

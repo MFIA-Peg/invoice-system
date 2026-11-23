@@ -95,7 +95,10 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #receivedPayments .invoice-icon-action{padding:4px;width:28px;min-height:28px;height:28px}
 #paymentStatusMessage{margin:10px 0;font-size:13px}
 #receivedPaymentForm textarea{width:100%;box-sizing:border-box}
-</style></head>
+</style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
+</head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -181,7 +184,8 @@ async function checkSession(){
  const {data:p,error:e}=await db.from('users_profile').select('id,username,full_name,role,active,must_change_password').eq('auth_user_id',user.id).maybeSingle();
  if(e)throw e;if(!p||p.active!==true){await db.auth.signOut();location.replace('login.html');return false;}
  if(p.must_change_password===true){location.replace('change-password.html');return false;}
- commentAuthor=p.full_name||p.username||'';sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
+ commentAuthor=p.full_name||p.username||'';await PEAccess.load(db);
+ sessionStorage.setItem('pe_user_role',p.role||'');$('signedInUser').textContent=`${p.full_name||p.username||'User'} · ${p.role||''}`;$('usersLink').hidden=String(p.role||'').toLowerCase()!=='finance_manager';return true;
 }
 async function fetchRows(table,columns='*',orderBy='id'){
  let rows=[],from=0;
@@ -190,6 +194,7 @@ async function fetchRows(table,columns='*',orderBy='id'){
 }
 function setOptions(id,values){const list=$(id+'Options');if(!list)return;const vals=[...new Set(values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(String))].sort((a,b)=>a.localeCompare(b));list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('')}
 async function loadAll(){
+ await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='⋯';showError('');
  try{
  const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*',null)]);
@@ -247,8 +252,9 @@ function render(){
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button class="invoice-icon-action" type="button" title="Received Payments" aria-label="Received Payments" data-received-payments="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></button> ${registerRecordLinks('invoice',x)}</td></tr>`});
+ const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button class="invoice-icon-action" type="button" title="Received Payments" aria-label="Received Payments" data-received-payments="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></button> ${registerRecordLinks('invoice',x)} ${PEAccess.can('invoices','delete')?`<button type="button" class="danger invoice-icon-action" title="Delete Invoice" aria-label="Delete Invoice" data-invoice-delete="${i}">⌫</button>`:''}</td></tr>`});
  $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Comments</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
+ $('tableWrap').querySelectorAll('[data-invoice-delete]').forEach(b=>b.onclick=()=>deleteRegisteredInvoice(filtered[Number(b.dataset.invoiceDelete)]));
  $('tableWrap').querySelectorAll('[data-received-payments]').forEach(b=>b.addEventListener('click',()=>openReceivedPayments(filtered[Number(b.dataset.receivedPayments)])));
  $('tableWrap').querySelectorAll('[data-history-invoice]').forEach(b=>b.addEventListener('click',()=>openInvoiceHistory(filtered[Number(b.dataset.historyInvoice)])));
  requestAnimationFrame(fitInvoiceCells);
@@ -350,7 +356,7 @@ $('closeReceivedPayments').addEventListener('click',()=>{if(!paymentBusy){paymen
 $('receivedPayments').addEventListener('cancel',event=>{if(paymentBusy)event.preventDefault();else paymentRequest++;});
 async function readPaymentPermissions(){
  const names=['can_add_data','can_edit_data','can_delete_data'];
- const results=await Promise.all(names.map(name=>db.rpc(name)));
+ const results=await Promise.all(['add','edit','delete'].map(action=>db.rpc('can_module',{p_module:'collections',p_action:action})));
  for(const r of results)if(r.error)throw r.error;
  return {add:results[0].data===true,edit:results[1].data===true,delete:results[2].data===true};
 }
@@ -442,6 +448,14 @@ async function deleteReceivedPayment(payment){
  finally{setPaymentBusy(false);}
 }
 
+async function deleteRegisteredInvoice(invoice){
+ if(!invoice||!PEAccess.can('invoices','delete')||!confirm('Delete invoice "'+invoice.invoice_no+'"?'))return;
+ try{
+  await PEAccess.require(db,'invoices','delete');
+  const result=await db.from('invoices').delete().eq('id',invoice.id).select('id');if(result.error)throw result.error;if(result.data?.length!==1)throw new Error('Invoice was not deleted. Refresh and check your access.');
+  await loadAll();
+ }catch(error){showError('Delete blocked: '+(error.message||error));}
+}
 function openEdit(index){
  const viewRow=filtered[index];if(!viewRow)return;
  editingRecord=null;$('modalMessage').textContent='Loading editable invoice record...';$('modalMessage').style.color='#64748b';

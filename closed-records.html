@@ -14,6 +14,9 @@ main{max-width:1200px;margin:25px auto;padding:0 20px}header.hero{background:#14
 </style>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118a" defer></script>
+<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
 <main>
@@ -39,7 +42,7 @@ const {data:{session},error}=await api.auth.getSession();if(error||!session){loc
 const {data:profile,error:profileError}=await api.from('users_profile').select('active,must_change_password').eq('auth_user_id',session.user.id).maybeSingle();
 if(profileError||!profile?.active)throw new Error('An active account is required.');
 if(profile.must_change_password){location.replace('change-password.html');return;}
-status.textContent='';document.getElementById('archiveLinks').hidden=false;PEWorkspace.mount();
+await PEAccess.load(api);status.textContent='';document.getElementById('archiveLinks').hidden=false;PEWorkspace.mount();
 }catch(error){status.textContent='Unable to open closed records: '+error.message;}
 })();
 </script>

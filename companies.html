@@ -192,6 +192,9 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="customer-table.css?v=20261118b">
 <script src="retention-calculation.js?v=20261118a"></script>
+<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<script src="access-control.js?v=20261123a"></script>
+<script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 
 <body>
@@ -282,7 +285,7 @@ let executiveData={projects:[],pos:[],invoices:[]};
 let executiveCharts={};
 let currentExecutiveSnapshot=null;
 function isFinanceManagerRole(){return ['finance_manager','system_admin'].includes(String(sessionStorage.getItem('pe_user_role')||'').toLowerCase().trim());}
-function isExecutiveRole(){return ['system_admin','admin','manager','finance_manager','reviewer','viewer'].includes(String(sessionStorage.getItem('pe_user_role')||'').toLowerCase().trim());}
+function isExecutiveRole(){return PEAccess.can('customers','view');}
 function setDashboardFocus(mode){
  const header=document.getElementById('dashboardHeaderCard'),companies=document.getElementById('companiesCard'),analytics=document.getElementById('analyticsCard'),projects=document.getElementById('projectsCard'),details=document.getElementById('projectDetailsCard');
  if(header)header.style.display=['company','project','po'].includes(mode)?'none':'';
@@ -534,7 +537,7 @@ async function deleteInvoice(id){
   alert('Invoice deleted successfully.');
 }
 
-async function refreshDashboard(){const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadExecutiveDashboard();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}else if(currentCompanyName){await showCompanyProjects(currentCompanyName);}else{await loadCompanies();}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
+async function refreshDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadExecutiveDashboard();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}else if(currentCompanyName){await showCompanyProjects(currentCompanyName);}else{await loadCompanies();}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
 
 
 function directAddPO(
@@ -1268,14 +1271,16 @@ async function editProject(id){
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
+ try{await PEAccess.require(supabaseClient,'projects',currentProjectEditId?'edit':'add');}catch(e){alert(e.message);return;}
  const lookupError=PEProjectLookups.validate();if(lookupError){alert(lookupError);return;}
  const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),start_date:document.getElementById('new_project_start_date').value||null,end_date:document.getElementById('new_project_end_date').value||null,status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
- const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.from('projects').insert([payload]);
+ const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.rpc('create_scoped_project',{p_project:payload});
  const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
 };
 
 async function editPO(id,viewOnly=false){
+ if(!viewOnly&&!PEAccess.can('orders','edit'))viewOnly=true;
  const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}currentPOEditId=id;
  const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
  const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
@@ -1338,6 +1343,7 @@ function calculateAdvanceAmortisation(amount, po, available){
 }
 
 async function savePOChanges(creating=false){
+ try{await PEAccess.require(supabaseClient,'orders',creating?'add':'edit');}catch(e){alert(e.message);return;}
  const projectId=Number(document.getElementById('poe_project').value);const {data:pr}=await supabaseClient.from('projects').select('project_name').eq('id',projectId).single();
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
  const advancePct=Number(document.getElementById('poe_advance_pct').value||0);if(pct<0||pct>100||days<0||advancePct<0||advancePct>100){alert('Invalid retention or advance payment percentage/period.');return;}
@@ -1540,7 +1546,7 @@ async function uploadAttachments(){
 }
 async function downloadAttachment(path){const {data,error}=await attachmentClient.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path,300);if(error){alert(error.message);return;}window.open(data.signedUrl,'_blank','noopener');}
 
-async function refreshDashboard(){const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadExecutiveDashboard();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}else if(currentCompanyName){await showCompanyProjects(currentCompanyName);}else{await loadCompanies();}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
+async function refreshDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadExecutiveDashboard();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}else if(currentCompanyName){await showCompanyProjects(currentCompanyName);}else{await loadCompanies();}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
 
 
 async function logoutUser(){
@@ -1597,6 +1603,7 @@ async function openRequestedCreation(){
  const params=new URLSearchParams(location.search);
  const mode=params.get('create');
  if(!['project','invoice','purchase-order'].includes(mode))return;
+ try{await PEAccess.require(supabaseClient,mode==='project'?'projects':mode==='invoice'?'invoices':'orders','add');}catch(e){alert(e.message);return;}
  const back=document.createElement('a');
  back.href={'project':'projects.html','invoice':'invoices.html','purchase-order':'purchase-orders.html'}[mode];
  back.textContent='Back to '+{'project':'Projects','invoice':'Invoices','purchase-order':'Purchase Orders'}[mode];
@@ -1610,7 +1617,8 @@ async function openRequestedCreation(){
   renderPOForm({project_id:project.id,company:project.company,department:project.department,po_date:localToday(),vat:true},[project],0,0,true);
   return;
  }
- const purchaseOrder=executiveData.pos.find(po=>String(po.id)===params.get('po_id')&&po.status!=='Closed');
+ const candidates=executiveData.pos.filter(po=>(params.has('po_id')?String(po.id)===params.get('po_id'):String(po.po_no)===params.get('po_no')&&String(po.project_id)===params.get('project_id'))&&po.status!=='Closed');
+ const purchaseOrder=candidates.length===1?candidates[0]:null;
  if(!purchaseOrder?.po_no||!purchaseOrder.project_id){alert('The purchase order is unavailable. Select an open purchase order.');return;}
  return addInvoice(purchaseOrder.po_no,purchaseOrder.project_id);
 }
@@ -1630,6 +1638,8 @@ async function initializeDashboard(){
     window.location.replace('login.html');
     return;
   }
+  await PEAccess.load(supabaseClient);
+  PEAccess.installGuards(supabaseClient);
   sessionStorage.setItem('pe_user_role',profile.role||'');
   sessionStorage.setItem('pe_username',profile.username||'');
   sessionStorage.setItem('pe_full_name',profile.full_name||'');
@@ -1752,7 +1762,10 @@ Cancel
 const cmState={loaded:false,customers:[],departments:[],links:[],profile:null,permissions:null,mode:null,id:null,busy:false};
 const cmById=id=>document.getElementById(id);
 const cmManager=()=>['finance_manager','system_admin'].includes(String(cmState.profile?.role||'').toLowerCase());
-const cmCanCreate=()=>cmManager()||cmState.permissions?.can_create_customers===true;
+const cmCanCreate=()=>PEAccess.can('customers','add');
+const cmCanEdit=()=>PEAccess.can('customers','edit');
+const cmCanDelete=()=>PEAccess.can('customers','delete');
+const cmCanLink=()=>PEAccess.can('customers','edit')||PEAccess.can('departments','edit');
 const cmName=id=>cmState.departments.find(d=>Number(d.id)===Number(id))?.name||'Unknown department';
 async function cmLoad(){
  const status=cmById('cmStatus');status.textContent='Loading customers...';
@@ -1760,6 +1773,7 @@ async function cmLoad(){
   const {data:{user},error:authErr}=await supabaseClient.auth.getUser();if(authErr||!user)throw new Error('Sign in is required');
   const {data:profile,error:profileErr}=await supabaseClient.from('users_profile').select('id,role,active,must_change_password').eq('auth_user_id',user.id).single();
   if(profileErr||!profile?.active||profile.must_change_password)throw new Error('Your account is not authorized for customer management');
+  await PEAccess.load(supabaseClient);
   cmState.profile=profile;
   cmState.permissions=null;
   if(!cmManager()){
@@ -1793,8 +1807,8 @@ function cmRender(rows,financialByName,assignments){
   const actions=document.createElement('td'),bar=document.createElement('div');bar.className='cm-actions';
   const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
   add('Open',()=>PEWorkspace.openCustomer(customer.name));
-  if(!customer.financialOnly&&cmCanCreate())add('Departments',()=>cmOpenLinks(customer.id));
-  if(!customer.financialOnly&&cmManager()){add('Edit',()=>cmOpenRename(customer.id));add('Delete',()=>cmDelete(customer.id),true);}
+  if(!customer.financialOnly&&cmCanLink())add('Departments',()=>cmOpenLinks(customer.id));
+  if(!customer.financialOnly&&cmCanEdit())add('Edit',()=>cmOpenRename(customer.id));if(!customer.financialOnly&&cmCanDelete())add('Delete',()=>cmDelete(customer.id),true);
   actions.append(bar);tr.append(actions);body.append(tr);
  }
  table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
@@ -1804,8 +1818,8 @@ function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialo
 function cmField(label,type,value='',options=[]){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent=label;body.append(l);let input;if(type==='select'){input=document.createElement('select');for(const opt of options){const o=document.createElement('option');o.value=String(opt.id);o.textContent=opt.name;input.append(o);}}else{input=document.createElement('input');input.type='text';input.value=value;}input.id='cmField';body.append(input);return input;}
 function cmOpenCreate(){if(!cmState.loaded){cmLoad().then(()=>{if(cmState.loaded)cmOpenCreate();});return;}if(!cmCanCreate()){alert('Your account needs customer creation permission.');return;}cmDialog('Add Customer','create',null);cmField('Customer name','text').focus();cmFieldDepartment();}
 function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
-function cmOpenRename(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Edit Customer','rename',id);cmField('Customer name','text',c.name);}
-function cmOpenLinks(id){if(!cmCanCreate())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments);const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmManager()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
+function cmOpenRename(id){if(!cmCanEdit())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Edit Customer','rename',id);cmField('Customer name','text',c.name);}
+function cmOpenLinks(id){if(!cmCanLink())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments);const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmCanLink()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
 async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmState.id,field=cmById('cmField');if(!field)return;const name=field.value.trim();let fn,args;
  if(mode==='create'){if(name.length<2){alert('Enter a customer name');return;}const dep=Number(cmById('cmDepartment')?.value);if(!dep){alert('Select a department');return;}fn='create_customer_for_department';args={p_customer_name:name,p_department_id:dep};}
  else if(mode==='rename'){if(name.length<2){alert('Enter a customer name');return;}fn='rename_customer_company';args={p_customer_company_id:id,p_new_name:name};}
@@ -1814,8 +1828,8 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
  cmState.busy=true;cmById('cmSaveButton').disabled=true;
  try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
 }
-async function cmUnlink(id,dep){if(!cmManager()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
-async function cmDelete(id){if(!cmManager())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
+async function cmUnlink(id,dep){if(!cmCanLink()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
+async function cmDelete(id){if(!cmCanDelete())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
 // Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
 window.addEventListener('load',()=>{if(!document.documentElement.classList.contains('record-route')&&!document.documentElement.classList.contains('record-loading'))cmLoad();});
 </script>

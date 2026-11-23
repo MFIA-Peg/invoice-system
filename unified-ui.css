@@ -1,0 +1,28 @@
+
+/* Shared register layout: compact centered cells and accessible icon actions. */
+:root{--pe-navy:#14263d;--pe-border:#e2e8f0;--pe-bg:#f3f6fb}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--pe-bg);color:#18283d}
+body>.page,body>main.page,body>.wrap,body>main.wrap,body>.container,body>main.container{max-width:none!important;width:100%!important;padding:16px 12px 44px;box-sizing:border-box}
+.panel,.card{border:1px solid var(--pe-border);border-radius:12px;box-shadow:0 3px 14px #14263d08}
+.pe-denied,[hidden]{display:none!important}
+.pe-access-denied main{display:none!important}
+.pe-register-scroll{width:100%;max-width:100%;overflow:auto}
+table.pe-register{width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:collapse;font-size:11px!important}
+table.pe-register th,table.pe-register td{width:auto!important;padding:6px 3px!important;text-align:center!important;vertical-align:middle!important;white-space:normal!important;overflow-wrap:anywhere;line-height:1.35!important;letter-spacing:0!important}
+table.pe-register th{background:var(--pe-navy);color:white;font-size:10px!important;text-transform:none!important}
+table.pe-register td.num,table.pe-register .pe-number{white-space:nowrap!important;font-variant-numeric:tabular-nums}
+table.pe-register tr:hover{background:#f8fafc}
+table.pe-register .pill{font-size:10px;padding:3px 5px;white-space:normal}
+.pe-icon-action{display:inline-flex!important;align-items:center;justify-content:center;width:25px!important;height:27px!important;min-height:27px!important;padding:3px!important;border-radius:5px!important;font-size:15px!important;line-height:1!important;vertical-align:middle;gap:0!important}
+.pe-icon-action svg{width:15px;height:15px;pointer-events:none}
+.pe-icon-action:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+table.pe-register .register-actions,table.pe-register .cm-actions,table.pe-register .project-row-actions{display:flex!important;flex-wrap:nowrap!important;align-items:center;justify-content:center;gap:3px!important}
+table.pe-register .invoice-drill,table.pe-register .project-drill,table.pe-register .po-drill{font-size:11px!important;background:transparent!important;color:#2563eb!important;padding:0!important;min-height:0!important;white-space:normal!important;overflow-wrap:anywhere}
+.pe-permission-grid{width:100%;border-collapse:collapse}
+.pe-permission-grid td,.pe-permission-grid th{padding:10px;text-align:center;border-bottom:1px solid var(--pe-border)}
+.pe-permission-grid th{background:#14263d;color:white}
+.pe-scope-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+@media(max-width:900px){table.pe-register{min-width:960px!important}}
+@media print{.pe-icon-action,.pe-denied{display:none!important}}
+
+#pe-global-nav .pe-nav-inner{max-width:none!important;padding-left:12px!important;padding-right:12px!important}
