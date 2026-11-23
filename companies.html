@@ -875,7 +875,7 @@ async function addInvoice(poNo, projectId){
       <div class="invoice-field"><label>Project Name</label><input value="${escapeHtml(project.project_name || "")}" readonly></div>
       <div class="invoice-field"><label>PO Number</label><input value="${escapeHtml(poNo)}" readonly></div>
       <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no" type="text" required></div>
-      <div class="invoice-field"><label>Status</label><select id="new_inv_status"><option>Draft</option><option>Submitted</option><option>Approved</option><option>Completed</option><option>Retention</option><option>Cancelled</option></select></div>
+      <div class="invoice-field"><label>Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option></select></div>
       <div class="invoice-field"><label>Invoice Amount (Excl. VAT) *</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>Paid Amount (Incl. VAT)</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>VAT Applicable</label><input value="${currentInvoiceVat ? "Yes - 15%" : "No"}" readonly></div>
@@ -1029,6 +1029,7 @@ function toDateInput(value){
   return value ? String(value).slice(0,10) : "";
 }
 
+function invoiceFormStatus(value){const s=String(value||'Draft').trim().toLowerCase();if(s==='draft')return 'Draft';if(/^(approved|3-approved|partially paid)$/.test(s))return 'Approved';if(/^(paid|complete|completed|competed|fully paid)$/.test(s))return 'Completed';if(/^(canceled|cancelled|void)$/.test(s))return 'Cancelled';if(s==='retention')return 'Retention';return 'Waiting For Approval';}
 async function showInvoiceDetails(invoiceId){
   const { data, error } = await supabaseClient
     .from("invoice_details_with_retention").select("*").eq("id", invoiceId).single();
@@ -1074,7 +1075,7 @@ async function showInvoiceDetails(invoiceId){
     ["description", "Description", data.description || "", "textarea"]
   ];
 
-  const fieldHtml=(key,label,value,type)=>{let h=`<div class="invoice-field"><label for="inv_${key}">${label}</label>`;if(type==='select'){const statuses=['Draft','Submitted','1-Submitted','2-Waiting For Approval','Approved','Completed','Retention','Cancelled',value].filter((v,i,a)=>v&&a.indexOf(v)===i);h+=`<select id="inv_${key}" disabled>${statuses.map(st=>`<option ${st===value?'selected':''}>${escapeHtml(st)}</option>`).join('')}</select>`;}else if(type==='textarea'){h+=`<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;}else if(type==='checkbox'){h+=`<input id="inv_${key}" type="checkbox" ${value==='true'?'checked':''} disabled>`;}else{h+=`<input id="inv_${key}" type="${type==='readonly'||type==='calculated'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'||type==='calculated'?'readonly':''} disabled>`;}return h+'</div>';};
+  const fieldHtml=(key,label,value,type)=>{let h=`<div class="invoice-field"><label for="inv_${key}">${label}</label>`;if(type==='select'){const statuses=[["Draft","Draft"],["Waiting For Approval","Waiting For approval"],["Approved","Approved"],["Cancelled","Canceled"],["Retention","Retention"],["Completed","Completed"]];h+=`<select id="inv_${key}" disabled>${statuses.map(([st,label])=>`<option value="${st}" ${st===invoiceFormStatus(value)?'selected':''}>${label}</option>`).join('')}</select>`;}else if(type==='textarea'){h+=`<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;}else if(type==='checkbox'){h+=`<input id="inv_${key}" type="checkbox" ${value==='true'?'checked':''} disabled>`;}else{h+=`<input id="inv_${key}" type="${type==='readonly'||type==='calculated'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'||type==='calculated'?'readonly':''} disabled>`;}return h+'</div>';};
   const groups=[
    {title:'1. General Identification Data',keys:['invoice_no','status','po_no','project_id','project_name','start_date','approval_date','payment_terms','due_date','completed_date','description']},
    {title:'2. Financial Item Data',keys:['invoice_amount','vat_amount','invoice_total','net_invoice_amount']},
@@ -1372,7 +1373,7 @@ async function addInvoice(poNo,projectId){
  currentInvoiceId=null;currentInvoicePoNo=po.po_no||null;currentProjectId=po.project_id||null;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;window.currentAdvanceAvailable=0;
  document.getElementById('invoiceModalContent').innerHTML=`<h2>Add Invoice</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
- <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option>Submitted</option><option>1-Submitted</option><option>2-Waiting For Approval</option><option>Approved</option><option>Completed</option></select></div>
+ <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option></select></div>
  <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date" value="${localToday()}"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" value="${localToday()}" oninput="updateNewInvoiceTotals()" onchange="updateNewInvoiceTotals()"></div>
  <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div>
  <div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div>
