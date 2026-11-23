@@ -26,3 +26,28 @@ table.pe-register .invoice-drill,table.pe-register .project-drill,table.pe-regis
 @media print{.pe-icon-action,.pe-denied{display:none!important}}
 
 #pe-global-nav .pe-nav-inner{max-width:none!important;padding-left:12px!important;padding-right:12px!important}
+
+/* One row of totals across every screen. Smaller screens scroll the row. */
+.kpis,.kpi-grid,.kpi-grid.financial-kpis,.kpis.financial-kpis{
+ display:flex!important;flex-wrap:nowrap!important;gap:8px!important;overflow-x:auto;align-items:stretch;min-width:0;
+}
+.kpis>.kpi,.kpi-grid>.kpi{flex:1 0 110px!important;min-width:110px!important;padding:10px!important;margin:0!important}
+.kpis>.kpi .label,.kpi-grid>.kpi .label{display:block;font-size:11px!important}
+.kpis>.kpi .value,.kpi-grid>.kpi .value{display:block;font-size:clamp(14px,1.3vw,20px)!important;white-space:nowrap;overflow-wrap:normal}
+.kpis>.kpi .sub,.kpi-grid>.kpi .sub{font-size:10px!important}
+.kpis>.pe-annual-note,.kpis>.pe-donut-period{display:none}
+.kpis>.pe-comparison-donut{flex:1 0 220px;min-width:220px}
+#peEntryDialog{width:min(1200px,96vw);height:92vh;max-height:94vh;border:1px solid #cbd5e1;border-radius:12px;padding:0;overflow:hidden;color:#14263d}
+#peEntryDialog::backdrop{background:#14263d80}
+.pe-entry-heading{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #e2e8f0}
+.pe-entry-heading button{background:#e2e8f0;color:#14263d;border:0;border-radius:5px;font-size:22px;padding:0 10px}
+#peEntryDialog iframe{width:100%;height:calc(100% - 47px);border:0;display:block}
+.pe-entry-embedded #pe-global-nav,.pe-entry-embedded #dashboardHeaderCard,.pe-entry-embedded #peWorkspaceStrip,.pe-entry-embedded #projectsCard{display:none!important}
+.pe-entry-embedded body>.container,.pe-entry-embedded body>main{padding:0!important}
+.pe-entry-embedded #invoiceModal{position:static!important;padding:0!important;background:white!important}
+.pe-entry-embedded #invoiceModalContent{min-height:0!important;box-shadow:none!important;border-radius:0!important;padding:15px!important}
+.pe-entry-embedded #invoiceModalContent>h2{display:none}
+.invoice-entry-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+@media(max-width:700px){.invoice-entry-choices{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pe-total-strip{display:flex!important;flex-wrap:nowrap;gap:8px;overflow-x:auto;margin-bottom:16px}.pe-total-strip>.kpis{display:contents!important}.pe-total-strip .kpi{flex:1 0 110px;min-width:110px;padding:10px}.pe-total-strip .kpi .value{font-size:18px!important}.pe-total-strip .kpi .label{font-size:11px!important}.sa-merge-counts{display:flex!important;flex-wrap:nowrap;overflow-x:auto}.sa-merge-counts>div{flex:1 0 110px}

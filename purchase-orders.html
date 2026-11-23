@@ -35,7 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123c"></script>
+<script src="annual-analytics.js?v=20261123g"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -47,7 +47,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 .po-invoices .po-linked-invoices th,.po-invoices .po-linked-invoices td{padding:9px 12px;white-space:normal;overflow-wrap:anywhere}
 .po-invoices .po-linked-invoices td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
 .po-invoices .po-linked-invoices th:nth-child(2),.po-invoices .po-linked-invoices th:nth-child(3),.po-invoices .po-linked-invoices td:nth-child(2),.po-invoices .po-linked-invoices td:nth-child(3){white-space:nowrap}
-</style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
+</style><link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123f" defer></script>
 <style id="fast-register-style">
@@ -57,16 +57,15 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #tableWrap col{width:auto!important}#tableWrap col:last-child{width:120px!important}
 #tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
 #registerPager button{min-width:36px;padding:7px 10px}
-</style></head>
+</style><script src="entry-dialog.js?v=20261123g" defer></script>
+</head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html" aria-current="page">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
 <section class="hero"><div><h1>Purchase Orders</h1><p>Purchase order register, invoicing utilization and remaining contract value</p></div><div class="actions"><button type="button" class="teal" id="openCreate" disabled>+ Add Purchase Order</button><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=pos">PO Financial Report</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
 <section class="panel"><div class="panelhead"><div><h2>Purchase Order Summary</h2><div class="muted">Values are shown before VAT unless stated otherwise.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading purchase orders...</div></div></section>
-<section class="panel"><div class="panelhead"><div><h2>Purchase Order Financial Overview</h2><div class="muted">Live totals for the currently filtered purchase orders.</div></div></div>
-<div id="poTotalsChart" style="width:100%;min-height:260px;overflow:hidden" aria-label="Purchase order financial totals chart"></div>
-</section>
+
 <section class="panel"><div class="panelhead"><div><h2>Find Purchase Orders</h2><div class="muted">Filter by customer, department, project, status or PO number.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
 <div class="field"><label for="search">Search</label><input id="search" type="search" placeholder="PO number or notes"></div>
@@ -80,7 +79,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="footer"><span>Source: Supabase projects, pos and invoice_details_with_retention.</span><span>Currency: SAR</span></div>
 </section>
 </main>
-<dialog id="createPicker" aria-labelledby="createTitle" style="width:min(560px,90vw);box-sizing:border-box;padding:22px;border:1px solid #cbd5e1;border-radius:14px;color:#14263d"><form id="createForm"><h2 id="createTitle" style="margin-top:0">Add Purchase Order</h2><div class="field"><label for="createSource">Project</label><select id="createSource" required></select></div><div class="actions" style="margin-top:16px"><button type="submit" id="createContinue">Continue</button><button type="button" class="secondary" id="closeCreate">Cancel</button></div></form></dialog>
+
 <script>
 'use strict';
 const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
@@ -157,7 +156,6 @@ function render(){
  const invoiced=sum(x=>invoiceTotals(x).invoiced),poValue=sum(x=>num(x.po_value_ex_vat)),remaining=sum(x=>invoiceTotals(x).remaining),advance=sum(x=>num(x.advance_received_amount));
  const cards=[['Purchase Orders',filtered.length,'Records matching current filters'],['PO Value',money(poValue),'Total contract value before VAT'],['Invoiced',money(invoiced),'Invoice amounts before VAT'],['Remaining PO Value',money(remaining),'PO value less invoiced amount'],['Open POs',active.length,'Not closed or archived'],['Advance Received',money(advance),'Actual advance received recorded']];
  $('kpis').innerHTML=cards.map(([a,b,c])=>`<article class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></article>`).join('');
- renderTotalsChart({poValue,invoiced,remaining,advance,amortised:sum(x=>invoiceTotals(x).amort)});
  const rows=filtered.slice((registerPage-1)*50,registerPage*50).map(po=>{const m=invoiceTotals(po),adv=num(po.po_value_ex_vat)*num(po.advance_payment_percentage)/100,used=m.amort,bal=Math.max(0,adv-used),closed=po.archive===true||String(po.status||'').toLowerCase()==='closed';return `<tr data-access-department="${esc(po.department)}" data-po-row="${esc(po.po_no)}"><td><button class="po-drill" type="button" data-drill-po="${esc(po.po_no)}" aria-expanded="false">${esc(po.po_no)} ▾</button></td><td>${esc(po.company)}</td><td>${esc(po.department)}</td><td>${esc(po.project_name)}</td><td>${esc(po.po_date||'—')}</td><td class="num">${money(po.po_value_ex_vat)}</td><td class="num">${m.count}</td><td class="num">${money(m.invoiced)}</td><td class="num">${money(m.remaining)}</td><td class="num">${num(po.advance_payment_percentage).toFixed(2)}%</td><td class="num">${money(adv)}</td><td class="num">${money(used)}</td><td class="num">${money(bal)}</td><td><span class="pill ${closed?'closed':''}">${closed?'Closed':'Open'}</span></td><td><div class="register-actions">${registerRecordLinks('po',po)}${PEAccess.can('orders','delete')?`<button type="button" class="danger" data-po-delete="${po.id}">Delete</button>`:''}<a class="btn secondary" href="reports.html?report=invoices&amp;po_no=${encodeURIComponent(po.po_no)}">PO Report</a></div></td></tr>`;});
  $('tableWrap').innerHTML=rows.length?`<table class="register-table register-pos"><colgroup><col style="width:145px"><col style="width:180px"><col style="width:135px"><col style="width:180px"><col style="width:110px"><col style="width:165px"><col style="width:80px"><col style="width:165px"><col style="width:165px"><col style="width:90px"><col style="width:165px"><col style="width:165px"><col style="width:165px"><col style="width:100px"><col style="width:275px"></colgroup><thead><tr><th scope="col">PO Number</th><th scope="col">Customer</th><th scope="col">Department</th><th scope="col">Project</th><th scope="col">PO Date</th><th scope="col">PO Value Ex VAT</th><th scope="col">Invoices</th><th scope="col">Invoiced Ex VAT</th><th scope="col">Uninvoiced Value Ex VAT</th><th scope="col">Advance %</th><th scope="col">Contract Advance</th><th scope="col">Advance Amortised</th><th scope="col">Unamortised Contract Advance</th><th scope="col">PO Status</th><th scope="col">Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No purchase orders match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-po-delete]').forEach(b=>b.onclick=()=>deleteRegisteredPO(b.dataset.poDelete));
@@ -243,26 +241,10 @@ function exportCSV(){
  const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='purchase-orders.csv';a.click();URL.revokeObjectURL(url);
 }
-function openCreatePicker(){
- const select=$('createSource');
- const sources=projects.filter(row=>row.id&&row.project_name&&row.status!=='Completed');
- select.replaceChildren(new Option(sources.length?'Select project':'No eligible projects available',''));
- for(const [index,row] of sources.entries()){
-  const label=[row.project_name,row.company,row.department].filter(Boolean).join(' · ');
-  select.add(new Option(label,String(index)));
- }
- $('createContinue').disabled=!sources.length;
- $('createForm').onsubmit=event=>{
-  event.preventDefault();
-  if(select.value==='')return;
-  const selected=sources[Number(select.value)];
-  const params=new URLSearchParams({create:'purchase-order',project_id:selected.id});
-  location.href='companies.html?'+params;
- };
- $('createPicker').showModal();
-}
+function openCreatePicker(){PEEntry.open('purchase-order');}
+
 $('openCreate').addEventListener('click',openCreatePicker);
-$('closeCreate').addEventListener('click',()=>$('createPicker').close());
+
 $('refresh').addEventListener('click',loadAll);$('export').addEventListener('click',exportCSV);$('clear').addEventListener('click',()=>{$('search').value='';['company','department','project','status'].forEach(id=>$(id).value='');applyFilters();});
 ['search','company','department','project','status'].forEach(id=>$(id).addEventListener(['search','company','department','project'].includes(id)?'input':'change',applyFilters));
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html');});
@@ -275,7 +257,7 @@ renderTotalsChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-PEAnnual.render('kpis','poTotalsChart',{profile:'orders',orderNos:filtered.map(p=>p.po_no)});
+PEAnnual.render('kpis',null,{profile:'orders',orderNos:filtered.map(p=>p.po_no)});
 };
 })();
 </script>

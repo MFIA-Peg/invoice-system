@@ -182,20 +182,22 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123c"></script>
+<script src="annual-analytics.js?v=20261123g"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261118links"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261123e"></script>
 <script src="purchase-order-lookups.js?v=20261123e" defer></script>
+<script src="invoice-entry-lookups.js?v=20261123g" defer></script>
 <script src="relationship-actions.js?v=20261118a"></script>
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="customer-table.css?v=20261118b">
 <script src="retention-calculation.js?v=20261118a"></script>
-<link rel="stylesheet" href="unified-ui.css?v=20261123a">
+<link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
+<script src="entry-dialog.js?v=20261123g" defer></script>
 </head>
 
 <body>
@@ -216,10 +218,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <div class="panelhead"><div><h2>Customer Financial Summary</h2><div class="muted" id="customerTotalsNote" role="status">Loading financial totals…</div></div></div>
 <div id="customerTotalsGrid" class="kpis"></div>
 </section>
-<section class="card panel">
-<div class="panelhead"><div><h2>Customer Financial Overview</h2><div class="muted">Amounts in SAR for the filtered customers</div></div></div>
-<div id="customerTotalsChart" class="customer-totals-chart"></div>
-</section>
+
 <section class="card panel">
 <div class="panelhead"><div><h2>Find Customers</h2><div class="muted">Project and status filters match linked projects. Amounts are customer totals.</div></div><button type="button" id="customerClear" class="secondary">Clear Filters</button></div>
 <div class="filters" id="customerFilters">
@@ -541,18 +540,7 @@ async function deleteInvoice(id){
 async function refreshDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');if(b){b.disabled=true;b.textContent='Refreshing...';}try{await loadExecutiveDashboard();if(currentProjectId!==null){await openProject(currentProjectId);if(currentInvoicePoNo)await openInvoices(currentInvoicePoNo);}else if(currentCompanyName){await showCompanyProjects(currentCompanyName);}else{await loadCompanies();}}catch(e){alert('Refresh failed: '+e.message);}finally{if(b){b.disabled=false;b.textContent='Refresh';}}}
 
 
-function directAddPO(
-projectId,
-projectName
-){
-
-window.location.href =
-"companies.html?create=purchase-order&project_id=" +
-projectId +
-"&project_name=" +
-encodeURIComponent(projectName);
-
-}
+function directAddPO(projectId,projectName){PEEntry.open('purchase-order',{project_id:projectId});}
 
 async function openProject(projectId){
 
@@ -1164,6 +1152,7 @@ function enableInvoiceEdit(){
 }
 
 function closeInvoiceModal(){
+ if(PEEntry.cancel())return;
   document.getElementById("invoiceModal").style.display = "none";
   currentInvoiceId = null;
   if(registerRecord)returnToRecordRegister();
@@ -1360,7 +1349,7 @@ async function savePOChanges(creating=false){
   try{
    const {error}=await supabaseClient.from('pos').insert([payload]);
    if(error){alert('Save failed: '+error.message);return;}
-   location.href='purchase-orders.html';
+   if(!PEEntry.saved())location.href='purchase-orders.html';
   }catch(error){alert('Save failed: '+error.message);}
   finally{button.disabled=false;}
   return;
@@ -1379,46 +1368,47 @@ async function savePOChanges(creating=false){
 }
 
 async function addInvoice(poNo,projectId){
- const [{data:pr,error:pe},{data:po,error:oe}]=await Promise.all([supabaseClient.from('projects').select('*').eq('id',projectId).single(),supabaseClient.from('pos').select('*').eq('po_no',poNo).single()]);if(pe||oe){alert((pe||oe).message);return;}
- currentInvoiceId=null;currentInvoicePoNo=poNo;currentProjectId=projectId;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;try{const av=await getAdvanceAvailability(po);window.currentAdvanceAvailable=av.available;}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}
+ let po={},pr={};if(poNo&&projectId){const results=await Promise.all([supabaseClient.from('projects').select('*').eq('id',projectId).single(),supabaseClient.from('pos').select('*').eq('po_no',poNo).single()]);for(const r of results)if(r.error)throw r.error;pr=results[0].data;po=results[1].data;}
+ currentInvoiceId=null;currentInvoicePoNo=po.po_no||null;currentProjectId=po.project_id||null;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;window.currentAdvanceAvailable=0;
  document.getElementById('invoiceModalContent').innerHTML=`<h2>Add Invoice</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
- <div class="invoice-field"><label>Project</label><input readonly value="${escapeHtml(pr.project_name)}"></div><div class="invoice-field"><label>PO Number</label><input readonly value="${escapeHtml(poNo)}"></div>
  <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option>Submitted</option><option>1-Submitted</option><option>2-Waiting For Approval</option><option>3-Approved</option><option>Approved</option><option>Completed</option></select></div>
  <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date" value="${localToday()}"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" value="${localToday()}" oninput="updateNewInvoiceTotals()" onchange="updateNewInvoiceTotals()"></div>
  <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div>
  <div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div>
  </div></section>
  <section class="form-section"><h3>2. Financial Item Data</h3><div class="invoice-fields">
- <div class="invoice-field"><label>Invoice Amount Excl. VAT</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>VAT</label><input readonly value="${po.vat?'15%':'No VAT'}"></div>
+ <div class="invoice-field"><label>Invoice Amount Excl. VAT</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>VAT</label><input id="new_inv_vat_rate" readonly value="${po.vat?'15%':'No VAT'}"></div>
  <div class="invoice-field"><label>VAT on Net Amount</label><input id="new_inv_vat" readonly></div><div class="invoice-field"><label>Net Invoice Subject to Collection</label><input id="new_inv_total" readonly></div>
  </div></section>
  <section class="form-section"><h3>3. Retention and Advance Payment Deductions</h3><div class="invoice-fields">
- <div class="invoice-field"><label>Advance Payment %</label><input readonly value="${Number(po.advance_payment_percentage||0)}%"></div><div class="invoice-field"><label>Advance Balance Before Invoice</label><input readonly value="${Number(window.currentAdvanceAvailable||0).toFixed(2)}"></div>
+ <div class="invoice-field"><label>Advance Payment %</label><input id="new_inv_advance_pct" readonly value="${Number(po.advance_payment_percentage||0)}%"></div><div class="invoice-field"><label>Advance Balance Before Invoice</label><input id="new_inv_advance_available" readonly value="${Number(window.currentAdvanceAvailable||0).toFixed(2)}"></div>
  <div class="invoice-field"><label>Advance Amortisation</label><input id="new_inv_advance_amortisation" readonly value="0.00"></div><div class="invoice-field"><label>Net Invoice Amount After Advance</label><input id="new_inv_net_amount" readonly value="0.00"></div>
- <div class="invoice-field"><label>Retention % (${PERetention.label(po)})</label><input readonly value="${po.retention_applicable?Number(po.retention_percentage||0):0}%"></div><div class="invoice-field"><label>Retention Amount Excl. VAT</label><input id="new_inv_retention_base" readonly></div>
+ <div class="invoice-field"><label id="new_inv_retention_label">Retention % (${PERetention.label(po)})</label><input id="new_inv_retention_pct" readonly value="${po.retention_applicable?Number(po.retention_percentage||0):0}%"></div><div class="invoice-field"><label>Retention Amount Excl. VAT</label><input id="new_inv_retention_base" readonly></div>
  <div class="invoice-field"><label>Retention VAT</label><input id="new_inv_retention_vat" readonly></div><div class="invoice-field"><label>Total Retention</label><input id="new_inv_retention_total" readonly></div>
  <div class="invoice-field"><label>Net Payable After Retention</label><input id="new_inv_net" readonly></div><div class="invoice-field"><label>Retention Due Date</label><input id="new_inv_retention_due" readonly></div>
  </div></section>
  <section class="form-section"><h3>4. Collections and Payments</h3><div class="invoice-fields">
  <div class="invoice-field"><label>Paid Amount Incl. VAT</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Remaining Balance</label><input id="new_inv_balance" readonly></div>
  </div></section><div class="modal-actions"><button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button><button onclick="closeInvoiceModal()">Cancel</button></div>`;
- document.getElementById('invoiceModal').style.display='block';updateNewInvoiceTotals();
+ document.getElementById('invoiceModal').style.display='block';updateNewInvoiceTotals();await PEInvoiceEntry.prepare(po);
 }
 function updateNewInvoiceTotals(){
  const a=Number(document.getElementById('new_inv_amount')?.value||0),p=Number(document.getElementById('new_inv_paid')?.value||0),po=window.currentPOForInvoice||{};
  const advance=calculateAdvanceAmortisation(a,po,window.currentAdvanceAvailable??0),netAmount=Math.max(0,a-advance),vat=currentInvoiceVat?netAmount*.15:0,total=netAmount+vat;
  const {amount:rb,vat:rv,total:rt}=PERetention.calculate(a,po);
  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=Number(v).toFixed(2)};set('new_inv_advance_amortisation',advance);set('new_inv_net_amount',netAmount);set('new_inv_vat',vat);set('new_inv_total',total);set('new_inv_balance',Math.max(0,total-p));set('new_inv_retention_base',rb);set('new_inv_retention_vat',rv);set('new_inv_retention_total',rt);set('new_inv_net',Math.max(0,total-rt));
+ const extra=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value;};extra('new_inv_vat_rate',po.vat?'15%':'No VAT');extra('new_inv_advance_pct',Number(po.advance_payment_percentage||0)+'%');extra('new_inv_advance_available',Number(window.currentAdvanceAvailable||0).toFixed(2));extra('new_inv_retention_pct',(po.retention_applicable?Number(po.retention_percentage||0):0)+'%');const label=document.getElementById('new_inv_retention_label');if(label)label.textContent='Retention % ('+PERetention.label(po)+')';
  const approval=document.getElementById('new_inv_approval_date')?.value||'';const days=Number(po.retention_period_days||0);const rd=approval&&po.retention_applicable?calculateDueDate(approval,days):'';const due=calculateDueDate(approval,document.getElementById('new_inv_terms')?.value);const re=document.getElementById('new_inv_retention_due');if(re)re.value=rd;const de=document.getElementById('new_inv_due_date');if(de)de.value=due;
 }
 async function saveNewInvoice(){
+ if(!currentInvoicePoNo||!currentProjectId){alert('Select a purchase order in this form.');return;}try{await PEAccess.require(supabaseClient,'invoices','add',window.currentPOForInvoice?.department);}catch(error){alert(error.message);return;}
  const invoiceNo=document.getElementById('new_inv_invoice_no').value.trim(),amount=Number(document.getElementById('new_inv_amount').value||0),paid=Number(document.getElementById('new_inv_paid').value||0),terms=Number(document.getElementById('new_inv_terms').value||0),po=window.currentPOForInvoice||{};if(!invoiceNo||amount<=0||paid<0){alert('Enter invoice number and valid amounts.');return;}
  const {data:pr,error:pe}=await supabaseClient.from('projects').select('project_name').eq('id',currentProjectId).single();if(pe){alert(pe.message);return;}
  let availability;try{availability=await getAdvanceAvailability(po);}catch(e){alert('Could not calculate remaining advance: '+e.message);return;}const advanceAmortisation=calculateAdvanceAmortisation(amount,po,availability.available);
  const {amount:rb,vat:rv}=PERetention.calculate(amount,po);
  const payload={invoice_no:invoiceNo,status:document.getElementById('new_inv_status').value,po_no:currentInvoicePoNo,project_id:currentProjectId,project_name:pr.project_name,invoice_amount:amount,paid_amount:paid,advance_amortisation:advanceAmortisation,start_date:document.getElementById('new_inv_start_date').value||null,approval_date:document.getElementById('new_inv_approval_date').value||null,completed_date:document.getElementById('new_inv_completed_date').value||null,payment_terms:terms,description:document.getElementById('new_inv_description').value.trim(),erp:false,retention_amount:rb,retention_vat:rv,retention_due_date:(document.getElementById('new_inv_retention_due').value||null)};
- const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){alert('Invoice saved, but advance schedule recalculation failed: '+e.message);return;}closeInvoiceModal();await openInvoices(currentInvoicePoNo);
+ const {data,error}=await supabaseClient.from('invoices').insert([payload]).select('id').single();if(error){alert('Save failed: '+error.message);return;}try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}catch(e){alert('Invoice saved, but advance schedule recalculation failed: '+e.message);return;}if(PEEntry.saved())return;closeInvoiceModal();await openInvoices(currentInvoicePoNo);
 }
 async function openInvoices(poNo){
  currentInvoicePoNo=poNo;const {data,error}=await supabaseClient.from('invoice_details_with_retention').select('*').eq('po_no',poNo);if(error){alert(error.message);return;}const {data:po}=await supabaseClient.from('pos').select('*').eq('po_no',poNo).single();
@@ -1621,14 +1611,14 @@ async function openRequestedCreation(){
  if(mode==='project'){await addProject();return;}
  if(mode==='purchase-order'){
   const project=executiveData.projects.find(row=>String(row.id)===params.get('project_id')&&row.status!=='Completed');
-  if(!project){alert('Select an available project.');return;}
+  if(!project){currentPOEditId=null;renderPOForm({po_date:localToday(),vat:true,retention_basis:'after_vat'},[],0,0,true);return;}
   currentPOEditId=null;
   renderPOForm({project_id:project.id,company:project.company,department:project.department,po_date:localToday(),vat:true},[project],0,0,true);
   return;
  }
  const candidates=executiveData.pos.filter(po=>(params.has('po_id')?String(po.id)===params.get('po_id'):String(po.po_no)===params.get('po_no')&&String(po.project_id)===params.get('project_id'))&&po.status!=='Closed');
  const purchaseOrder=candidates.length===1?candidates[0]:null;
- if(!purchaseOrder?.po_no||!purchaseOrder.project_id){alert('The purchase order is unavailable. Select an open purchase order.');return;}
+ if(!purchaseOrder?.po_no||!purchaseOrder.project_id)return addInvoice();
  return addInvoice(purchaseOrder.po_no,purchaseOrder.project_id);
 }
 
@@ -1665,7 +1655,7 @@ async function initializeDashboard(){
     document.querySelector('#customerExport').hidden=true;
     document.querySelectorAll('#pe-global-nav a').forEach(a=>{a.removeAttribute('aria-current');if(a.textContent===label)a.setAttribute('aria-current','page');});
     try{
-      if(new URLSearchParams(location.search).has('create'))await loadExecutiveDashboard();
+      if(new URLSearchParams(location.search).has('create')){const rs=await Promise.all([supabaseClient.from('projects').select('*'),supabaseClient.from('pos').select('*')]);for(const r of rs)if(r.error)throw r.error;executiveData.projects=rs[0].data||[];executiveData.pos=rs[1].data||[];}
       if(!await openRegisterRecord())await openRequestedCreation();
     }finally{document.documentElement.classList.remove('record-loading');}
     return;
@@ -1679,7 +1669,7 @@ async function initializeDashboard(){
   if(isExecutiveRole()) await new Promise(resolve=>requestAnimationFrame(()=>{renderExecutiveDashboard();resolve();}));
 }
 
-initializeDashboard();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>initializeDashboard());else initializeDashboard();
 
 </script>
 <div id="closedModal" onclick="if(event.target===this)this.style.display='none'"><div id="closedModalContent"></div></div>
@@ -1939,17 +1929,6 @@ function renderCustomerFinancials() {
  cmById('customerTotalsGrid').innerHTML = hasRows
   ? totals.map(([label,value])=>'<div class="kpi"><span class="label">'+label+'</span><strong class="value">'+customerMoney.format(value)+'</strong></div>').join('')
   : '';
- const chart = totals.filter((_,index)=>index>=2 && index!==3);
- const min = Math.min(0,...chart.map(([,value])=>value));
- const max = Math.max(0,...chart.map(([,value])=>value));
- const range = max-min || 1;
- cmById('customerTotalsChart').innerHTML = hasRows
-  ? chart.map(([label,value])=>
-    '<div class="customer-chart-row"><span>'+label+'</span><div class="customer-chart-track" aria-hidden="true">'
-    +'<div class="customer-chart-fill'+(value<0?' negative':'')+'" style="left:'+((Math.min(0,value)-min)/range*100)
-    +'%;width:'+(Math.abs(value)/range*100)+'%"></div></div>'
-    +'<span class="customer-chart-amount">'+customerMoney.format(value)+'</span></div>').join('')
-  : '<div class="muted">'+(customerFinanceLoaded?'No matching financial records.':'Financial amounts are unavailable.')+'</div>';
  if(cmState.loaded){
   cmById('cmStatus').textContent=unifiedRows.length+' customers · '+matching.length+' registered'+(unifiedRows.length>matching.length?' · '+(unifiedRows.length-matching.length)+' financial history records requiring registration':'');
   cmRender(unifiedRows,financialByName,assignments);
@@ -1996,7 +1975,7 @@ const originalRender=renderCustomerFinancials;
 renderCustomerFinancials=function(){
 originalRender.apply(this,arguments);
 if(customerFinanceLoaded&&!customerFinanceError){
-PEAnnual.render('customerTotalsGrid','customerTotalsChart',{profile:'customers',companies:visibleCustomerFinancialRows.map(c=>c.name)});
+PEAnnual.render('customerTotalsGrid',null,{profile:'customers',companies:visibleCustomerFinancialRows.map(c=>c.name)});
 cmById('customerTotalsNote').textContent=PEAnnual.year+' · Due-date KPIs / payment-date collections';
 PEWorkspace.openFromQuery();
 }

@@ -1,0 +1,9 @@
+# Unified entry forms and single-row totals
+
+Purchase-order and invoice Add buttons open the complete canonical entry form within the current page. Project/PO prerequisites are selected in that same form rather than a separate picker followed by navigation. Existing contextual project/PO links remain prefilled and editable. Native in-page dialogs embed the existing protected entry route, reuse its validation/save logic and refresh the parent register after a validated same-origin save message. Cancel closes the dialog. Embedded routes fetch only relationship metadata instead of all annual financial data.
+
+Invoice creation includes searchable Department, Customer, Project and PO choices. Changing the PO keeps entered invoice fields and refreshes VAT, advance and retention previews. Save remains disabled while required PO/advance information is unavailable. Existing backend row policies and permission checks remain authoritative; this update does not change database schema or financial formulas.
+
+Totals use a single horizontal row on every screen, scrolling on smaller displays. Department count and financial totals share one strip. All non-dashboard chart panels and Chart.js dependencies were removed; shared annual chart rendering runs only on dashboard.html. Dashboard chart containers remain intact.
+
+Validation: all release JavaScript sources parse. Isolated full-page browser tests verify direct Add flow, all selections inside the form, preserved typed invoice values, successful mock saves, dialog close, unchanged parent URL, no prerequisite pickers/chart containers and no script errors. Layout tests verify one-row totals at desktop/mobile widths, absent chart hosts across seven non-dashboard screens and retained dashboard chart hosts. No real records are created by tests.
