@@ -1,0 +1,9 @@
+# Invoice workflow status normalization
+
+Existing invoice labels map exactly as requested: 3-Approved → Approved, Paid → Completed, Partially Paid → Approved. Payment Status remains independent. Entry/edit workflow choices no longer offer the old labels; unknown current workflow values remain selectable rather than being erased during editing.
+
+A private invoice trigger applies canonical labels to future writes. When net cash payable is settled and an actual unreleased retention amount remains, Invoice Status is Retention. Receipt insertion/edit/deletion flows through the existing paid-amount synchronization and updates status; retention release completes a fully settled invoice. A reduction/deletion of a receipt restores Approved when cash remains outstanding. Retention cannot be manually assigned to an unpaid invoice.
+
+Outstanding retention is capped at the actual remaining invoice amount for all statuses, preventing a fully collected invoice from retaining a false held balance. Existing financial-view values were verified unchanged for the current dataset. Archive checks include separately recorded retention releases. Raw invoice/payment amounts, dates, identifiers and permissions are preserved.
+
+Validation: rolled-back authenticated tests cover all label mappings, receipt insert/edit/delete, Retention entry/reversal, retention release, full gross collection and manual false Retention rejection. Existing financial view values compare identically before/after the migration, and the view retains security_invoker=true. Viewer/Editor scope and all merge regressions pass with the trigger installed. Client tests verify workflow choices, retention-only openness, release/full-gross closure and partial-payment openness; 22 client sources parse. The applied migration changes nine legacy labels and leaves the existing 36 Retention rows valid.

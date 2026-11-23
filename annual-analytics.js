@@ -40,7 +40,7 @@
     const total = net + vat;
     const retentionOnly=String(invoice.status||'').trim().toUpperCase()==='RETENTION';
     const recordedRetention = Math.max(0, number(invoice.retention_amount) + number(invoice.retention_vat) - number(invoice.retention_released_amount));
-    const retention = retentionOnly?Math.min(recordedRetention,Math.max(0,total-number(invoice.paid_amount)-number(invoice.retention_released_amount))):recordedRetention;
+    const retention = Math.min(recordedRetention,Math.max(0,total-number(invoice.paid_amount)-number(invoice.retention_released_amount)));
     const balance = retentionOnly?0:Math.max(0, total - number(invoice.retention_amount) - number(invoice.retention_vat) - number(invoice.paid_amount));
     return {net, vat, total, retention, balance};
   }
