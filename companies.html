@@ -187,7 +187,8 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <script src="workspace-ui.js?v=20261118links"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
-<script src="project-lookups.js?v=20261118a"></script>
+<script src="project-lookups.js?v=20261123e"></script>
+<script src="purchase-order-lookups.js?v=20261123e" defer></script>
 <script src="relationship-actions.js?v=20261118a"></script>
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="customer-table.css?v=20261118b">
@@ -1290,8 +1291,8 @@ async function editPO(id,viewOnly=false){
 function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOnly=false){
  const box=document.getElementById('invoiceModalContent');box.dataset.accessDepartment=data.department||'';box.innerHTML=`<h2>${creating?'Add':viewOnly?'View':'Edit'} Purchase Order</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
- <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company / Customer</label><input id="poe_company" value="${escapeHtml(data.company)}"></div>
- <div class="invoice-field"><label>Department</label><input id="poe_department" value="${escapeHtml(data.department)}"></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
+ <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company / Customer</label><select id="poe_company"><option value="">Loading customers…</option></select></div>
+ <div class="invoice-field"><label>Department</label><select id="poe_department"><option value="">Loading departments…</option></select></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
  <div class="invoice-field"><label>PO Date</label><input id="poe_date" type="date" value="${toDateInput(data.po_date)}"></div><div class="invoice-field"><label>Expiry Date</label><input id="poe_expiry" type="date" value="${toDateInput(data.expiry_date)}"></div>
  <div class="invoice-field"><label>PO Status</label><select id="poe_status"><option value="Open" ${(data.status||'Open')==='Open'?'selected':''}>Open</option><option value="Closed" ${data.status==='Closed'?'selected':''}>Closed</option></select></div><div class="invoice-field"><label>Notes</label><textarea id="poe_notes">${escapeHtml(data.notes||'')}</textarea></div>
  </div></section>
@@ -1304,6 +1305,7 @@ function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOn
  <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
  </div></section><div class="modal-actions"><button id="savePOButton" class="btn-po" onclick="savePOChanges(${creating})">${creating?'Save Purchase Order':'Save Changes'}</button>${creating?'':`<button onclick="manageAttachments('po',${id})">Attachments</button>`}<button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
+ PEOrderLookups.prepare(data,creating?'add':'edit',viewOnly).catch(error=>{document.getElementById('savePOButton')?.setAttribute('disabled','');alert('Could not load purchase order lists: '+error.message);});
  if(viewOnly){
   box.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=true);
   box.querySelector('.modal-actions').replaceChildren();
@@ -1344,6 +1346,7 @@ function calculateAdvanceAmortisation(amount, po, available){
 }
 
 async function savePOChanges(creating=false){
+ const lookupError=PEOrderLookups.validate();if(lookupError){alert(lookupError);return;}
  try{await PEAccess.require(supabaseClient,'orders',creating?'add':'edit',document.getElementById('poe_department').value);}catch(e){alert(e.message);return;}
  const projectId=Number(document.getElementById('poe_project').value);const {data:pr}=await supabaseClient.from('projects').select('project_name').eq('id',projectId).single();
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
@@ -1362,10 +1365,15 @@ async function savePOChanges(creating=false){
   finally{button.disabled=false;}
   return;
  }
- const {data:oldPO}=await supabaseClient.from('pos').select('po_no').eq('id',currentPOEditId).single();
- const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId).select('id').single();if(error){alert(error.message);return;}
- if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
- try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
+ const {data:oldPO,error:oldError}=await supabaseClient.from('pos').select('po_no,po_value_ex_vat,advance_payment_percentage').eq('id',currentPOEditId).single();if(oldError){alert(oldError.message);return;}
+ const button=document.getElementById('savePOButton');if(button?.disabled)return;if(button)button.disabled=true;
+ try{
+  const {data:updated,error}=await supabaseClient.rpc('update_purchase_order',{p_po_id:currentPOEditId,p_patch:payload});if(error)throw error;if(!updated?.updated)throw Error('The purchase order was not updated.');
+  if(Number(oldPO.po_value_ex_vat)!==Number(payload.po_value_ex_vat)||Number(oldPO.advance_payment_percentage)!==Number(advancePct)){
+   await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(payload.po_no,payload.po_value_ex_vat,advancePct);
+  }
+ }catch(error){alert('Save failed: '+error.message);return;}finally{if(button)button.disabled=false;}
+
  if(registerRecord?.type==='po'){await showRegisterRecord();return;}
  closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }

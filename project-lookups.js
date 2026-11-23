@@ -42,6 +42,6 @@
   return '';
  }
  function selectCustomer(name){byId('new_company').value=name;customerChanged();}
- global.PEProjectLookups={prepare,validate,selectCustomer,state};
+ global.PEProjectLookups={prepare,validate,selectCustomer,state,load};
 })(window);
 
