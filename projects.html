@@ -36,14 +36,14 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261119a"></script>
+<script src="annual-analytics.js?v=20261123c"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>.project-action-cell{position:sticky;right:0;background:#fff;z-index:2;box-shadow:-3px 0 8px #14263d10;min-width:190px}th.project-action-cell{background:#14263d;z-index:3}.project-row-actions{display:flex;gap:6px;align-items:center}.project-action{font:600 12px/1.4 Arial,sans-serif!important;padding:7px 9px!important;border:0;border-radius:6px;background:#2563eb;color:white;text-decoration:none;cursor:pointer}.project-action.danger{background:#b42318}</style><script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
 <link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123b"></script>
+<script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
@@ -92,7 +92,7 @@ async function loadAll(){
  await PEAccess.load(db);
  $('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);
+ const invoiceRequest=fetchRows('invoice_details_with_retention','*');const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);
  const {projects:p,orders:po}=PEAnnual.records();
   allProjects=p;allPO=po;allInvoices=iv;populateFilters();applyFilters();
  }catch(e){showError('Unable to load projects: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check database access and view availability.</div>';}

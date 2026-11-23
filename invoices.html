@@ -37,7 +37,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261119a"></script>
+<script src="annual-analytics.js?v=20261123c"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -96,7 +96,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #paymentStatusMessage{margin:10px 0;font-size:13px}
 #receivedPaymentForm textarea{width:100%;box-sizing:border-box}
 </style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123b"></script>
+<script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
@@ -197,7 +197,7 @@ async function loadAll(){
  await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='⋯';showError('');
  try{
- const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*',null)]);
+ const invoiceRequest=fetchRows('invoice_details_with_retention','*',null);const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);
  const {projects:p,orders:po}=PEAnnual.records();
   allInvoices=iv;projects=p;pos=po;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load invoices: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Could not load invoice data. Check database permissions and view availability.</div>'}

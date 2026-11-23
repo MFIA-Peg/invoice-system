@@ -28,7 +28,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261119a"></script>
+<script src="annual-analytics.js?v=20261123c"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -36,7 +36,7 @@
 <script src="searchable-selects.js?v=20261118a" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
 <link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123b"></script>
+<script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
@@ -83,7 +83,7 @@ function emptyFinance(){return{po:0,billing:0,collected:0,outstanding:0,pending:
 async function loadDepartmentFinancials(){state.financeError=null;state.financial=new Map(state.departments.map(d=>[d.id,emptyFinance()]));try{
  await PEAnnual.load(db);
 
- const [projects,pos,invoices]=await Promise.all(['projects','pos','invoices'].map(allFinancialRows));
+ const {projects,orders:pos,invoices}=PEAnnual.records();
  const deptById=new Map(state.departments.map(d=>[Number(d.id),d.id]));const deptByName=new Map(state.departments.map(d=>[norm(d.name),d.id]));
  const customersById=new Map(state.customers.map(c=>[Number(c.id),c]));const customerByName=new Map(state.customers.map(c=>[norm(c.name),c]));
  const linksByCustomer=new Map();for(const l of state.links){const id=Number(l.customer_company_id);if(!linksByCustomer.has(id))linksByCustomer.set(id,new Set());linksByCustomer.get(id).add(Number(l.department_id));}
