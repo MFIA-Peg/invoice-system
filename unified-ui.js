@@ -1,5 +1,6 @@
 (function(global){
 'use strict';
+const tableSizes=new WeakMap(),textMeasure=document.createElement('canvas').getContext('2d');
 const shapes={
 open:'<path d="M14 3h7v7M21 3l-11 11"/><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/>',
 edit:'<path d="m4 16 12-12 4 4L8 20H4zM14 6l4 4"/>',
@@ -29,7 +30,10 @@ function iconify(element){
  if(!key)return;
  element.title=text;element.setAttribute('aria-label',text);element.classList.add('pe-icon-action');element.innerHTML=icon(key);
 }
+let observer;
 function enhance(){
+ observer?.disconnect();
+ try{
  const tables=document.querySelectorAll('#tableWrap>table,.cm-scroll>table,.tablewrap>table,.table-wrap>table,#reportContent table,.pe-drill table');
  tables.forEach(table=>{
   if(table.closest('dialog,.modal,.cm-dialog,.modal-backdrop,.po-detail-row,.detail-row'))return;
@@ -42,18 +46,34 @@ function enhance(){
   const weights=headers.map(h=>/actions/i.test(h.textContent)?2:/customer|company|project|department/i.test(h.textContent)?1.4:1);
   const total=weights.reduce((a,b)=>a+b,0);
   [...group.children].forEach((col,i)=>{const width=(weights[i]/total*100).toFixed(3)+'%';if(col.style.width!==width)col.style.width=width;});
-  table.querySelectorAll('th,td').forEach(cell=>{cell.style.width='';});
-  table.querySelectorAll('td.num').forEach(cell=>{
+  const numbers=[...table.querySelectorAll('td.num')];
+  const signature=table.clientWidth+'|'+table.rows.length+'|'+headers.map(h=>h.textContent).join('|')+'|'+numbers.map(c=>c.textContent).join('|');
+  if(tableSizes.get(table)===signature)return;
+  table.querySelectorAll('th,td').forEach(cell=>{if(cell.style.width)cell.style.width='';});
+  numbers.forEach(cell=>{
    if(!cell.children.length&&/SAR/.test(cell.textContent)){cell.title=cell.textContent;cell.textContent=cell.textContent.replace(/SAR/g,'').trim();}
-   cell.style.fontSize='11px';let size=11;
-   while(cell.scrollWidth>cell.clientWidth&&size>8){size-=.25;cell.style.fontSize=size+'px';}
   });
+  // Read geometry together, then write all font sizes. Never alternate a
+  // numeric-cell style change with scrollWidth/clientWidth layout reads.
+  const widths=headers.map(h=>h.getBoundingClientRect().width);
+  const style=numbers.length?getComputedStyle(numbers[0]):null;
+  const padding=style?parseFloat(style.paddingLeft)+parseFloat(style.paddingRight)+2:8;
+  if(style)textMeasure.font='11px '+style.fontFamily;
+  numbers.forEach(cell=>{
+   const available=Math.max(1,(widths[cell.cellIndex]||80)-padding);
+   const measured=textMeasure.measureText(cell.textContent.trim()).width;
+   const size=Math.min(11,Math.max(8,measured>available?11*available/measured:11));
+   const value=(Math.floor(size*4)/4)+'px';
+   if(cell.style.fontSize!==value)cell.style.fontSize=value;
+  });
+  tableSizes.set(table,table.clientWidth+'|'+table.rows.length+'|'+headers.map(h=>h.textContent).join('|')+'|'+numbers.map(c=>c.textContent).join('|'));
  });
  document.querySelectorAll('table button,table a.btn,table a.project-action,.hero .actions button,.hero .actions a.btn,.cm-toolbar button,.panelhead>button').forEach(iconify);
+ }finally{observer?.observe(document.body,{childList:true,subtree:true});}
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;enhance();});}
-document.addEventListener('DOMContentLoaded',()=>{enhance();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});});
+document.addEventListener('DOMContentLoaded',()=>{observer=new MutationObserver(schedule);enhance();});
 global.addEventListener('resize',schedule);
 document.addEventListener('pe-access-ready',schedule);
 global.PETheme={enhance,schedule,icon};
