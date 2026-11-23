@@ -39,8 +39,8 @@
     "reports.html"
   ],
   [
-    "User Management",
-    "user-management.html",
+    "System Administration",
+    "system-management.html",
     "finance_manager"
   ]
 ];

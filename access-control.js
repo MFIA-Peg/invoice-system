@@ -12,16 +12,24 @@ function pageModule(){
  }
  return routes[file]||null;
 }
-function can(module,action){return !!state.user_id&&(state.manager===true||state.modules?.[module]?.view===true&&state.modules?.[module]?.[action]===true);}
+function can(module,action,department){
+ if(!state.user_id)return false;if(state.manager===true)return true;
+ if(state.mode==='viewer'&&action!=='view')return false;
+ if(!(state.modules?.[module]?.view===true&&state.modules?.[module]?.[action]===true))return false;
+ if(state.tree&&action!=='view'&&department){const rule=(state.department_rules||[]).find(d=>d.name===department);return rule?.[action]===true;}
+ return true;
+}
+function canCustomer(action,id){if(state.manager)return true;if(id==null||!state.tree)return can('customers',action);return can('customers',action)&&state.customer_operations?.[String(id)]?.[action]===true;}
 async function load(client,module=pageModule()){
  if(!loading)loading=client.rpc('get_my_module_access').then(r=>{if(r.error)throw r.error;state=r.data||{};if(!state.user_id)throw new Error('An active account with a completed password change is required.');return state;}).finally(()=>loading=null);
  await loading;
- if(module&&!can(module,'view')){document.body.classList.add('pe-access-denied');let banner=document.getElementById('peAccessMessage');if(!banner){banner=document.createElement('div');banner.id='peAccessMessage';banner.setAttribute('role','alert');banner.style.cssText='margin:30px;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px';document.body.prepend(banner);}banner.textContent='You do not have permission to open this screen. Contact your Finance Manager.';throw new Error('You do not have View permission for this screen.');}
+ if((module&&!can(module,'view'))||(state.mode==='viewer'&&!['dashboard.html','reports.html'].includes(location.pathname.split('/').pop()))){document.body.classList.add('pe-access-denied');let banner=document.getElementById('peAccessMessage');if(!banner){banner=document.createElement('div');banner.id='peAccessMessage';banner.setAttribute('role','alert');banner.style.cssText='margin:30px;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px';document.body.prepend(banner);}banner.textContent='You do not have permission to open this screen. Contact your Finance Manager.';throw new Error('You do not have View permission for this screen.');}
  document.body.classList.remove('pe-access-denied');document.getElementById('peAccessMessage')?.remove();document.dispatchEvent(new Event('pe-access-ready'));schedule();return state;
 }
-async function requirePermission(client,module,action){
+async function requirePermission(client,module,action,department){
  const r=await client.rpc('can_module',{p_module:module,p_action:action});if(r.error)throw r.error;
  if(r.data!==true)throw new Error('You do not have '+action+' permission for '+module+'.');
+ if(department&&action!=='view'){const d=await client.rpc('department_operation',{p_department:department,p_action:action});if(d.error)throw d.error;if(d.data!==true)throw new Error('You do not have '+action+' permission for this department.');}
 }
 function actionFor(element){
  if(element.dataset.accessModule)return [element.dataset.accessModule,element.dataset.accessAction||'view'];
@@ -52,11 +60,12 @@ let scheduled=false;
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;apply();});}
 function apply(){
  document.querySelectorAll('a[href]').forEach(a=>{
-  const href=a.getAttribute('href'),target=href.split('?')[0];let module=routes[target];if(target==='companies.html'&&href.includes('?')){const p=new URL(href,location.href).searchParams,kind=p.get('record')||p.get('create');if(p.has('project_action')||kind==='project')module='projects';else if(['po','purchase-order'].includes(kind))module='orders';else if(kind==='invoice')module='invoices';}if(module&&state.user_id)a.classList.toggle('pe-denied',!can(module,'view'));
+  if(state.mode==='viewer'&&a.getAttribute('href')?.split('?')[0]==='closed-records.html'){a.setAttribute('href','reports.html?view=closed');a.textContent='Historical Reports';}
+  const href=a.getAttribute('href'),target=href.split('?')[0];let module=routes[target];if(target==='companies.html'&&href.includes('?')){const p=new URL(href,location.href).searchParams,kind=p.get('record')||p.get('create');if(p.has('project_action')||kind==='project')module='projects';else if(['po','purchase-order'].includes(kind))module='orders';else if(kind==='invoice')module='invoices';}if(module&&state.user_id)a.classList.toggle('pe-denied',state.mode==='viewer'||!can(module,'view'));
  });
  document.querySelectorAll('button,a.btn,.project-action,[data-access-module]').forEach(element=>{
   const action=actionFor(element);if(!action||!action[0]||!state.user_id)return;
-  const denied=!can(...action);element.classList.toggle('pe-denied',denied);
+  const department=element.dataset.accessDepartment||element.closest('[data-access-department]')?.dataset.accessDepartment;const denied=!can(action[0],action[1],department);element.classList.toggle('pe-denied',denied);
   if(denied)element.setAttribute('aria-disabled','true');else element.removeAttribute('aria-disabled');
  });
  if(location.pathname.endsWith('/reports.html')&&state.user_id){
@@ -80,5 +89,5 @@ function installGuards(client){
  }
 }
 document.addEventListener('DOMContentLoaded',()=>{new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});schedule();});
-global.PEAccess={load,can,require:requirePermission,pageModule,installGuards,get state(){return state;}};
+global.PEAccess={load,can,require:requirePermission,pageModule,installGuards,canCustomer,get state(){return state;}};
 })(window);

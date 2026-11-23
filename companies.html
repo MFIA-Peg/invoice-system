@@ -193,12 +193,12 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <link rel="stylesheet" href="customer-table.css?v=20261118b">
 <script src="retention-calculation.js?v=20261118a"></script>
 <link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123a"></script>
+<script src="access-control.js?v=20261123b"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 
 <body>
-<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html" aria-current="page">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="userManagementButton" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span id="signedInUser"></span><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html" aria-current="page">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="userManagementButton" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span id="signedInUser"></span><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header>
 
 
 <main class="container page">
@@ -1208,7 +1208,7 @@ async function saveInvoiceChanges(){
   };
 
   const { error } = await supabaseClient
-    .from("invoices").update(updates).eq("id", currentInvoiceId);
+    .from("invoices").update(updates).eq("id", currentInvoiceId).select("id").single();
   if(error){
     document.getElementById("invoiceEditMessage").textContent = "Save failed: " + error.message;
     document.getElementById("invoiceEditMessage").style.color = "red";
@@ -1261,6 +1261,7 @@ async function loadPOs(projectId){
 
 async function editProject(id){
  const {data,error}=await supabaseClient.from('projects').select('*').eq('id',id).single();if(error){alert(error.message);return;}
+ try{await PEAccess.require(supabaseClient,'projects','edit',data.department);}catch(e){alert(e.message);return;}
  try{await PEProjectLookups.prepare(data);}catch(e){alert('Could not load project lists: '+e.message);return;}
  currentProjectEditId=id;
  document.getElementById('projectModal').style.display='block';
@@ -1271,23 +1272,23 @@ async function editProject(id){
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
- try{await PEAccess.require(supabaseClient,'projects',currentProjectEditId?'edit':'add');}catch(e){alert(e.message);return;}
+ try{await PEAccess.require(supabaseClient,'projects',currentProjectEditId?'edit':'add',document.getElementById('new_department').value);}catch(e){alert(e.message);return;}
  const lookupError=PEProjectLookups.validate();if(lookupError){alert(lookupError);return;}
  const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),start_date:document.getElementById('new_project_start_date').value||null,end_date:document.getElementById('new_project_end_date').value||null,status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
- const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId):supabaseClient.rpc('create_scoped_project',{p_project:payload});
+ const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId).select('id').single():supabaseClient.rpc('create_scoped_project',{p_project:payload});
  const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
 };
 
 async function editPO(id,viewOnly=false){
  if(!viewOnly&&!PEAccess.can('orders','edit'))viewOnly=true;
- const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}currentPOEditId=id;
+ const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}if(!PEAccess.can('orders','edit',data.department))viewOnly=true;currentPOEditId=id;
  const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
  const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
  renderPOForm(data,projects,advanceAmount,advanceUsed,false,id,viewOnly);
 }
 function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOnly=false){
- const box=document.getElementById('invoiceModalContent');box.innerHTML=`<h2>${creating?'Add':viewOnly?'View':'Edit'} Purchase Order</h2>
+ const box=document.getElementById('invoiceModalContent');box.dataset.accessDepartment=data.department||'';box.innerHTML=`<h2>${creating?'Add':viewOnly?'View':'Edit'} Purchase Order</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
  <div class="invoice-field"><label>PO Number</label><input id="poe_no" value="${escapeHtml(data.po_no)}"></div><div class="invoice-field"><label>Company / Customer</label><input id="poe_company" value="${escapeHtml(data.company)}"></div>
  <div class="invoice-field"><label>Department</label><input id="poe_department" value="${escapeHtml(data.department)}"></div><div class="invoice-field"><label>Project</label><select id="poe_project">${(projects||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(data.project_id)?'selected':''}>${escapeHtml(x.project_name)}</option>`).join('')}</select></div>
@@ -1343,7 +1344,7 @@ function calculateAdvanceAmortisation(amount, po, available){
 }
 
 async function savePOChanges(creating=false){
- try{await PEAccess.require(supabaseClient,'orders',creating?'add':'edit');}catch(e){alert(e.message);return;}
+ try{await PEAccess.require(supabaseClient,'orders',creating?'add':'edit',document.getElementById('poe_department').value);}catch(e){alert(e.message);return;}
  const projectId=Number(document.getElementById('poe_project').value);const {data:pr}=await supabaseClient.from('projects').select('project_name').eq('id',projectId).single();
  const applicable=document.getElementById('poe_retention').value==='true';const pct=Number(document.getElementById('poe_retention_pct').value||0);const days=Number(document.getElementById('poe_retention_days').value||0);
  const advancePct=Number(document.getElementById('poe_advance_pct').value||0);if(pct<0||pct>100||days<0||advancePct<0||advancePct>100){alert('Invalid retention or advance payment percentage/period.');return;}
@@ -1362,7 +1363,7 @@ async function savePOChanges(creating=false){
   return;
  }
  const {data:oldPO}=await supabaseClient.from('pos').select('po_no').eq('id',currentPOEditId).single();
- const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId);if(error){alert(error.message);return;}
+ const {error}=await supabaseClient.from('pos').update(payload).eq('id',currentPOEditId).select('id').single();if(error){alert(error.message);return;}
  if(oldPO?.po_no && oldPO.po_no!==payload.po_no){const {error:linkError}=await supabaseClient.from('invoices').update({po_no:payload.po_no,project_id:projectId,project_name:pr?.project_name||''}).eq('po_no',oldPO.po_no);if(linkError){alert('PO saved, but invoice links could not be updated: '+linkError.message);return;}}
  try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(payload.po_no||oldPO?.po_no,payload.po_value_ex_vat,advancePct);}catch(e){alert('PO saved, but advance amortisation recalculation failed: '+e.message);return;}
  if(registerRecord?.type==='po'){await showRegisterRecord();return;}
@@ -1763,8 +1764,8 @@ const cmState={loaded:false,customers:[],departments:[],links:[],profile:null,pe
 const cmById=id=>document.getElementById(id);
 const cmManager=()=>['finance_manager','system_admin'].includes(String(cmState.profile?.role||'').toLowerCase());
 const cmCanCreate=()=>PEAccess.can('customers','add');
-const cmCanEdit=()=>PEAccess.can('customers','edit');
-const cmCanDelete=()=>PEAccess.can('customers','delete');
+const cmCanEdit=id=>PEAccess.canCustomer('edit',id);
+const cmCanDelete=id=>PEAccess.canCustomer('delete',id);
 const cmCanLink=()=>PEAccess.can('customers','edit')||PEAccess.can('departments','edit');
 const cmName=id=>cmState.departments.find(d=>Number(d.id)===Number(id))?.name||'Unknown department';
 async function cmLoad(){
@@ -1808,7 +1809,7 @@ function cmRender(rows,financialByName,assignments){
   const add=(label,fn,danger=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(danger)b.className='btn-danger';bar.append(b);};
   add('Open',()=>PEWorkspace.openCustomer(customer.name));
   if(!customer.financialOnly&&cmCanLink())add('Departments',()=>cmOpenLinks(customer.id));
-  if(!customer.financialOnly&&cmCanEdit())add('Edit',()=>cmOpenRename(customer.id));if(!customer.financialOnly&&cmCanDelete())add('Delete',()=>cmDelete(customer.id),true);
+  if(!customer.financialOnly&&cmCanEdit(customer.id))add('Edit',()=>cmOpenRename(customer.id));if(!customer.financialOnly&&cmCanDelete(customer.id))add('Delete',()=>cmDelete(customer.id),true);
   actions.append(bar);tr.append(actions);body.append(tr);
  }
  table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
@@ -1817,9 +1818,9 @@ function cmClose(){cmById('cmDialog').style.display='none';cmState.mode=null;cmS
 function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;cmById('cmDialog').setAttribute('role','dialog');cmById('cmDialog').setAttribute('aria-modal','true');}
 function cmField(label,type,value='',options=[]){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent=label;body.append(l);let input;if(type==='select'){input=document.createElement('select');for(const opt of options){const o=document.createElement('option');o.value=String(opt.id);o.textContent=opt.name;input.append(o);}}else{input=document.createElement('input');input.type='text';input.value=value;}input.id='cmField';body.append(input);return input;}
 function cmOpenCreate(){if(!cmState.loaded){cmLoad().then(()=>{if(cmState.loaded)cmOpenCreate();});return;}if(!cmCanCreate()){alert('Your account needs customer creation permission.');return;}cmDialog('Add Customer','create',null);cmField('Customer name','text').focus();cmFieldDepartment();}
-function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
-function cmOpenRename(id){if(!cmCanEdit())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Edit Customer','rename',id);cmField('Customer name','text',c.name);}
-function cmOpenLinks(id){if(!cmCanLink())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments);const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmCanLink()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
+function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments.filter(d=>PEAccess.can('customers','add',d.name))){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
+function cmOpenRename(id){if(!cmCanEdit(id))return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Edit Customer','rename',id);cmField('Customer name','text',c.name);}
+function cmOpenLinks(id){if(!cmCanLink())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c)return;cmDialog('Assign Customer to Department','link',id);cmField('Department','select','',cmState.departments.filter(d=>PEAccess.can('customers','edit',d.name)||PEAccess.can('departments','edit',d.name)));const existing=cmState.links.filter(l=>Number(l.customer_company_id)===Number(id));const p=document.createElement('p');p.className='cm-muted';p.textContent='Existing assignments:';cmById('cmDialogBody').append(p);for(const l of existing){const line=document.createElement('div');line.className='cm-actions';line.style.margin='5px 0';const label=document.createElement('span');label.textContent=cmName(l.department_id);line.append(label);if(cmCanLink()){const b=document.createElement('button');b.className='btn-danger';b.textContent='Unlink';b.onclick=()=>cmUnlink(id,l.department_id);line.append(b);}cmById('cmDialogBody').append(line);}}
 async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmState.id,field=cmById('cmField');if(!field)return;const name=field.value.trim();let fn,args;
  if(mode==='create'){if(name.length<2){alert('Enter a customer name');return;}const dep=Number(cmById('cmDepartment')?.value);if(!dep){alert('Select a department');return;}fn='create_customer_for_department';args={p_customer_name:name,p_department_id:dep};}
  else if(mode==='rename'){if(name.length<2){alert('Enter a customer name');return;}fn='rename_customer_company';args={p_customer_company_id:id,p_new_name:name};}
@@ -1829,7 +1830,7 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
  try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
 }
 async function cmUnlink(id,dep){if(!cmCanLink()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
-async function cmDelete(id){if(!cmCanDelete())return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
+async function cmDelete(id){if(!cmCanDelete(id))return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}
 // Load customer master after the existing login flow; Supabase auth is checked again inside cmLoad.
 window.addEventListener('load',()=>{if(!document.documentElement.classList.contains('record-route')&&!document.documentElement.classList.contains('record-loading'))cmLoad();});
 </script>
