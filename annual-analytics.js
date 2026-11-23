@@ -19,9 +19,9 @@
       if (from >= 100000) throw new Error('Annual financial record limit exceeded');
     }
   }
-  async function load(client) {
+  async function load(client, options = {}) {
     if (loading) return loading;
-    loading = Promise.all(['invoices', 'pos', 'projects', 'invoice_collections'].map(table => rows(client, table)))
+    loading = Promise.all(['invoices', 'pos', 'projects', 'invoice_collections'].map(table => table === 'invoices' && options.invoices ? Promise.resolve(options.invoices) : rows(client, table)))
       .then(([invoices, orders, projects, collections]) => { data = {invoices, orders, projects, collections}; })
       .finally(() => { loading = null; });
     return loading;

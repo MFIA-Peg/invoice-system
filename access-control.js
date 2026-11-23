@@ -1,6 +1,6 @@
 (function(global){
 'use strict';
-let state={manager:false,user_id:null,modules:{}},loading;
+let state={manager:false,user_id:null,modules:{}},loading,loadedAt=0,loadedClient;
 const routes={'companies.html':'customers','departments.html':'departments','projects.html':'projects','purchase-orders.html':'orders','invoices.html':'invoices','collections.html':'collections'};
 function pageModule(){
  const p=new URLSearchParams(location.search),file=location.pathname.split('/').pop();
@@ -21,7 +21,7 @@ function can(module,action,department){
 }
 function canCustomer(action,id){if(state.manager)return true;if(id==null||!state.tree)return can('customers',action);return can('customers',action)&&state.customer_operations?.[String(id)]?.[action]===true;}
 async function load(client,module=pageModule()){
- if(!loading)loading=client.rpc('get_my_module_access').then(r=>{if(r.error)throw r.error;state=r.data||{};if(!state.user_id)throw new Error('An active account with a completed password change is required.');return state;}).finally(()=>loading=null);
+ if(!loading&&(loadedClient!==client||Date.now()-loadedAt>5000))loading=client.rpc('get_my_module_access').then(r=>{if(r.error)throw r.error;state=r.data||{};if(!state.user_id)throw new Error('An active account with a completed password change is required.');loadedAt=Date.now();loadedClient=client;return state;}).finally(()=>loading=null);
  await loading;
  if((module&&!can(module,'view'))||(state.mode==='viewer'&&!['dashboard.html','reports.html'].includes(location.pathname.split('/').pop()))){document.body.classList.add('pe-access-denied');let banner=document.getElementById('peAccessMessage');if(!banner){banner=document.createElement('div');banner.id='peAccessMessage';banner.setAttribute('role','alert');banner.style.cssText='margin:30px;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px';document.body.prepend(banner);}banner.textContent='You do not have permission to open this screen. Contact your Finance Manager.';throw new Error('You do not have View permission for this screen.');}
  document.body.classList.remove('pe-access-denied');document.getElementById('peAccessMessage')?.remove();document.dispatchEvent(new Event('pe-access-ready'));schedule();return state;

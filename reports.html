@@ -15,7 +15,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261119a"></script>
+<script src="annual-analytics.js?v=20261123c"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <style>
@@ -29,7 +29,7 @@
 </style><link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123b"></script>
+<script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body><div class="wrap">
@@ -80,7 +80,7 @@ function applyRequestedPO(){
 }
 async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{
  await PEAccess.load(db);
- const [,iv]=await Promise.all([PEAnnual.load(db),loadReportInvoices()]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
+ const invoiceRequest=loadReportInvoices();const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 function applyFilters(){
 const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();

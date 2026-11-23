@@ -35,7 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261119a"></script>
+<script src="annual-analytics.js?v=20261123c"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261117b"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -48,7 +48,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 .po-invoices .po-linked-invoices td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
 .po-invoices .po-linked-invoices th:nth-child(2),.po-invoices .po-linked-invoices th:nth-child(3),.po-invoices .po-linked-invoices td:nth-child(2),.po-invoices .po-linked-invoices td:nth-child(3){white-space:nowrap}
 </style><link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123b"></script>
+<script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
@@ -106,7 +106,7 @@ async function loadAll(){
  await PEAccess.load(db);
  $('openCreate').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Loading...';showError('');
  try{
- const [,iv]=await Promise.all([PEAnnual.load(db),fetchRows('invoice_details_with_retention','*')]);
+ const invoiceRequest=fetchRows('invoice_details_with_retention','*');const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);
  const {projects:p,orders:po}=PEAnnual.records();
   projects=p;allPO=po;invoices=iv;$('openCreate').disabled=false;populateFilters();applyFilters();
  }catch(e){showError('Unable to load purchase orders: '+(e.message||e));$('tableWrap').innerHTML='<div class="empty">Data could not be loaded. Check access permissions and database connection.</div>';}
