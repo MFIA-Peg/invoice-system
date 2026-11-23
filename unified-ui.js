@@ -36,6 +36,7 @@ function enhance(){
  try{
  const tables=document.querySelectorAll('#tableWrap>table,.cm-scroll>table,.tablewrap>table,.table-wrap>table,#reportContent table,.pe-drill table');
  tables.forEach(table=>{
+  if(table.closest('[data-fast-register]'))return;
   if(table.closest('dialog,.modal,.cm-dialog,.modal-backdrop,.po-detail-row,.detail-row'))return;
   const headers=[...table.querySelectorAll(':scope>thead>tr:first-child>th')];
   if(!headers.length)return;
