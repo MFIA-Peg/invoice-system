@@ -41,11 +41,11 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="unified-ui.css?v=20261123a">
-<script src="access-control.js?v=20261123a"></script>
+<script src="access-control.js?v=20261123b"></script>
 <script src="unified-ui.js?v=20261123a" defer></script>
 </head>
 <body>
-<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
 <section class="hero"><div><h1>Collections</h1><p>Collection transactions, receivables performance and payment tracking</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button></div></section>
 <div id="errorBox" class="error" role="alert"></div>
@@ -94,8 +94,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const today=()=>new Date().toISOString().slice(0,10);
 function isManager(){return profile?.role==='finance_manager'}
 function canAdd(){return PEAccess.can('collections','add')}
-function canEditCollection(){return PEAccess.can('collections','edit')}
-function canDeleteCollection(){return PEAccess.can('collections','delete')}
+function canEditCollection(department){return PEAccess.can('collections','edit',department)}
+function canDeleteCollection(department){return PEAccess.can('collections','delete',department)}
 function allowedProject(id){return isManager()||profile?.all_projects||profile?.projectIds.has(Number(id))}
 function allowedDept(d){return isManager()||profile?.all_departments||profile?.departments.has(String(d||''))}
 function invMetrics(i){const po=pos.find(p=>String(p.po_no)===String(i.po_no)),pr=projects.find(p=>Number(p.id)===Number(i.project_id||po?.project_id));const base=Math.max(0,Number(i.invoice_amount||0)-Number(i.advance_amortisation||0)),gross=base+(po?.vat?base*.15:0),ret=Number(i.retention_amount||0)+Number(i.retention_vat||0),col=Number(i.paid_amount||0);return{po,pr,gross,col,balance:Math.max(0,gross-ret-col)}}
@@ -160,7 +160,7 @@ async function saveCollection(){
  if(!$('collectionDate').value||!Number.isFinite(amount)||amount<=0||Math.abs(amount*100-Math.round(amount*100))>.00001)return status('Enter a valid date and positive amount with at most two decimals.',true);
  collectionBusy=true;const button=$('saveCollectionButton');button.disabled=true;
  try{
-  await PEAccess.require(client,'collections',old?'edit':'add');
+  await PEAccess.require(client,'collections',old?'edit':'add',invMetrics(invoice).po?.department||invMetrics(invoice).pr?.department);
   const current=await client.from('invoice_details_with_retention').select('*').eq('id',id).single();if(current.error)throw current.error;
   const balance=Number(current.data.collection_balance_after_advance??current.data.open_balance??0)+Number(old?.amount||0);
   if(amount>balance+.005)throw Error('Amount exceeds available balance '+money(balance));
@@ -184,7 +184,7 @@ async function deleteCollection(id){
  if(collectionBusy||!canDeleteCollection())return;const payment=transactions.find(c=>String(c.id)===String(id));if(!payment||!confirm('Delete payment '+money(payment.amount)+' dated '+payment.collection_date+'?'))return;
  collectionBusy=true;
  try{
-  await PEAccess.require(client,'collections','delete');
+  await PEAccess.require(client,'collections','delete',invMetrics(invoices.find(i=>String(i.id)===String(payment.invoice_id))).po?.department||invMetrics(invoices.find(i=>String(i.id)===String(payment.invoice_id))).pr?.department);
   const result=await client.from('invoice_collections').delete().eq('id',payment.id).eq('invoice_id',payment.invoice_id).eq('amount',payment.amount).eq('collection_date',payment.collection_date).select('id');
   if(result.error)throw result.error;if(result.data?.length!==1)throw Error('The payment changed or permission was denied. Refresh and try again.');
   if(editingCollection?.id===payment.id)resetForm();await loadCollections();status('Payment deleted.');
@@ -221,7 +221,7 @@ function render(){const a=filteredTransactions,im=new Map(invoices.map(i=>[Numbe
  const cards=[['Total Collected',money(total),'Sum of filtered collection transactions'],['Transactions',a.length,'Collection entries'],['Invoices With Collections',invIds.size,'Distinct invoices'],['Customers',companies.size,'Customers represented'],['Payment Methods',methods.size,'Methods used'],['Average Collection',money(a.length?total/a.length:0),'Average transaction amount'],['Largest Collection',money(a.reduce((m,x)=>Math.max(m,num(x.amount)),0)),'Highest single transaction'],['Latest Collection',a.length?String(a[0].collection_date):'—','Most recent date in filtered results']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(a,im);
- $('transactionsTable').innerHTML=a.length?`<table><thead><tr><th>Date</th><th>Company</th><th>Department</th><th>Project</th><th>PO No.</th><th>Invoice No.</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${a.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return `<tr><td>${esc(c.collection_date)}</td><td>${esc(m.pr?.company)}</td><td>${esc(m.pr?.department)}</td><td>${esc(m.pr?.project_name||i.project_name)}</td><td>${esc(i.po_no)}</td><td>${esc(i.invoice_no)}</td><td>${esc(c.payment_method)}</td><td>${esc(c.reference_no)}</td><td class="num">${money(c.amount)}</td><td>${esc(c.notes)}</td><td>${canEditCollection()?`<button type="button" data-collection-edit="${c.id}" title="Edit Payment">Edit</button>`:''}${canDeleteCollection()?`<button type="button" class="danger" data-collection-delete="${c.id}" title="Delete Payment">Delete</button>`:''}</td></tr>`}).join('')}</tbody></table>`:'<div class="empty">No collection transactions found.</div>';
+ $('transactionsTable').innerHTML=a.length?`<table><thead><tr><th>Date</th><th>Company</th><th>Department</th><th>Project</th><th>PO No.</th><th>Invoice No.</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${a.map(c=>{const i=im.get(Number(c.invoice_id)),m=invMetrics(i);return `<tr data-access-department="${esc(m.po?.department||m.pr?.department)}"><td>${esc(c.collection_date)}</td><td>${esc(m.pr?.company)}</td><td>${esc(m.pr?.department)}</td><td>${esc(m.pr?.project_name||i.project_name)}</td><td>${esc(i.po_no)}</td><td>${esc(i.invoice_no)}</td><td>${esc(c.payment_method)}</td><td>${esc(c.reference_no)}</td><td class="num">${money(c.amount)}</td><td>${esc(c.notes)}</td><td>${canEditCollection(m.po?.department||m.pr?.department)?`<button type="button" data-collection-edit="${c.id}" title="Edit Payment">Edit</button>`:''}${canDeleteCollection(m.po?.department||m.pr?.department)?`<button type="button" class="danger" data-collection-delete="${c.id}" title="Delete Payment">Delete</button>`:''}</td></tr>`}).join('')}</tbody></table>`:'<div class="empty">No collection transactions found.</div>';
  $('transactionsTable').querySelectorAll('[data-collection-edit]').forEach(b=>b.onclick=()=>editCollection(b.dataset.collectionEdit));$('transactionsTable').querySelectorAll('[data-collection-delete]').forEach(b=>b.onclick=()=>deleteCollection(b.dataset.collectionDelete));
  $('resultCount').textContent=`Showing ${a.length} of ${transactions.length} collection transactions`}
 function renderChart(a,im){const total=a.reduce((s,x)=>s+num(x.amount),0),byMethod=new Map(),byMonth=new Map();a.forEach(x=>{const method=x.payment_method||'Unspecified';byMethod.set(method,(byMethod.get(method)||0)+num(x.amount));const month=String(x.collection_date||'').slice(0,7)||'Unknown';byMonth.set(month,(byMonth.get(month)||0)+num(x.amount))});
