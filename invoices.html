@@ -46,19 +46,25 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 
 <style>
 #tableWrap table{table-layout:fixed;width:max-content;min-width:0}
-#tableWrap th,#tableWrap td{box-sizing:border-box;padding:8px;white-space:normal;overflow-wrap:anywhere;vertical-align:top}
-#tableWrap tr>:nth-child(1){width:130px}#tableWrap tr>:nth-child(2){width:170px}
-#tableWrap tr>:nth-child(3){width:170px}#tableWrap tr>:nth-child(4){width:135px}
-#tableWrap tr>:nth-child(5),#tableWrap tr>:nth-child(6){width:calc(10ch + 18px);white-space:nowrap;font-variant-numeric:tabular-nums}
-#tableWrap td.num{width:calc(14ch + 18px);white-space:nowrap;overflow-wrap:normal}
-#tableWrap th:nth-child(n+7):nth-child(-n+14){width:calc(14ch + 18px)}
-#tableWrap tr>:nth-child(15),#tableWrap tr>:nth-child(16){width:125px}
-#tableWrap tr>:nth-child(17){width:265px}
-#tableWrap .invoice-drill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+#tableWrap th,#tableWrap td{box-sizing:border-box;padding:6px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle;text-align:center}
+#tableWrap tr>:nth-child(1){width:110px}#tableWrap tr>:nth-child(2){width:140px}
+#tableWrap tr>:nth-child(3){width:140px}#tableWrap tr>:nth-child(4){width:115px}
+#tableWrap tr>:nth-child(5),#tableWrap tr>:nth-child(6){width:calc(10ch + 12px);white-space:nowrap;font-variant-numeric:tabular-nums}
+#tableWrap td.num{width:calc(13ch + 12px);white-space:nowrap;overflow-wrap:normal}
+#tableWrap th:nth-child(n+7):nth-child(-n+14){width:calc(13ch + 12px)}
+#tableWrap tr>:nth-child(15),#tableWrap tr>:nth-child(16){width:105px}
+#tableWrap tr>:nth-child(17){width:245px}
+#tableWrap .invoice-drill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center}
 #invoiceHistory{width:min(760px,92vw);max-height:85vh;border:1px solid #cbd5e1;border-radius:12px;padding:22px;color:#14263d}
 #invoiceHistory::backdrop{background:#14263d66}
 .invoice-history-entry{border-top:1px solid #e2e8f0;padding:14px 0;overflow-wrap:anywhere}
 .invoice-history-entry p{white-space:pre-wrap;margin:8px 0}
+</style><style>
+#tableWrap td.num{text-align:center}
+#receivedPayments{width:min(900px,94vw);max-height:85vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;padding:20px;color:#14263d}
+#receivedPayments::backdrop{background:#14263d66}
+#receivedPayments table{min-width:650px;width:100%;font-size:13px}
+#receivedPayments th,#receivedPayments td{text-align:center;white-space:normal;overflow-wrap:anywhere;padding:8px}
 </style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="user-management.html" hidden>User Management</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -83,6 +89,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 </div></section>
 <section class="panel"><div class="panelhead"><div><h2>Invoice Register</h2><div class="muted" id="resultCount">Loading records...</div></div></div><div class="tablewrap" id="tableWrap"><div class="empty">Loading invoices...</div></div><div class="footer"><span>Read source: invoice_details_with_retention · Edit source: invoices.</span><span>Currency: SAR</span></div></section>
 </main>
+<dialog id="receivedPayments" aria-labelledby="receivedPaymentsTitle"><div class="panelhead"><h2 id="receivedPaymentsTitle">Received Payments</h2><button type="button" id="closeReceivedPayments">Close</button></div><div id="receivedPaymentsContent"></div></dialog>
 <dialog id="invoiceHistory" aria-labelledby="invoiceHistoryTitle"><div class="panelhead"><h2 id="invoiceHistoryTitle">Invoice comments</h2><button type="button" id="closeHistory">Close</button></div><div class="field"><label for="invoiceComment">New comment</label><textarea id="invoiceComment" rows="4" placeholder="Write a comment… saved automatically after you stop typing." style="width:100%;resize:vertical;box-sizing:border-box;padding:10px"></textarea></div><div id="invoiceCommentStatus" role="status" aria-live="polite"></div><div class="actions" style="margin:10px 0"><button type="button" id="newInvoiceComment">New comment</button><button type="button" id="retryInvoiceComment" hidden>Retry saving</button></div><div id="invoiceHistoryContent" aria-live="polite"></div></dialog>
 <dialog id="createPicker" aria-labelledby="createTitle" style="width:min(560px,90vw);box-sizing:border-box;padding:22px;border:1px solid #cbd5e1;border-radius:14px;color:#14263d"><form id="createForm"><h2 id="createTitle" style="margin-top:0">Add Invoice</h2><div class="field"><label for="createSource">Purchase order</label><select id="createSource" required></select></div><div class="actions" style="margin-top:16px"><button type="submit" id="createContinue">Continue</button><button type="button" class="secondary" id="closeCreate">Cancel</button></div></form></dialog>
 
@@ -210,9 +217,9 @@ function render(){
  const cards=[['Invoices',a.length,'Records matching filters'],['Invoice Value Ex VAT',money(values.ex),'Before VAT'],['VAT',money(values.vat),'VAT after advance'],['Invoice Total',money(values.gross),'Including VAT'],['Collected',money(values.paid),'Cumulative paid amount'],['Open Balance',money(values.balance),'Current collection balance'],['Overdue',money(values.overdue),'Past due date'],['Retention',money(values.retention),'Retention balance']];
  $('kpis').innerHTML=cards.map(([l,v,s])=>`<article class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></article>`).join('');
  renderChart(values);
- const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button type="button" data-edit-invoice="${i}">Edit</button> ${registerRecordLinks('invoice',x)}</td></tr>`});
+ const rows=a.map((x,i)=>{const status=invoiceStatus(x),cls=status==='Paid'?'':status==='Overdue'?'overdue':status==='Partially Paid'?'partial':status==='Unpaid'?'unpaid':'neutral';return `<tr><td><button class="invoice-drill" type="button" data-history-invoice="${i}">${esc(x.invoice_no||('Invoice '+(i+1)) )}</button></td><td>${esc(relatedFor(x).company)}</td><td>${esc(x.project_name)}</td><td>${esc(x.po_no)}</td><td>${esc(displayDate(x.approval_date||x.start_date))}</td><td>${esc(displayDate(x.due_date))}</td><td class="num">${tableMoney(x.invoice_amount)}</td><td class="num">${tableMoney(x.advance_amortisation)}</td><td class="num">${tableMoney(x.net_invoice_amount??x.invoice_amount)}</td><td class="num">${tableMoney(invoiceVat(x))}</td><td class="num">${tableMoney(invoiceGross(x))}</td><td class="num">${tableMoney(x.paid_amount)}</td><td class="num">${tableMoney(invoiceBalance(x))}</td><td class="num">${tableMoney(x.retention_balance)}</td><td><span class="pill ${cls}">${esc(status)}</span></td><td>${esc(x.status||'')}</td><td><button type="button" data-received-payments="${i}">Received Payments</button> ${registerRecordLinks('invoice',x)}</td></tr>`});
  $('tableWrap').innerHTML=rows.length?`<table><thead><tr><th>Invoice No. / Comments</th><th>Customer / Company</th><th>Project</th><th>PO No.</th><th>Approval Date</th><th>Due Date</th><th>Amount Ex VAT</th><th>Advance Amortisation</th><th>Net Invoice</th><th>VAT</th><th>Total Incl VAT</th><th>Paid</th><th>Open Balance</th><th>Retention</th><th>Payment Status</th><th>Invoice Status</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">No invoices match the selected filters.</div>';
- $('tableWrap').querySelectorAll('[data-edit-invoice]').forEach(b=>b.addEventListener('click',()=>openEdit(Number(b.dataset.editInvoice))));
+ $('tableWrap').querySelectorAll('[data-received-payments]').forEach(b=>b.addEventListener('click',()=>openReceivedPayments(filtered[Number(b.dataset.receivedPayments)])));
  $('tableWrap').querySelectorAll('[data-history-invoice]').forEach(b=>b.addEventListener('click',()=>openInvoiceHistory(filtered[Number(b.dataset.historyInvoice)])));
  $('resultCount').textContent=`Showing ${a.length} of ${allInvoices.length} invoices`;
 }
@@ -292,6 +299,21 @@ async function openInvoiceHistory(invoice){
    (c.next_followup_date?'<p>Next follow-up: '+esc(displayDate(c.next_followup_date))+'</p>':'')+
    (c.promised_payment_date?'<p>Promised payment: '+esc(displayDate(c.promised_payment_date))+'</p>':'')+'</article>').join(''):'<p>No historical comments are recorded for this invoice.</p>';
  }catch(error){if(request===historyRequest){host.textContent='Unable to load invoice comments: '+(error.message||error);$('invoiceComment').disabled=false;}}
+}
+
+
+$('closeReceivedPayments').addEventListener('click',()=>$('receivedPayments').close());
+function openReceivedPayments(invoice){
+ if(!invoice)return;
+ const records=PEAnnual.records();
+ let id=invoice.id;
+ if(id==null){const matches=records.invoices.filter(i=>i.invoice_no===invoice.invoice_no);if(matches.length===1)id=matches[0].id;}
+ const payments=id==null?[]:records.collections.filter(c=>String(c.invoice_id)===String(id)).sort((a,b)=>String(b.collection_date||'').localeCompare(String(a.collection_date||''))||Number(b.id)-Number(a.id));
+ $('receivedPaymentsTitle').textContent='Received Payments — '+(invoice.invoice_no||'');
+ const total=payments.reduce((sum,c)=>sum+num(c.amount),0);
+ $('receivedPaymentsContent').innerHTML='<p>'+payments.length+' payments · Total: '+esc(money(total))+'</p>'+
+ (payments.length?'<div class="tablewrap"><table><thead><tr><th>Payment Date</th><th>Amount (SAR)</th><th>Method</th><th>Reference</th><th>Notes</th></tr></thead><tbody>'+payments.map(c=>'<tr><td>'+esc(displayDate(c.collection_date))+'</td><td>'+esc(tableMoney(c.amount))+'</td><td>'+esc(c.payment_method||'—')+'</td><td>'+esc(c.reference_no||'—')+'</td><td>'+esc(c.notes||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p>No received payments are recorded for this invoice.</p>');
+ $('receivedPayments').showModal();
 }
 
 function openEdit(index){
