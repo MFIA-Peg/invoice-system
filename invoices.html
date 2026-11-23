@@ -37,9 +37,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123g"></script>
+<script src="annual-analytics.js?v=20261123i"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261123h"></script>
+<script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <script src="retention-calculation.js?v=20261118a"></script>
@@ -143,7 +143,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
    <div class="field"><label>Invoice Number</label><input id="e_invoice_no" class="readonly" readonly></div>
    <div class="field"><label>Purchase Order</label><input id="e_po_no" class="readonly" readonly></div>
    <div class="field"><label>Project</label><input id="e_project_name" class="readonly" readonly></div>
-   <div class="field"><label>Invoice Status</label><select id="e_status"><option>Draft</option><option>Submitted</option><option>Approved</option><option>Partially Paid</option><option>Paid</option><option>Cancelled</option></select></div>
+   <div class="field"><label>Invoice Status</label><select id="e_status"><option>Draft</option><option>Submitted</option><option>Waiting For Approval</option><option>Approved</option><option>Completed</option><option>Retention</option><option>Cancelled</option></select></div>
    <div class="field"><label>Invoice Amount (SAR)</label><input id="e_invoice_amount" type="number" min="0" step="0.01" required></div>
    <div class="field"><label>Paid Amount (SAR)</label><input id="e_paid_amount" type="number" min="0" step="0.01" required></div>
    <div class="field"><label>Start Date</label><input id="e_start_date" type="date"></div>
@@ -486,7 +486,7 @@ async function loadEditableRecord(invoiceNo){
   if(!data||data.length!==1)throw new Error(data&&data.length>1?'More than one base invoice has this invoice number. Editing is blocked to avoid changing the wrong record.':'The editable invoice record was not found in the invoices table.');
   editingRecord=data[0];
   const r=editingRecord;
-  $('e_status').value=r.status||'Draft';$('e_invoice_amount').value=r.invoice_amount??0;$('e_paid_amount').value=r.paid_amount??0;
+  if(r.status&&![...$('e_status').options].some(o=>o.value===r.status))$('e_status').add(new Option(r.status,r.status));$('e_status').value=r.status||'Draft';$('e_invoice_amount').value=r.invoice_amount??0;$('e_paid_amount').value=r.paid_amount??0;
   $('e_start_date').value=dateOnly(r.start_date);$('e_completed_date').value=dateOnly(r.completed_date);$('e_approval_date').value=dateOnly(r.approval_date);
   $('e_payment_terms').value=String(r.payment_terms??60);$('e_description').value=r.description||'';
   $('modalMessage').textContent='Editable record loaded. Make your changes and save.';$('modalMessage').style.color='#0f766e';

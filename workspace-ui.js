@@ -30,7 +30,7 @@
     const records=PEAnnual.records();
     const po=records.orders.find(p=>String(p.id)===String(row.pos_id))||records.orders.find(p=>text(p.po_no)===text(row.po_no));
     const m=PEAnnual.metrics(row,po);
-    return m.total>0&&num(row.paid_amount)+0.005>=m.total&&m.retention<=0.005;
+    return m.total>0&&num(row.paid_amount)+num(row.retention_released_amount)+0.005>=m.total&&m.retention<=0.005;
   }
   function customerClosed(name){
     const d=PEAnnual.records(),ps=d.projects.filter(p=>text(p.company)===text(name)),os=d.orders.filter(p=>text(p.company)===text(name));
