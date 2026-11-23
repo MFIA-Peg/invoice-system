@@ -118,6 +118,7 @@
     document.head.appendChild(element);
   }
   function chart(id, items) {
+    if(!location.pathname.endsWith('/dashboard.html'))return;
     let host = document.getElementById(id);
     if (!host) return;
     style();
