@@ -63,15 +63,16 @@
   }
   global.renderKPIs=function(){
     const rows=buildRows(PEAnnual.records());statusOptions(rows);const f=filters();
-    if(f.from&&f.to&&f.from>f.to){el('dashboardFilterError').textContent='The start date must be on or before the end date.';return;}
+    if(f.from&&f.to&&f.from>f.to){el('dashboardFilterError').textContent='The start date must be on or before the end date.';shown=[];el('dashboardInvoiceTable').replaceChildren();el('dashboardInvoices').hidden=true;return;}
     el('dashboardFilterError').textContent='';
     const dimensionRows=rows.filter(r=>matches(r,f,{period:false}));
-    const scope={profile:'dashboard',invoiceIds:dimensionRows.map(r=>r.i.id),periodFrom:f.from,periodTo:f.to,advanceScopeIndependent:true,
+    const scope={singleInvoiceReport:true,profile:'dashboard',invoiceIds:dimensionRows.map(r=>r.i.id),periodFrom:f.from,periodTo:f.to,advanceScopeIndependent:true,
       orderNos:(f.invoiceStatus||f.paymentStatus||f.attention)?[...new Set(dimensionRows.filter(r=>!r.cancelled).map(r=>r.po?.po_no??r.i.po_no))]:undefined,
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     kpiScope=scope;
     const s=PEAnnual.render('kpis',null,scope);
+    global.PEDashboardGroups?.render(s);
     // Seven shared financial cards are authoritative. Do not replace them with
     // the previous comparison donuts or duplicate their values.
     PEAnnual.chart('collectionChart',[['Collections',s.totals.collections],['Advances Received',s.totals.advances]]);
