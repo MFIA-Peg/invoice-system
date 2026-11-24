@@ -4,6 +4,7 @@
   const esc=v=>str(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const amount=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(Number(v||0));
   const date=v=>str(v).slice(0,10);
+  const tableNumber=new Intl.NumberFormat('en',{minimumFractionDigits:2,maximumFractionDigits:2});
   const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   let shown=[],activeAttention='',kpiScope={};
   function buildRows(records,asOf=today()){
@@ -58,7 +59,7 @@
     shown=base.filter(r=>ids.has(str(r.i.id))).sort((a,b)=>(a.due||date(a.i.start_date)).localeCompare(b.due||date(b.i.start_date))||str(a.i.invoice_no).localeCompare(str(b.i.invoice_no)));
     const total=shown.reduce((n,r)=>n+r.m.total,0),overdue=shown.filter(r=>r.overdue).reduce((n,r)=>n+r.m.balance,0);
     el('dashboardInvoiceSummary').textContent=shown.length+' invoices · Total '+amount(total)+' · Overdue '+amount(overdue)+(PEKPIFilter.active()?' · '+PEKPIFilter.active().label:activeAttention?' · Current unresolved queue, all years':' · Approval-date period; draft and approval queues are current as of today');
-    el('dashboardInvoiceTable').innerHTML=shown.length?'<table><thead><tr>'+columns.map(c=>'<th>'+c+'</th>').join('')+'<th>Collection Alert</th></tr></thead><tbody>'+shown.map(r=>'<tr>'+values(r).map((v,k)=>'<td'+(k>=9?' class="num"':'')+'>'+esc(k>=9?amount(v):v)+'</td>').join('')+'<td>'+(r.overdue?'<span class="dashboard-overdue">Overdue</span>':'—')+'</td></tr>').join('')+'</tbody></table>':'<p class="muted">No invoices match these filters.</p>';
+    el('dashboardInvoiceTable').innerHTML=shown.length?'<table><colgroup>'+columns.concat('Collection Alert').map((c,i)=>'<col style="width:'+([5,8,5,9,7,5.5,5.5,6,6,6.5,6.5,6.5,6.5,6.5,6.5,4][i]||5)+'%">').join('')+'</colgroup><thead><tr>'+columns.map(c=>'<th>'+c+'</th>').join('')+'<th>Collection Alert</th></tr></thead><tbody>'+shown.map(r=>'<tr>'+values(r).map((v,k)=>'<td'+(k>=9?' class="num"':'')+'>'+esc(k>=9?tableNumber.format(Number(v||0)):v)+'</td>').join('')+'<td>'+(r.overdue?'<span class="dashboard-overdue">Overdue</span>':'—')+'</td></tr>').join('')+'</tbody></table>':'<p class="muted">No invoices match these filters.</p>';
   }
   global.renderKPIs=function(){
     const rows=buildRows(PEAnnual.records());statusOptions(rows);const f=filters();
