@@ -32,11 +32,11 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124poperiod1"></script>
+<script src="annual-analytics.js?v=20261124filteraudit1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124single1"></script>
+<script src="workspace-ui.js?v=20261124filteraudit1"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
@@ -46,18 +46,21 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <script src="unified-ui.js?v=20261124headers1" defer></script>
 <script src="entry-dialog.js?v=20261124seven1" defer></script>
 <link rel="stylesheet" href="dashboard-table-fit.css?v=20261124a">
-<link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124a">
+<link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124filteraudit1">
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
-<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
+<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()" id="dashboardExport" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
 <section class="panel" id="dashboardFilters"><h2>Filter financial activity</h2><div class="filters">
 <div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
 <div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
 <div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
 <div><label for="invoiceStatus">Invoice Status</label><select id="invoiceStatus"><option value="">All invoice statuses</option></select></div>
-<div><label for="paymentStatus">Payment Status</label><select id="paymentStatus"><option value="">All payment statuses</option><option>Unpaid</option><option>Partially Paid</option><option>Paid</option><option>Retention Only</option><option>Overdue</option></select></div>
+<div><label for="paymentStatus">Payment Status</label><select id="paymentStatus"><option value="">All payment statuses</option><option>Unpaid</option><option>Not Issued</option><option>Partially Paid</option><option>Paid</option><option>Retention Only</option><option>Overdue</option></select></div>
 <div><label for="fromDate">Period From</label><input type="date" id="fromDate"></div>
-<div><label for="toDate">Period To</label><input type="date" id="toDate"></div></div>
+<div><label for="toDate">Period To</label><input type="date" id="toDate"></div>
+<div><label for="dueFromDate">Due Date From</label><input type="date" id="dueFromDate"></div>
+<div><label for="dueToDate">Due Date To</label><input type="date" id="dueToDate"></div></div>
+<p class="muted" style="font-size:11px;margin:4px 0 8px">Due Date filters apply to all matching invoices, using approval date + payment terms when needed. Period follows each measure’s date. A blank Period defaults to the current year; with a Due Date range alone, all activity dates for those invoices are included. Retention and Pending Approval ignore Period; Draft includes invoice dates through today.</p>
 <div class="actions"><button onclick="renderKPIs()" title="Apply Filters" aria-label="Apply Filters">✓</button><button class="secondary" onclick="clearFilters()" title="Clear Filters" aria-label="Clear Filters">⟲</button><button id="clearAttention" class="secondary" type="button" title="Clear Alert Selection" aria-label="Clear Alert Selection" hidden>×</button><a class="btn" href="invoices.html" title="Open Invoices" aria-label="Open Invoices">↗</a><a class="btn" href="closed-records.html" title="Closed Records" aria-label="Closed Records">▣</a></div><div id="dashboardFilterError" role="alert"></div></section>
 <section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
 <section class="panel"><h2>Financial Summary</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
@@ -65,7 +68,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <section class="panel" id="dashboardInvoices" hidden><h2>Invoice Report</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
 <article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
-<article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention follows approval date.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
+<article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention covers all issued and approved invoices, without a financial-period restriction.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
 <article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">Selected period: PO value by PO date; invoicing by approval date, including invoices on older POs. Open balance is for POs dated in the period, after issued billing through the report end. Undated POs are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
 </div></section>
 </main><script>
@@ -83,7 +86,6 @@ function selectedProjects(){const c=document.getElementById('company').value,p=d
 function inRange(d){const a=document.getElementById('fromDate').value,b=document.getElementById('toDate').value;if(!a&&!b)return true;if(!d)return false;d=String(d).slice(0,10);return(!a||d>=a)&&(!b||d<=b);}
 function renderKPIs(){document.getElementById('kpis').textContent='Loading financial summary...';}
 function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
-document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
 async function loadDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='…';try{
  await PEAnnual.load(supabaseClient);
 const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='↻';}}
@@ -111,13 +113,14 @@ initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261124seven1"></script>
 <script src="dashboard-groups.js?v=20261124a"></script>
-<script src="dashboard-workflows.js?v=20261124poperiod1"></script>
+<script src="dashboard-workflows.js?v=20261124filteraudit1"></script>
 <script>
 PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
 if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
 </script>
 </body></html>
+
 
 
 

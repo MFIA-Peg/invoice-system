@@ -77,28 +77,33 @@
     const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=Array.from({length:4},()=>Array(13).fill(0));
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     const from=scope?.periodFrom??scope?.dueFrom??'',to=scope?.periodTo??scope?.dueTo??'',filtered=!!(from||to),overdueRows=[];
-    const inPeriod=date=>!!date&&(!from||date>=from)&&(!to||date<=to);
+    const inPeriod=value=>!!value&&(!from||value>=from)&&(!to||value<=to);
     const records=PEAnnual.records(),projects=new Map(records.projects.map(p=>[text(p.id),p]));
-    function add(values,date,value){if(PEAnnual.inYear(date)&&inPeriod(String(date).slice(0,10))){const m=Number(String(date).slice(5,7));if(m>=1&&m<=12)values[m]+=value;}}
+    const events=s.scoped.filter(PEAnnual.isIssued).flatMap(i=>[text(i.start_date).slice(0,10),PEAnnual.due(i)]).concat(s.collections.map(c=>text(c.collection_date).slice(0,10))).filter(d=>/^\\d{4}-\\d{2}-\\d{2}$/.test(d)&&inPeriod(d)).sort();
+    const defaultYear=!filtered&&!scope?.allPeriods;
+    const first=defaultYear?y+'-01':(from||events[0]||to||y+'-01-01').slice(0,7),last=defaultYear?y+'-12':(to||events.at(-1)||from||y+'-12-31').slice(0,7);
+    const months=[];for(let year=Number(first.slice(0,4)),month=Number(first.slice(5,7));year<Number(last.slice(0,4))||year===Number(last.slice(0,4))&&month<=Number(last.slice(5,7));){months.push(year+'-'+String(month).padStart(2,'0'));if(++month>12){month=1;year++;}}
+    const monthIndex=new Map(months.map((m,i)=>[m,i+1]));series.forEach((_,k)=>series[k]=Array(months.length+1).fill(0));
+    function add(values,value,amount){const d=text(value).slice(0,10),index=monthIndex.get(d.slice(0,7));if(index&&inPeriod(d))values[index]+=amount;}
     for(const invoice of s.scoped){
       if(!PEAnnual.isIssued(invoice))continue;
-      const m=PEAnnual.metrics(invoice,s.orderMap.get(text(invoice.po_no))),due=PEAnnual.due(invoice);
+      const order=PEAnnual.orderFor(invoice),m=PEAnnual.metrics(invoice,order),due=PEAnnual.due(invoice);
       add(series[0],invoice.start_date,m.total);add(series[1],due,m.total);
-      if(due&&due<today&&m.overdue>0.005&&inPeriod(due)&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim())){
-        if(Number(due.slice(0,4))<y)series[3][0]+=m.balance;
-        else add(series[3],due,m.balance);
-        const order=s.orderMap.get(text(invoice.po_no)),project=projects.get(text(invoice.project_id??order?.project_id));
+      if(due&&due<today&&m.overdue>0.005&&inPeriod(due)){
+        if(due.slice(0,7)<first)series[3][0]+=m.balance;else add(series[3],due,m.balance);
+        const project=projects.get(text(order?.project_id??invoice.project_id));
         overdueRows.push({customer:order?.company||project?.company||invoice.company||'—',department:order?.department||project?.department||invoice.department||'—',po:invoice.po_no||order?.po_no||'—',invoice:invoice.invoice_no||'—',due,amount:m.balance});
       }
     }
     for(const c of s.collections)add(series[2],c.collection_date,num(c.amount));
-    const labels=['Previous years','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],colors=['#2563eb','#d97706','#0f766e','#dc2626'];
-    const max=Math.max(1,...series.flat()),width=1100,height=310,left=85,top=24,bottom=258,plotW=990,plotH=bottom-top,step=plotW/13;
-    let svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Monthly invoice, expected collection, actual collection and current overdue balance comparison for '+y+'">';
-    for(let i=0;i<=4;i++){const v=max*i/4,yy=bottom-plotH*i/4;svg+='<line x1="'+left+'" y1="'+yy+'" x2="1080" y2="'+yy+'" stroke="#e2e8f0"/><text x="75" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#64748b">'+esc(new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v))+'</text>';}
-    for(let m=0;m<13;m++){for(let j=0;j<4;j++){if(m===0&&j!==3)continue;const v=series[j][m],h=v/max*plotH,x=left+m*step+4+j*17;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="14" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+labels[m]+' '+(m===0?'before '+y:y)+' · '+['Invoiced','Expected collection','Actual collection','Current overdue balance'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+36)+'" y="281" text-anchor="middle" font-size="'+(m===0?9:12)+'" fill="#475569">'+labels[m]+'</text>';}
+    const multiYear=first.slice(0,4)!==last.slice(0,4),names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const labels=['Earlier years',...months.map(m=>names[Number(m.slice(5,7))-1]+(multiYear?' '+m.slice(0,4):''))],colors=['#2563eb','#d97706','#0f766e','#dc2626'];
+    const max=Math.max(1,...series.flat()),width=Math.max(1100,85+(months.length+1)*77+25),height=310,left=85,top=24,bottom=258,plotW=width-110,plotH=bottom-top,step=plotW/labels.length;
+    let svg='<svg viewBox="0 0 '+width+' '+height+'" style="min-width:'+width+'px" role="img" aria-label="Monthly invoice, expected collection, actual collection and current overdue balance comparison for '+esc(first)+' to '+esc(last)+'">';
+    for(let i=0;i<=4;i++){const v=max*i/4,yy=bottom-plotH*i/4;svg+='<line x1="'+left+'" y1="'+yy+'" x2="'+(width-20)+'" y2="'+yy+'" stroke="#e2e8f0"/><text x="75" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#64748b">'+esc(new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v))+'</text>';}
+    for(let m=0;m<labels.length;m++){for(let j=0;j<4;j++){if(m===0&&j!==3)continue;const v=series[j][m],h=v/max*plotH,x=left+m*step+4+j*17;svg+='<rect x="'+x+'" y="'+(bottom-h)+'" width="14" height="'+h+'" rx="3" fill="'+colors[j]+'"><title>'+(m===0?'Before '+first:months[m-1])+' · '+['Invoiced','Expected collection','Actual collection','Current overdue balance'][j]+': '+esc(money(v))+'</title></rect>';}svg+='<text x="'+(left+m*step+36)+'" y="281" text-anchor="middle" font-size="'+(m===0||multiYear?9:12)+'" fill="#475569">'+labels[m]+'</text>';}
     svg+='</svg>';
-    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span><span style="--series:#dc2626">Overdue now · due month</span></div><p class="muted" style="font-size:12px">Overdue as of '+esc(today)+': previous years combined first, then current-year due months; excluding unreleased retention. This is not a historical month-end balance. '+(filtered?'Selected period: '+esc(from||'Beginning')+' to '+esc(to||'Today')+'. Each series follows its own date.':scope?.singleInvoiceReport?'Use the invoice report for records matching all selected criteria.':'Select a due-date period above to show the overdue invoice statement.')+'</p><div class="pe-monthly-wrap">'+svg+'</div>';
+    host.innerHTML='<div class="pe-monthly-legend"><span style="--series:#2563eb">Invoiced · invoice date</span><span style="--series:#d97706">Expected · due date</span><span style="--series:#0f766e">Actual · collection date</span><span style="--series:#dc2626">Overdue now · due month</span></div><p class="muted" style="font-size:12px">Overdue as of '+esc(today)+': earlier years combined first, then due months in the displayed range; excluding unreleased retention. This is not a historical month-end balance. '+(filtered?'Selected period: '+esc(from||'Beginning')+' to '+esc(to||'No end date')+'. Each series follows its own date.':scope?.singleInvoiceReport?'Use the invoice report for records matching all selected criteria. '+(scope?.allPeriods?'All activity dates for the matching due-date invoices.':'Default financial period: '+y+'.'):'Select a due-date period above to show the overdue invoice statement.')+'</p><div class="pe-monthly-wrap">'+svg+'</div>';
     if(filtered&&!scope?.singleInvoiceReport){
       overdueRows.sort((a,b)=>a.due.localeCompare(b.due)||text(a.invoice).localeCompare(text(b.invoice)));
       const total=overdueRows.reduce((n,r)=>n+r.amount,0);
@@ -183,6 +188,7 @@
   global.PEWorkspace={customerBalances,orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+
 
 
 
