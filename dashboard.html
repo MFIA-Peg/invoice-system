@@ -36,7 +36,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124report1"></script>
+<script src="workspace-ui.js?v=20261124single1"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
@@ -61,7 +61,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
 <section class="panel"><h2>Financial Summary</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
 <section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Monthly invoicing uses the invoice date and includes VAT. Expected collection uses the invoice due date. Actual collection uses the recorded collection date. The Billing summary card above uses approval date.</p><div id="monthlyComparison"></div></section>
-<section class="panel" id="dashboardInvoices" hidden><h2>Filtered invoice details</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
+<section class="panel" id="dashboardInvoices" hidden><h2>Invoice Report</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
 <article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
 <article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention follows approval date.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
@@ -109,7 +109,7 @@ async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='tr
 initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261124seven1"></script>
-<script src="dashboard-workflows.js?v=20261124fit1"></script>
+<script src="dashboard-workflows.js?v=20261124single1"></script>
 <script>
 PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
