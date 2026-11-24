@@ -34,81 +34,74 @@
     value.setUTCDate(value.getUTCDate() + number(invoice.payment_terms));
     return value.toISOString().slice(0, 10);
   }
-  function metrics(invoice, order) {
-    const net = Math.max(0, number(invoice.invoice_amount) - number(invoice.advance_amortisation));
-    const vat = order?.vat ? Math.round((net * 0.15 + Number.EPSILON) * 100) / 100 : 0;
-    const total = net + vat;
-    const retentionOnly=String(invoice.status||'').trim().toUpperCase()==='RETENTION';
-    const recordedRetention = Math.max(0, number(invoice.retention_amount) + number(invoice.retention_vat) - number(invoice.retention_released_amount));
-    const retention = Math.min(recordedRetention,Math.max(0,total-number(invoice.paid_amount)-number(invoice.retention_released_amount)));
-    const balance = retentionOnly?0:Math.max(0, total - number(invoice.retention_amount) - number(invoice.retention_vat) - number(invoice.paid_amount));
-    return {net, vat, total, retention, balance};
+  const round = value => Math.round((number(value)+Number.EPSILON)*100)/100;
+  function workflow(invoice) {
+    const status=String(invoice.status||'').trim().toLowerCase();
+    if (/^(cancelled|canceled|void)$/.test(status)) return 'cancelled';
+    if (status==='draft') return 'draft';
+    if (/^(?:[12]-)?(?:submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/.test(status)) return 'waiting';
+    return 'issued';
   }
+  const isIssued=invoice=>workflow(invoice)==='issued';
+  let indexedOrders,byOrderId,byOrderNo;
+  function orderFor(invoice) {
+    if(indexedOrders!==data.orders){indexedOrders=data.orders;byOrderId=new Map(data.orders.map(p=>[String(p.id),p]));byOrderNo=new Map(data.orders.map(p=>[String(p.po_no),p]));}
+    return (invoice.pos_id!=null&&byOrderId.get(String(invoice.pos_id)))||byOrderNo.get(String(invoice.po_no));
+  }
+  function orderGross(order) {return round(number(order?.po_value_ex_vat)*(order?.vat?1.15:1));}
+  function metrics(invoice, order=orderFor(invoice)) {
+    const net=round(Math.max(0,number(invoice.invoice_amount)));
+    const taxable=order?.vat ?? invoice.vat_applicable;
+    const vat=round(taxable!=null?(taxable?net*.15:0):Math.max(0,number(invoice.vat_amount??invoice.vat_after_advance)));
+    const total=round(net+vat),advanceEx=Math.min(net,Math.max(0,number(invoice.advance_amortisation)));
+    const payableNet=round(net-advanceEx),payableVat=round(taxable!=null?(taxable?payableNet*.15:0):net?vat*payableNet/net:0);
+    const payableTotal=round(payableNet+payableVat),advance=round(total-payableTotal);
+    const released=Math.max(0,number(invoice.retention_released_amount));
+    const collected=round(Math.min(payableTotal,Math.max(0,number(invoice.paid_amount))+released));
+    const remaining=round(Math.max(0,payableTotal-collected));
+    const recordedRetention=round(Math.max(0,number(invoice.retention_amount)+number(invoice.retention_vat)-released));
+    const retention=String(invoice.status||'').trim().toUpperCase()==='RETENTION'?remaining:Math.min(recordedRetention,remaining);
+    const balance=round(remaining-retention),d=due(invoice),overdue=d&&d<today?balance:0,notDue=round(balance-overdue);
+    return {net,vat,total,payableTotal,advance,advanceEx,collected,remaining,retention,balance,overdue,notDue};
+  }
+  function unique(rows) {const seen=new Set();return rows.filter(row=>row.id==null||!seen.has(String(row.id))&&seen.add(String(row.id)));}
   function snapshot(scope = {}) {
-    const orderMap = new Map(data.orders.map(order => [String(order.po_no), order]));
-    const projectMap = new Map(data.projects.map(project => [String(project.id), project]));
-    const invoiceIds = scope.invoiceIds && new Set(scope.invoiceIds.map(String));
-    const orderNos = scope.orderNos && new Set(scope.orderNos.map(String));
-    const projectIds = scope.projectIds && new Set(scope.projectIds.map(String));
-    const companies = scope.companies && new Set(scope.companies.map(String));
-    const departments = scope.departments && new Set(scope.departments.map(String));
-    const collectionIds = scope.collectionIds && new Set(scope.collectionIds.map(String));
-    function dimension(row, order) {
-      const project = projectMap.get(String(row.project_id ?? order?.project_id));
-      return (!orderNos || orderNos.has(String(order?.po_no ?? row.po_no))) &&
-        (!projectIds || projectIds.has(String(project?.id))) &&
-        (!companies || companies.has(String(order?.company ?? project?.company ?? row.company))) &&
-        (!departments || departments.has(String(order?.department ?? project?.department ?? row.department)));
+    const orderMap=new Map(data.orders.map(p=>[String(p.po_no),p])),projectMap=new Map(data.projects.map(p=>[String(p.id),p]));
+    const set=values=>values&&new Set(values.map(String));
+    const invoiceIds=set(scope.invoiceIds),orderNos=set(scope.orderNos),projectIds=set(scope.projectIds),companies=set(scope.companies),departments=set(scope.departments),collectionIds=set(scope.collectionIds);
+    function dimension(row,order) {
+      const project=projectMap.get(String(row.project_id??order?.project_id));
+      return (!orderNos||orderNos.has(String(order?.po_no??row.po_no)))&&(!projectIds||projectIds.has(String(project?.id)))&&(!companies||companies.has(String(order?.company??project?.company??row.company)))&&(!departments||departments.has(String(order?.department??project?.department??row.department)));
     }
-    const scoped = data.invoices.filter(invoice => {
-      if (/^(cancelled|canceled|void)$/i.test(invoice.status || '')) return false;
-      return (!invoiceIds || invoiceIds.has(String(invoice.id))) && dimension(invoice, orderMap.get(String(invoice.po_no)));
-    });
-    const scopedIds = new Set(scoped.map(invoice => String(invoice.id)));
-    const annual = scoped.filter(invoice => {
-      const value = due(invoice);
-      return inYear(value) && (!scope.dueFrom || value >= scope.dueFrom) && (!scope.dueTo || value <= scope.dueTo);
-    });
-    const collections = data.collections.filter(collection => scopedIds.has(String(collection.invoice_id)) &&
-      (!collectionIds || collectionIds.has(String(collection.id))) && inYear(collection.collection_date) &&
-      (!scope.collectionFrom || date(collection.collection_date) >= scope.collectionFrom) &&
-      (!scope.collectionTo || date(collection.collection_date) <= scope.collectionTo));
-    const totals = {net: 0, vat: 0, total: 0, collected: 0, balance: 0, overdue: 0, pending: 0, retention: 0};
-    for (const invoice of annual) {
-      const m = metrics(invoice, orderMap.get(String(invoice.po_no)));
-      for (const key of ['net', 'vat', 'total', 'balance', 'retention']) totals[key] += m[key];
-      if (due(invoice) < today) totals.overdue += m.balance;
-    }
-    // Pending invoices have no due date until approved. Use their invoice issue year.
-    for (const invoice of scoped) {
-      if (!due(invoice) && !invoice.approval_date && inYear(invoice.start_date)) {
-        totals.pending += metrics(invoice, orderMap.get(String(invoice.po_no))).total;
-      }
-    }
-    totals.collected = collections.reduce((sum, collection) => sum + number(collection.amount), 0);
-    const orders = data.orders.filter(order => dimension(order, order) && inYear(order.po_date) &&
-      (!scope.orderFrom || date(order.po_date) >= scope.orderFrom) && (!scope.orderTo || date(order.po_date) <= scope.orderTo));
-    const poValue = orders.reduce((sum, order) => sum + number(order.po_value_ex_vat), 0);
-    const billedByOrder = new Map();
-    for (const invoice of scoped) {
-      const key = String(invoice.po_no);
-      billedByOrder.set(key, (billedByOrder.get(key) || 0) + number(invoice.invoice_amount));
-    }
-    const remaining = orders.reduce((sum, order) => sum + Math.max(0, number(order.po_value_ex_vat) - (billedByOrder.get(String(order.po_no)) || 0)), 0);
-    const activityIds = new Set([...annual.map(invoice => String(invoice.project_id)), ...orders.map(order => String(order.project_id))]);
-    const collectedInvoiceIds = new Set(collections.map(collection => String(collection.invoice_id)));
-    for (const invoice of scoped) if (collectedInvoiceIds.has(String(invoice.id))) activityIds.add(String(invoice.project_id));
-    const paid = annual.filter(invoice => {
-      const m = metrics(invoice, orderMap.get(String(invoice.po_no)));
-      return m.balance <= 0.005 && m.retention <= 0.005;
-    }).reduce((sum, invoice) => sum + metrics(invoice, orderMap.get(String(invoice.po_no))).total, 0);
-    return {totals, annual, collections, orders, orderMap, poValue, remaining, activityIds, paid, scoped,
-      advance: orders.reduce((sum, order) => sum + number(order.advance_received_amount), 0)};
+    const scoped=unique(data.invoices).filter(i=>workflow(i)!=='cancelled'&&(!invoiceIds||invoiceIds.has(String(i.id)))&&dimension(i,orderFor(i)));
+    const period=(d,from,to)=>inYear(d)&&(!from||d>=from)&&(!to||d<=to);
+    const annual=scoped.filter(i=>isIssued(i)&&period(due(i)||date(i.start_date),scope.dueFrom,scope.dueTo));
+    const draft=scoped.filter(i=>workflow(i)==='draft'&&period(date(i.start_date),scope.dueFrom,scope.dueTo));
+    const waiting=scoped.filter(i=>workflow(i)==='waiting'&&period(date(i.start_date),scope.dueFrom,scope.dueTo));
+    const scopedIds=new Set(scoped.map(i=>String(i.id)));
+    const collections=unique(data.collections).filter(c=>scopedIds.has(String(c.invoice_id))&&(!collectionIds||collectionIds.has(String(c.id)))&&period(date(c.collection_date),scope.collectionFrom,scope.collectionTo));
+    const totals={net:0,vat:0,total:0,collected:0,settled:0,advanceApplied:0,balance:0,notDue:0,overdue:0,pending:0,draft:0,retention:0};
+    for(const invoice of annual){const m=metrics(invoice,orderFor(invoice));for(const key of ['net','vat','total','balance','notDue','overdue','retention'])totals[key]+=m[key];totals.settled+=m.collected;totals.advanceApplied+=m.advance;}
+    totals.draft=draft.reduce((v,i)=>v+metrics(i,orderFor(i)).total,0);
+    totals.pending=waiting.reduce((v,i)=>v+metrics(i,orderFor(i)).total,0);
+    totals.collected=collections.reduce((v,c)=>v+number(c.amount),0);
+    for(const key of Object.keys(totals))totals[key]=round(totals[key]);
+    const orders=unique(data.orders).filter(p=>dimension(p,p)&&period(date(p.po_date),scope.orderFrom,scope.orderTo));
+    const billedByOrder=new Map();
+    for(const i of unique(data.invoices)){if(!isIssued(i))continue;const po=orderFor(i);if(!po)continue;const key=String(po.id);billedByOrder.set(key,(billedByOrder.get(key)||0)+metrics(i,po).total);}
+    const poValue=round(orders.reduce((v,p)=>v+orderGross(p),0));
+    const remaining=round(orders.reduce((v,p)=>v+Math.max(0,orderGross(p)-(billedByOrder.get(String(p.id))||0)),0));
+    const poInvoiced=round(orders.reduce((v,p)=>v+(billedByOrder.get(String(p.id))||0),0));
+    const activityIds=new Set([...annual.map(i=>String(i.project_id)),...orders.map(p=>String(p.project_id))]);
+    const collectedIds=new Set(collections.map(c=>String(c.invoice_id)));
+    for(const i of scoped)if(collectedIds.has(String(i.id)))activityIds.add(String(i.project_id));
+    const paid=annual.filter(i=>metrics(i,orderFor(i)).remaining<=.005).reduce((v,i)=>v+metrics(i,orderFor(i)).total,0);
+    return {totals,annual,draft,waiting,collections,orders,orderMap,poValue,remaining,poInvoiced,activityIds,paid,scoped,advance:orders.reduce((v,p)=>v+number(p.advance_received_amount),0)};
   }
   const labels = [
-    ['Invoice Value Ex VAT', 'net'], ['VAT', 'vat'], ['Invoice Total', 'total'],
-    ['Collected', 'collected'], ['Open Balance', 'balance'], ['Overdue', 'overdue'],
-    ['Pending Approval', 'pending'], ['Retention', 'retention']
+    ['Invoice Total Incl VAT','total'],['Settled Against Invoices','settled'],['Advance Applied Incl VAT','advanceApplied'],
+    ['Not Yet Due','notDue'],['Overdue','overdue'],['Retention','retention'],
+    ['Draft','draft'],['Waiting For approval','pending'],['Cash Received (period)','collected']
   ];
   function style() {
     if (document.getElementById('peAnnualStyle')) return;
@@ -147,49 +140,17 @@
     if (!host) return;
     style();
     const s = snapshot(scope);
-    const note = year + ' · Invoices by due date · Collections by payment date · Pending approval by invoice date';
-    let cards = labels.map(([label, key]) => [label, s.totals[key], key === 'collected' ? 'Payment date' : key === 'pending' ? 'Invoice date · awaiting approval' : 'Invoice due date', false]);
-    const moneyCard = (label, value, basis = 'Invoice due date') => [label, value, basis, false];
-    const countCard = (label, value, basis = 'Activity in current year') => [label, value, basis, true];
-    const poBasis = 'PO date · undated POs excluded';
-    const profile = scope?.profile;
-    if (profile === 'customers') cards = [
-      moneyCard('Purchase Order Value', s.poValue, poBasis), moneyCard('Purchase Order Balance', s.remaining, poBasis),
-      moneyCard('Billing', s.totals.total), moneyCard('Paid', s.paid),
-      moneyCard('Collected', s.totals.collected, 'Payment date'), moneyCard('Outstanding Balance', s.totals.balance + s.totals.retention),
-      moneyCard('Pending Approval', s.totals.pending, 'Invoice date · awaiting approval'), moneyCard('Overdue Balance', s.totals.overdue),
-      moneyCard('Not Yet Due', Math.max(0, s.totals.balance - s.totals.overdue)), moneyCard('Retention', s.totals.retention)
-    ];
-    if (profile === 'projects') cards = [
-      countCard('Projects', s.activityIds.size), countCard('Purchase Orders', s.orders.length, poBasis),
-      moneyCard('PO Value', s.poValue, poBasis), moneyCard('Invoiced', s.totals.net),
-      moneyCard('Collected', s.totals.collected, 'Payment date'), moneyCard('Open Balance', s.totals.balance),
-      moneyCard('Overdue', s.totals.overdue), moneyCard('Retention', s.totals.retention)
-    ];
-    if (profile === 'orders') cards = [
-      countCard('Purchase Orders', s.orders.length, poBasis), moneyCard('PO Value', s.poValue, poBasis),
-      moneyCard('Invoiced', s.totals.net), moneyCard('Remaining PO Value', s.remaining, poBasis),
-      countCard('Open POs', s.orders.filter(order => !order.archive && !/closed/i.test(order.status || '')).length, poBasis),
-      moneyCard('Advance Received', s.advance, poBasis)
-    ];
-    if (profile === 'invoices') {
-      const draft = s.scoped.filter(i => String(i.status || '').trim().toLowerCase() === 'draft' && inYear(i.start_date));
-      const waiting = s.scoped.filter(i => /^(?:2-)?waiting for approval$/i.test(String(i.status || '').trim()) && inYear(i.start_date));
-      const counted = (label, value, basis, count) => [label, value, basis, false, count];
-      const countMetric = key => s.annual.filter(i => Math.abs(metrics(i,s.orderMap.get(String(i.po_no)))[key]) > .005).length;
-      const sumStatus = rows => rows.reduce((sum,i) => sum + metrics(i,s.orderMap.get(String(i.po_no))).total,0);
-      cards = [
-        counted('Invoice Value Ex VAT',s.totals.net,'Invoice due date',s.annual.length),
-        counted('VAT',s.totals.vat,'Invoice due date',countMetric('vat')),
-        counted('Invoice Total',s.totals.total,'Invoice due date',s.annual.length),
-        counted('Collected',s.totals.collected,'Payment date',new Set(s.collections.map(c=>String(c.invoice_id))).size),
-        counted('Open Balance',s.totals.balance,'Invoice due date',countMetric('balance')),
-        counted('Overdue',s.totals.overdue,'Invoice due date',s.annual.filter(i=>due(i)<today&&metrics(i,s.orderMap.get(String(i.po_no))).balance>.005).length),
-        counted('Retention',s.totals.retention,'Invoice due date',countMetric('retention')),
-        counted('Draft',sumStatus(draft),'Invoice date · including VAT',draft.length),
-        counted('Waiting For approval',sumStatus(waiting),'Invoice date · including VAT',waiting.length)
-      ];
-    }
+    const note=year+' · All financial totals include VAT · Issued invoices by due date (issue date if undated); draft/waiting by issue date; cash by payment date. Invoice Total is a control total: settled + allocated advance + not yet due + overdue + retention. Cash received is a separate period flow. Current register filters apply.';
+    const profile=scope?.profile;
+    const moneyCard=(label,value,basis='Incl VAT')=>[label,value,basis,false];
+    const countCard=(label,value,basis='Current-year activity')=>[label,value,basis,true];
+    const countMetric=key=>s.annual.filter(i=>Math.abs(metrics(i,orderFor(i))[key])>.005).length;
+    const counts={total:s.annual.length,settled:countMetric('collected'),advanceApplied:countMetric('advance'),notDue:countMetric('notDue'),overdue:countMetric('overdue'),retention:countMetric('retention'),draft:s.draft.length,pending:s.waiting.length,collected:new Set(s.collections.map(c=>String(c.invoice_id))).size};
+    let cards=labels.map(([label,key])=>[label,s.totals[key],key==='collected'?'Payment date · separate cash flow':key==='draft'||key==='pending'?'Invoice date · outside issued total':key==='total'?'Control total · Incl VAT':'Due-date invoice cohort · Incl VAT',false,counts[key]]);
+    const poBasis='PO date · Incl VAT · separate contract totals';
+    if(profile==='customers')cards=[moneyCard('Purchase Order Value Incl VAT',s.poValue,poBasis),moneyCard('Purchase Order Balance Incl VAT',s.remaining,poBasis),...cards];
+    if(profile==='projects')cards=[countCard('Projects',s.activityIds.size),countCard('Purchase Orders',s.orders.length,poBasis),moneyCard('PO Value Incl VAT',s.poValue,poBasis),...cards];
+    if(profile==='orders')cards=[countCard('Purchase Orders',s.orders.length,poBasis),moneyCard('PO Value Incl VAT',s.poValue,poBasis),moneyCard('PO Invoiced Incl VAT',s.poInvoiced,poBasis),moneyCard('Remaining PO Value Incl VAT',s.remaining,poBasis)];
     if (profile === 'collections') {
       const amounts = s.collections.map(collection => number(collection.amount));
       const methodCount = new Set(s.collections.map(collection => collection.payment_method).filter(Boolean)).size;
@@ -211,35 +172,39 @@
     global.PEKPIFilter?.bind(host,s,scope);
     return s;
   }
-  global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics, records: () => data};
+  global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics,workflow,isIssued,orderGross,orderFor,round,records: () => data};
 })(window);
 
 (function(global){
 'use strict';
 let active=null;const str=v=>String(v??''),num=v=>Number(v||0),positive=v=>Math.abs(num(v))>.005;
 function selection(s,label,profile){
- const A=PEAnnual,records=A.records(),metric=i=>A.metrics(i,s.orderMap.get(str(i.po_no))),norm=label.toLowerCase();
+ const A=PEAnnual,records=A.records(),metric=i=>A.metrics(i,A.orderFor(i)),norm=label.toLowerCase();
  let invoices=[],orders=[],collections=[],projects=[];
- if(profile==='collections'||/^(collected|total collected)$/.test(norm)){
+ if(profile==='collections'||/^(collected|total collected|cash received \(period\))$/.test(norm)){
   collections=s.collections;
   if(norm==='largest collection'){const max=Math.max(0,...collections.map(c=>num(c.amount)));collections=collections.filter(c=>num(c.amount)===max);}
   if(norm==='latest collection'){const latest=collections.map(c=>str(c.collection_date)).sort().at(-1);collections=collections.filter(c=>str(c.collection_date)===latest);}
   const ids=new Set(collections.map(c=>str(c.invoice_id)));invoices=s.scoped.filter(i=>ids.has(str(i.id)));
- }else if(/purchase order|^po |^open pos$|^advance received$|^remaining po value$/.test(norm)){
+ }else if(/purchase order|^po |^open pos$|^advance received$|^remaining po value/.test(norm)){
   orders=s.orders;
-  if(/balance|remaining/.test(norm))orders=orders.filter(p=>num(p.po_value_ex_vat)-s.scoped.filter(i=>str(i.po_no)===str(p.po_no)).reduce((v,i)=>v+num(i.invoice_amount),0)>.005);
+  const issuedFor=p=>records.invoices.filter(i=>A.isIssued(i)&&str(A.orderFor(i)?.id)===str(p.id));
+  if(/balance|remaining/.test(norm))orders=orders.filter(p=>A.orderGross(p)-issuedFor(p).reduce((v,i)=>v+A.metrics(i,p).total,0)>.005);
+  else if(/invoiced/.test(norm))orders=orders.filter(p=>issuedFor(p).length>0);
   else if(norm==='open pos')orders=orders.filter(p=>!p.archive&&!/closed/i.test(p.status||''));
   else if(norm==='advance received')orders=orders.filter(p=>positive(p.advance_received_amount));
   else if(!/purchase orders/.test(norm))orders=orders.filter(p=>positive(p.po_value_ex_vat));
  }else if(norm==='projects')projects=records.projects.filter(p=>s.activityIds.has(str(p.id)));
  else if(norm==='draft'||norm==='waiting for approval'||norm==='pending approval'){
-  invoices=s.scoped.filter(i=>A.inYear(i.start_date)&&(norm==='draft'?str(i.status).trim().toLowerCase()==='draft':norm==='waiting for approval'?/^(?:2-)?waiting for approval$/i.test(str(i.status).trim()):profile==='dashboard-waiting'?!i.approval_date&&/^(submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/i.test(str(i.status).trim()):!A.due(i)&&!i.approval_date));
+  invoices=norm==='draft'?s.draft:s.waiting;
  }else{
   invoices=s.annual.filter(i=>{
    const m=metric(i),due=A.due(i),today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-   if(norm==='paid')return m.balance<=.005&&m.retention<=.005;
-   if(/not yet due/.test(norm))return m.balance>.005&&due>=today;
-   if(/overdue/.test(norm))return m.balance>.005&&due<today;
+   if(norm==='settled against invoices')return m.collected>.005;
+   if(/advance applied/.test(norm))return m.advance>.005;
+   if(norm==='paid')return m.remaining<=.005;
+   if(/not yet due/.test(norm))return m.notDue>.005;
+   if(/overdue/.test(norm))return m.overdue>.005;
    if(/outstanding/.test(norm))return m.balance+m.retention>.005;
    if(/balance/.test(norm))return m.balance>.005;
    if(/retention/.test(norm))return m.retention>.005;
@@ -248,12 +213,12 @@ function selection(s,label,profile){
   });
  }
  const invoiceIds=new Set(invoices.map(i=>str(i.id))),orderIds=new Set(orders.map(p=>str(p.id))),projectIds=new Set(projects.map(p=>str(p.id)));
- for(const i of invoices){const po=s.orderMap.get(str(i.po_no));if(po)orderIds.add(str(po.id));if(i.project_id!=null)projectIds.add(str(i.project_id));}
+ for(const i of invoices){const po=A.orderFor(i);if(po)orderIds.add(str(po.id));if(i.project_id!=null)projectIds.add(str(i.project_id));}
  for(const p of records.orders)if(orderIds.has(str(p.id))&&p.project_id!=null)projectIds.add(str(p.project_id));
  const companies=new Set(),departments=new Set();
  for(const p of records.orders)if(orderIds.has(str(p.id))){companies.add(str(p.company));departments.add(str(p.department));}
  for(const p of projects){companies.add(str(p.company));departments.add(str(p.department));}
- for(const i of invoices)if(!s.orderMap.has(str(i.po_no))){const p=records.projects.find(p=>str(p.id)===str(i.project_id));companies.add(str(p?.company??i.company));departments.add(str(p?.department??i.department));}
+ for(const i of invoices)if(!A.orderFor(i)){const p=records.projects.find(p=>str(p.id)===str(i.project_id));companies.add(str(p?.company??i.company));departments.add(str(p?.department??i.department));}
  return {invoiceIds,orderIds,projectIds,companies,departments,collectionIds:new Set(collections.map(c=>str(c.id)))};
 }
 function matches(row,type,pick){return type==='invoice'?pick.invoiceIds.has(str(row.id)):type==='order'?pick.orderIds.has(str(row.id)):type==='project'?pick.projectIds.has(str(row.id)):type==='collection'?pick.collectionIds.has(str(row.id)):type==='customer'?pick.companies.has(str(row.name)):type==='department'?pick.departments.has(str(row.name)):false;}
@@ -273,7 +238,7 @@ function bind(host,s,scope={}){
 function bindDonuts(host,s){
  toolbar(host);host.querySelectorAll('.pe-donut-legend>div,.pe-donut-legend>button').forEach(node=>{const label=node.querySelector('.pe-donut-key')?.textContent.trim();if(!label)return;decorate(node,label,()=>{active=active?.label===label?null:{label,profile:label==='Pending Approval'?'dashboard-waiting':undefined};changed();});});
 }
-function filterOrders(rows,metrics){if(!active?.custom)return rows;return rows.filter(p=>positive(active.label==='PO Value Ex VAT'?p.po_value_ex_vat:metrics(p)[active.label==='PO Balance'?'remaining':'invoiced']));}
+function filterOrders(rows,metrics){if(!active?.custom)return rows;return rows.filter(p=>positive(/^PO Value/.test(active.label)?p.po_value_ex_vat:metrics(p)[/Balance|Remaining/.test(active.label)?'remaining':'invoiced']));}
 function bindOrders(host){toolbar(host);host.querySelectorAll('.kpi').forEach(node=>{const label=node.querySelector('.label').textContent.trim();decorate(node,label,()=>{active=active?.label===label?null:{label,custom:true};changed();});});}
 global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,active:()=>active,matches};
 document.addEventListener('click',event=>{if(event.target.closest?.('#clear,#clearFilters,#customerClear,[onclick="clearFilters()"],[onclick="resetFilters()"]'))active=null;},true);

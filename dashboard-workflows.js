@@ -11,14 +11,14 @@
     return records.invoices.map(i=>{
       const po=ordersById.get(str(i.pos_id))||orders.get(str(i.po_no)),p=projects.get(str(i.project_id??po?.project_id));
       const m=PEAnnual.metrics(i,po),due=PEAnnual.due(i),status=norm(i.status),cancelled=/^(cancelled|canceled|void)$/.test(status);
-      const draft=status==='draft',waiting=!cancelled&&!draft&&!i.approval_date&&(/^(submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/.test(status));
-      const overdue=!cancelled&&!!due&&due<asOf&&m.balance>0.005;
+      const workflow=PEAnnual.workflow(i),draft=workflow==='draft',waiting=workflow==='waiting',issued=workflow==='issued';
+      const overdue=issued&&!!due&&due<asOf&&m.balance>0.005;
       let payment='Unpaid';
       if(cancelled)payment='Cancelled';
-      else if(m.total>0&&m.balance<=0.005)payment=m.retention>0.005?'Retention Only':'Paid';
-      else if(Number(i.paid_amount||0)>0)payment='Partially Paid';
+      else if(m.payableTotal>0&&m.balance<=0.005)payment=m.retention>0.005?'Retention Only':'Paid';
+      else if(m.collected>0)payment='Partially Paid';
       return {i,po,p,m,due,payment,overdue,cancelled,draft,draftDue:!cancelled&&draft&&!!i.start_date&&date(i.start_date)<=asOf,waiting,
-        customer:i.company||po?.company||p?.company||'Unassigned',department:i.department||po?.department||p?.department||'Unassigned',project:i.project_name||p?.project_name||po?.project_name||'Unassigned'};
+        customer:po?.company||p?.company||i.company||'Unassigned',department:po?.department||p?.department||i.department||'Unassigned',project:p?.project_name||i.project_name||po?.project_name||'Unassigned'};
     });
   }
   function matches(row,f,{period=true,attention=true}={}){
@@ -40,15 +40,15 @@
     const base=rows.filter(r=>matches(r,f,{attention:false}));
     // Without a period, operational alerts include older unresolved invoices.
     const operational=(f.from||f.to)?base:rows.filter(r=>matches(r,f,{period:false,attention:false}));
-    const specs=[['draftDue','Drafts due for issue','Invoice date is today or earlier; status remains Draft.'],['waiting','Awaiting approval','Submitted / pending approval without an approval date.'],['overdue','Overdue collection','Unpaid due balance past its due date.']];
+    const specs=[['draftDue','Drafts due for issue','Invoice date is today or earlier; status remains Draft.'],['waiting','Awaiting approval','Invoice workflow remains Waiting For approval.'],['overdue','Overdue collection','Issued invoice cash balance past its due date; excludes retention.']];
     el('invoiceAlerts').innerHTML=specs.map(([key,title,note])=>{
       const group=operational.filter(r=>r[key]),total=group.reduce((n,r)=>n+(key==='overdue'?r.m.balance:r.m.total),0);
       return '<button type="button" class="invoice-alert '+(activeAttention===key?'selected':'')+'" data-attention="'+key+'" aria-pressed="'+(activeAttention===key)+'"><strong>'+esc(title)+'</strong><span>'+group.length+' invoices · '+esc(amount(total))+'</span><small>'+esc(note)+'</small></button>';
     }).join('');
     el('invoiceAlerts').querySelectorAll('[data-attention]').forEach(b=>b.addEventListener('click',()=>{activeAttention=activeAttention===b.dataset.attention?'':b.dataset.attention;renderKPIs();el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});}));
   }
-  const columns=['Invoice Number','Customer','Department','Project','Purchase Order','Invoice Date','Due Date','Invoice Status','Payment Status','Total Incl VAT','Paid','Open Collection Balance','Retention Balance'];
-  function values(r){return [r.i.invoice_no||'—',r.customer,r.department,r.project,r.i.po_no||r.po?.po_no||'—',date(r.i.start_date)||'—',r.due||'—',r.i.status||'—',r.payment,r.m.total,Number(r.i.paid_amount||0),r.m.balance,r.m.retention];}
+  const columns=['Invoice Number','Customer','Department','Project','Purchase Order','Invoice Date','Due Date','Invoice Status','Payment Status','Invoice Total Incl VAT','Settled Against Invoices','Advance Applied Incl VAT','Not Yet Due Incl VAT','Overdue Incl VAT','Retention Balance Incl VAT'];
+  function values(r){return [r.i.invoice_no||'—',r.customer,r.department,r.project,r.i.po_no||r.po?.po_no||'—',date(r.i.start_date)||'—',r.due||'—',r.i.status||'—',r.payment,r.m.total,r.m.collected,r.m.advance,r.m.notDue,r.m.overdue,r.m.retention];}
   function renderTable(rows,f){
     el('dashboardInvoices').hidden=!PEKPIFilter.active()&&!Object.values(f).some(Boolean);
     const base=rows.filter(r=>matches(r,f,{period:!PEKPIFilter.active()})),ids=new Set(PEKPIFilter.filter(base.map(r=>r.i),'invoice',kpiScope).map(i=>str(i.id)));
@@ -70,9 +70,9 @@
     const s=PEAnnual.render('kpis',null,scope);
     PEDashboardDonuts.kpis(s,dimensionRows,f);
     PEKPIFilter.bindDonuts(el('kpis'),s);
-    PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
-    PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
-    PEAnnual.chart('poChart',[['PO Value',s.poValue],['Invoiced',s.totals.net]]);
+    PEAnnual.chart('collectionChart',[['Cash Received (period)',s.totals.collected],['Settled Against Invoices',s.totals.settled]]);
+    PEAnnual.chart('overdueChart',[['Overdue Incl VAT',s.totals.overdue],['Not Yet Due Incl VAT',s.totals.notDue],['Retention Incl VAT',s.totals.retention]]);
+    PEAnnual.chart('poChart',[['PO Value Incl VAT',s.poValue],['PO Invoiced Incl VAT',s.poInvoiced],['Remaining PO Value Incl VAT',s.remaining]]);
     PEWorkspace.monthly(scope);renderAlerts(rows,f);renderTable(rows,f);
     el('status').textContent=PEAnnual.year+' · Current-year KPIs · Invoice due dates / collection payment dates';
     el('clearAttention').hidden=!activeAttention;
@@ -95,6 +95,7 @@
   document.addEventListener('pe-kpi-filter',()=>{renderKPIs();el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});});
   global.PEDashboard={buildRows,matches,values,selectWorkflow};
 })(window);
+
 
 
 

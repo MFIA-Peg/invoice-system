@@ -35,9 +35,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124kpi1"></script>
+<script src="annual-analytics.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261123i"></script>
+<script src="workspace-ui.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
@@ -75,7 +75,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="field"><label for="project">Project</label><select id="project" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
 <div class="field"><label for="status">Status</label><select id="status"><option value="">All statuses</option><option value="Open">Open</option><option value="Expired">Expired</option><option value="Not Yet Active">Not Yet Active</option><option value="Completed">Completed</option><option value="Closed">Closed</option><option value="Cancelled">Cancelled</option><option value="Invalid Dates">Invalid Dates</option></select></div>
 </div></section>
-<section class="panel"><div class="panelhead"><div><h2>Purchase Order Register</h2></div></div>
+<section class="panel"><div class="panelhead"><div><h2>Purchase Order Register</h2><p class="muted">Table totals cover accessible history and include VAT; stored contract fields in the full export retain their original basis.</p></div></div>
 <div class="tablewrap" id="tableWrap"><div class="empty">Loading purchase orders...</div></div>
 <div class="footer"><span>Source: Supabase projects, pos and invoice_details_with_retention.</span><span>Currency: SAR</span></div>
 </section>
@@ -155,15 +155,15 @@ function registerRecordLinks(type,row){
 
 function render(){
  renderRegisterPager();
- const sum=key=>peKpiBase.reduce((total,p)=>total+(key==='value'?num(p.po_value_ex_vat):invoiceTotals(p)[key]),0);
- const cards=[['PO Value Ex VAT',sum('value')],['Total Invoiced Ex VAT',sum('invoiced')],['PO Balance',sum('remaining')]];
+ const sum=key=>peKpiBase.reduce((total,p)=>total+(key==='value'?PEAnnual.orderGross(p):invoiceTotals(p)[key==='invoiced'?'grossInvoiced':'grossRemaining']),0);
+ const cards=[['PO Value Incl VAT',sum('value')],['Total Invoiced Incl VAT',sum('invoiced')],['PO Balance Incl VAT',sum('remaining')]];
  $('kpis').innerHTML=cards.map(([label,value])=>'<article class="kpi"><div class="label">'+label+'</div><div class="value">'+money(value)+'</div></article>').join('');
  PEKPIFilter.bindOrders($('kpis'));
  const rows=filtered.slice((registerPage-1)*50,registerPage*50).map(p=>{
   const m=invoiceTotals(p),status=m.status,cls=/Completed|Closed/.test(status)?'closed':/Expired|Invalid/.test(status)?'expired':'';
-  return '<tr data-access-department="'+esc(p.department)+'" data-po-row="'+esc(p.po_no)+'"><td><button class="po-drill" type="button" data-drill-po="'+esc(p.po_no)+'" aria-expanded="false">'+esc(p.po_no)+' ▾</button></td><td>'+esc(p.erp_code)+'</td><td>'+esc(p.company)+'</td><td>'+esc(p.department)+'</td><td>'+esc(p.project_name)+'</td><td class="num">'+money(p.po_value_ex_vat)+'</td><td class="num">'+money(m.invoiced)+'</td><td class="num">'+money(m.remaining)+'</td><td><span class="pill '+cls+'" title="'+esc('PO date: '+poInvoiceDate(p.po_date)+' · Expiry: '+poInvoiceDate(p.expiry_date))+'">'+esc(status)+'</span></td><td><div class="register-actions">'+registerRecordLinks('po',p)+(PEAccess.can('orders','delete',p.department)?'<button type="button" class="danger" title="Delete" aria-label="Delete" data-po-delete="'+p.id+'">⌫</button>':'')+'<a class="btn secondary" title="PO Report" aria-label="PO Report" href="reports.html?report=invoices&amp;po_no='+encodeURIComponent(p.po_no)+'">Report</a></div></td></tr>';
+  return '<tr data-access-department="'+esc(p.department)+'" data-po-row="'+esc(p.po_no)+'"><td><button class="po-drill" type="button" data-drill-po="'+esc(p.po_no)+'" aria-expanded="false">'+esc(p.po_no)+' ▾</button></td><td>'+esc(p.erp_code)+'</td><td>'+esc(p.company)+'</td><td>'+esc(p.department)+'</td><td>'+esc(p.project_name)+'</td><td class="num">'+money(m.grossValue)+'</td><td class="num">'+money(m.grossInvoiced)+'</td><td class="num">'+money(m.grossRemaining)+'</td><td><span class="pill '+cls+'" title="'+esc('PO date: '+poInvoiceDate(p.po_date)+' · Expiry: '+poInvoiceDate(p.expiry_date))+'">'+esc(status)+'</span></td><td><div class="register-actions">'+registerRecordLinks('po',p)+(PEAccess.can('orders','delete',p.department)?'<button type="button" class="danger" title="Delete" aria-label="Delete" data-po-delete="'+p.id+'">⌫</button>':'')+'<a class="btn secondary" title="PO Report" aria-label="PO Report" href="reports.html?report=invoices&amp;po_no='+encodeURIComponent(p.po_no)+'">Report</a></div></td></tr>';
  });
- $('tableWrap').innerHTML=rows.length?'<table class="register-table register-pos"><thead><tr>'+['PO Number','ERP Code','Customer','Department','Project','PO Value Ex VAT','Total Invoiced Ex VAT','PO Balance','PO Status','Actions'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>':'<div class="empty">No purchase orders match the selected filters.</div>';
+ $('tableWrap').innerHTML=rows.length?'<table class="register-table register-pos"><thead><tr>'+['PO Number','ERP Code','Customer','Department','Project','PO Value Incl VAT','Total Invoiced Incl VAT','PO Balance Incl VAT','PO Status','Actions'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>':'<div class="empty">No purchase orders match the selected filters.</div>';
  $('tableWrap').querySelectorAll('[data-po-delete]').forEach(b=>b.onclick=()=>deleteRegisteredPO(b.dataset.poDelete));
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(b=>b.onclick=()=>togglePODetail(b.dataset.drillPo,b));
 }
@@ -180,7 +180,7 @@ function poInvoiceDate(value){
  return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(5,7)+'/'+d.slice(8,10)+'/'+d.slice(0,4):'—';
 }
 function poInvoicePayment(x){
- const total=num(x.net_payable_after_advance??x.net_payable??x.invoice_total_after_advance??x.invoice_total),paid=num(x.paid_amount),retention=num(x.retention_balance),balance=Math.max(0,num(x.collection_balance_after_advance??x.open_balance));
+ const metric=PEAnnual.metrics(x,PEAnnual.orderFor(x)),total=metric.payableTotal,paid=metric.collected,retention=metric.retention,balance=metric.balance;
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  if(total>0&&paid>=total-.005&&retention<=.005)return 'Paid';
  if(balance>.005&&x.due_date&&String(x.due_date).slice(0,10)<today)return 'Overdue';
@@ -202,7 +202,7 @@ function togglePODetail(poNo,button){
  $('tableWrap').querySelectorAll('[data-drill-po]').forEach(x=>{x.setAttribute('aria-expanded','false');x.textContent=x.dataset.drillPo+' ▾';});
  const po=allPO.find(x=>String(x.po_no)===String(poNo));if(!po)return;
  const inv=linkedPOInvoices(po);
- const invoiceRows=inv.length?`<div class="tablewrap"><table class="po-linked-invoices"><thead><tr><th>Invoice Number</th><th>Invoice Date</th><th>Due Date</th><th>Total Incl VAT</th><th>Collected</th><th>Open Balance</th><th>Invoice Status</th><th>Payment Status</th></tr></thead><tbody>${inv.map(x=>`<tr><td>${esc(x.invoice_no||'—')}</td><td>${esc(poInvoiceDate(x.invoice_date||x.start_date))}</td><td>${esc(poInvoiceDate(x.due_date))}</td><td class="num">${money(x.invoice_total_after_advance??x.invoice_total)}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(x.collection_balance_after_advance??x.open_balance)}</td><td>${esc(x.status||'—')}</td><td>${esc(poInvoicePayment(x))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoice records are currently linked to this purchase order.</div>';
+ const invoiceRows=inv.length?`<div class="tablewrap"><table class="po-linked-invoices"><thead><tr><th>Invoice Number</th><th>Invoice Date</th><th>Due Date</th><th>Total Incl VAT</th><th>Collected</th><th>Open Balance</th><th>Invoice Status</th><th>Payment Status</th></tr></thead><tbody>${inv.map(x=>`<tr><td>${esc(x.invoice_no||'—')}</td><td>${esc(poInvoiceDate(x.invoice_date||x.start_date))}</td><td>${esc(poInvoiceDate(x.due_date))}</td><td class="num">${money(PEAnnual.metrics(x,po).total)}</td><td class="num">${money(x.paid_amount)}</td><td class="num">${money(PEAnnual.metrics(x,po).balance)}</td><td>${esc(x.status||'—')}</td><td>${esc(poInvoicePayment(x))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No invoice records are currently linked to this purchase order.</div>';
  const tr=document.createElement('tr');tr.className='po-detail-row';tr.dataset.poDetail=poNo;
  tr.innerHTML=`<td colspan="15"><div class="po-invoices"><h3>Linked invoices (${inv.length})</h3>${invoiceRows}</div></td>`;
  const main=$('tableWrap').querySelector(`[data-po-row="${CSS.escape(String(poNo))}"]`);
@@ -242,8 +242,8 @@ function exportCSV(){
  const preferred=['id','po_no','erp_code','company','department','project_id','project_name','po_value_ex_vat','po_date','expiry_date','status','vat','archive','advance_payment_percentage','advance_received_amount','retention_applicable','retention_basis','retention_percentage','retention_period_days','notes'];
  const keys=[...new Set([...preferred,...allPO.flatMap(p=>Object.keys(p))])];
  const names={id:'PO ID',po_no:'PO Number',erp_code:'ERP Code',company:'Customer',department:'Department',project_id:'Project ID',project_name:'Project',po_value_ex_vat:'PO Value Ex VAT',po_date:'PO Date',expiry_date:'Expiry Date',status:'Recorded PO Status',vat:'VAT Applicable',archive:'Archived',advance_payment_percentage:'Advance Percentage',advance_received_amount:'Advance Received (Actual)',retention_applicable:'Retention Applicable',retention_basis:'Retention Calculation',retention_percentage:'Retention Percentage',retention_period_days:'Retention Period Days',notes:'Notes',customer_company_id:'Customer ID',department_id:'Department ID'};
- const headers=keys.map(k=>names[k]||k).concat(['Issued Invoice Count','Total Invoiced Ex VAT','PO Balance','PO Status','Gross Invoiced Incl VAT','Contract Advance','Advance Amortised','Unamortised Contract Advance']);
- const rows=filtered.map(p=>{const m=invoiceTotals(p),advance=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return keys.map(k=>p[k]??'').concat([m.count,m.invoiced,m.remaining,m.status,m.gross,advance,m.amort,Math.max(0,advance-m.amort)]);});
+ const headers=keys.map(k=>names[k]||k).concat(['Issued Invoice Count','Total Invoiced Incl VAT','PO Balance Incl VAT','PO Status','PO Value Incl VAT','Contract Advance','Advance Amortised','Unamortised Contract Advance']);
+ const rows=filtered.map(p=>{const m=invoiceTotals(p),advance=num(p.po_value_ex_vat)*num(p.advance_payment_percentage)/100;return keys.map(k=>p[k]??'').concat([m.count,m.grossInvoiced,m.grossRemaining,m.status,m.grossValue,advance,m.amort,Math.max(0,advance-m.amort)]);});
  const decimalColumns=keys.map((k,i)=>/value|amount|percentage/.test(k)?i:-1).filter(i=>i>=0).concat([1,2,4,5,6,7].map(i=>keys.length+i));
  PEExcel.download('purchase-orders.xlsx',headers,rows,{decimalColumns,dateColumns:['po_date','expiry_date'].map(k=>keys.indexOf(k))});
 }
@@ -260,3 +260,4 @@ $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionS
 
 
 <script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+

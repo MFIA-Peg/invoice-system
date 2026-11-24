@@ -10,11 +10,11 @@
   let billingSource,billingIndex;
   function billing(){
     const rows=PEAnnual.records().invoices;
-    if(rows!==billingSource){billingSource=rows;billingIndex=new Map();for(const i of rows){if(/draft|cancelled|canceled|void/i.test(text(i.status)))continue;const key=text(i.po_no);let m=billingIndex.get(key);if(!m){m={invoiced:0,gross:0,amort:0,count:0};billingIndex.set(key,m);}m.invoiced+=num(i.invoice_amount);m.gross+=num(i.invoice_total_after_advance??i.invoice_total);m.amort+=num(i.advance_amortisation);m.count++;}}
+    if(rows!==billingSource){billingSource=rows;billingIndex=new Map();for(const i of rows){if(!PEAnnual.isIssued(i))continue;const po=PEAnnual.orderFor(i),key=po?.id!=null?'id:'+text(po.id):'no:'+text(i.po_no);let m=billingIndex.get(key);if(!m){m={invoiced:0,gross:0,amort:0,count:0};billingIndex.set(key,m);}m.invoiced+=num(i.invoice_amount);m.gross+=PEAnnual.metrics(i,PEAnnual.orderFor(i)).total;m.amort+=num(i.advance_amortisation);m.count++;}}
     return billingIndex;
   }
   function orderState(row,asOf=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())){
-    const m=billing().get(text(row.po_no))||{invoiced:0,gross:0,amort:0,count:0},value=num(row.po_value_ex_vat),invoiced=Math.round(m.invoiced*100)/100,remaining=Math.round((value-invoiced)*100)/100;
+    const m=billing().get(row.id!=null?'id:'+text(row.id):'no:'+text(row.po_no))||{invoiced:0,gross:0,amort:0,count:0},value=num(row.po_value_ex_vat),invoiced=Math.round(m.invoiced*100)/100,remaining=Math.round((value-invoiced)*100)/100;
     const completed=value>0&&invoiced>=value-.005,start=text(row.po_date).slice(0,10),end=text(row.expiry_date).slice(0,10),raw=text(row.status).trim();
     let status='Open';
     if(/cancelled|canceled|void/i.test(raw))status='Cancelled';
@@ -23,14 +23,15 @@
     else if(start&&end&&start>end)status='Invalid Dates';
     else if(start&&start>asOf)status='Not Yet Active';
     else if(end&&end<asOf)status='Expired';
-    return {...m,invoiced,remaining,completed,status,closed:explicit(row)||completed};
+    const grossValue=PEAnnual.orderGross(row),grossInvoiced=Math.round(m.gross*100)/100,grossRemaining=Math.round((grossValue-grossInvoiced)*100)/100;
+    return {...m,invoiced,remaining,grossValue,grossInvoiced,grossRemaining,completed,status,closed:explicit(row)||completed};
   }
   function invoiceClosed(row){
     if(/^(cancelled|canceled|void)$/i.test(text(row?.status).trim()))return true;
     const records=PEAnnual.records();
     const po=records.orders.find(p=>String(p.id)===String(row.pos_id))||records.orders.find(p=>text(p.po_no)===text(row.po_no));
     const m=PEAnnual.metrics(row,po);
-    return m.total>0&&num(row.paid_amount)+num(row.retention_released_amount)+0.005>=m.total&&m.retention<=0.005;
+    return m.total>0&&num(row.paid_amount)+num(row.retention_released_amount)+0.005>=m.payableTotal&&m.retention<=0.005;
   }
   function customerClosed(name){
     const d=PEAnnual.records(),ps=d.projects.filter(p=>text(p.company)===text(name)),os=d.orders.filter(p=>text(p.company)===text(name));
@@ -82,9 +83,10 @@
     const records=PEAnnual.records(),projects=new Map(records.projects.map(p=>[text(p.id),p]));
     function add(values,date,value){if(PEAnnual.inYear(date)&&inPeriod(String(date).slice(0,10))){const m=Number(String(date).slice(5,7));if(m>=1&&m<=12)values[m]+=value;}}
     for(const invoice of s.scoped){
+      if(!PEAnnual.isIssued(invoice))continue;
       const m=PEAnnual.metrics(invoice,s.orderMap.get(text(invoice.po_no))),due=PEAnnual.due(invoice);
       add(series[0],invoice.start_date,m.total);add(series[1],due,m.total);
-      if(due&&due<today&&m.balance>0.005&&inPeriod(due)&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim())){
+      if(due&&due<today&&m.overdue>0.005&&inPeriod(due)&&!/^(cancelled|canceled|void)$/i.test(text(invoice.status).trim())){
         if(Number(due.slice(0,4))<y)series[3][0]+=m.balance;
         else add(series[3],due,m.balance);
         const order=s.orderMap.get(text(invoice.po_no)),project=projects.get(text(invoice.project_id??order?.project_id));
@@ -148,7 +150,7 @@
     }else if(!drillState.order){
       const p=drillState.project;if(manager){host.append(button('Edit Project',()=>editProject(p.id)));if(!closedView)host.append(button('Add Purchase Order',()=>directAddPO(p.id,p.project_name)));}
       const rows=d.orders.filter(po=>text(po.project_id)===text(p.id)&&(matches('order',po)||(closedView&&d.invoices.some(i=>text(i.po_no)===text(po.po_no)&&invoiceClosed(i)))));
-      table(host,['PO Number','PO Value','Status','Actions'],rows.map(po=>({record:po,cells:[po.po_no,money(po.po_value_ex_vat),po.status||'Open']})),(td,po)=>{
+      table(host,['PO Number','PO Value','Status','Actions'],rows.map(po=>({record:po,cells:[po.po_no,money(PEAnnual.orderGross(po)),po.status||'Open']})),(td,po)=>{
         td.append(button('Open Invoices',()=>{drillState.order=po;renderDrill();}));
         if(manager)td.append(button('Edit',()=>editPO(po.id),true));
         td.append(button('Attachments',()=>manageAttachments('po',po.id),true));
@@ -183,6 +185,7 @@
   global.PEWorkspace={orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+
 
 
 
