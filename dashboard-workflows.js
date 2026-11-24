@@ -72,6 +72,7 @@
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     kpiScope=scope;
     const s=PEAnnual.render('kpis',null,scope);
+    global.PEDashboardGroups?.render(s);
     // Seven shared financial cards are authoritative. Do not replace them with
     // the previous comparison donuts or duplicate their values.
     PEAnnual.chart('collectionChart',[['Collections',s.totals.collections],['Advances Received',s.totals.advances]]);
