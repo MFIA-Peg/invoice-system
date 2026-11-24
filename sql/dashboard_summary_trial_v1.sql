@@ -97,6 +97,19 @@ begin
   operational as materialized (select * from invoices where workflow<>'cancelled' and (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
     and (v_status='' or lower(btrim(coalesce(status,'')))=v_status) and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
     and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)),
+  progress_due as materialized (select * from live where workflow='issued' and due_date<v_today and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
+  progress_approval as materialized (select * from live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  progress_issuance as materialized (select * from live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  progress_json as (select jsonb_build_object(
+    'collection',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),
+      'positiveCount',(select count(*) from progress_due where collected>.005),'negativeCount',(select count(*) from progress_due where balance>.005),
+      'missingDateCount',(select count(*) from live where workflow='issued' and due_date is null)),
+    'approval',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='issued'),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='waiting'),0),
+      'positiveCount',(select count(*) from progress_approval where workflow='issued' and total>.005),'negativeCount',(select count(*) from progress_approval where workflow='waiting' and total>.005),
+      'missingDateCount',(select count(*) from live where workflow in ('issued','waiting') and invoice_date is null)),
+    'issuance',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow in ('issued','waiting')),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow='draft'),0),
+      'positiveCount',(select count(*) from progress_issuance where workflow in ('issued','waiting') and total>.005),'negativeCount',(select count(*) from progress_issuance where workflow='draft' and total>.005),
+      'missingDateCount',(select count(*) from live where invoice_date is null))) as value),
   totals as (select jsonb_build_object(
     'billed',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedNet',coalesce((select (pg_catalog.floor(((coalesce((sum(net)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedVat',coalesce((select (pg_catalog.floor(((coalesce((sum(vat)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),
     'collections',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from receipts),0),'advances',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from advances),0),
@@ -134,11 +147,12 @@ begin
   choice_json as (select coalesce(jsonb_agg(to_jsonb(c) order by customer,department,project),'[]'::jsonb) as value from choices c),
   status_json as (select coalesce(jsonb_agg(s order by s),'[]'::jsonb) as value from (select distinct btrim(status) as s from invoices where nullif(btrim(status),'') is not null) st)
   select jsonb_build_object('version',1,'asOf',v_today,'reportDate',v_report_date,'year',extract(year from v_today)::integer,'allPeriods',v_all_dates,'groupMetric',p_group_metric,
-    'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
-    into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json;
+    'progress',progress_json.value,'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
+    into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json;
   return v_result;
 end;
 $fn$;
 revoke all on function public.dashboard_summary_trial_v1(jsonb,text) from public,anon;
 grant execute on function public.dashboard_summary_trial_v1(jsonb,text) to authenticated;
 comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Optional read-only summary dashboard trial. Security invoker; returns aggregates and filter labels only. Classic dashboard remains available.';
+
