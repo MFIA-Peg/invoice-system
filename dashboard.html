@@ -32,7 +32,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124groupstoggle1"></script>
+<script src="annual-analytics.js?v=20261124poperiod1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -66,7 +66,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
 <article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
 <article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention follows approval date.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
-<article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">PO-date contract cohort: issued invoicing and remaining contract value. Draft and waiting invoices are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
+<article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">Selected period: PO value by PO date; invoicing by approval date, including invoices on older POs. Open balance is for POs dated in the period, after issued billing through the report end. Undated POs are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
 </div></section>
 </main><script>
 const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
@@ -111,7 +111,7 @@ initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261124seven1"></script>
 <script src="dashboard-groups.js?v=20261124a"></script>
-<script src="dashboard-workflows.js?v=20261124sync1"></script>
+<script src="dashboard-workflows.js?v=20261124poperiod1"></script>
 <script>
 PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
