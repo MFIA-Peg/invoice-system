@@ -91,7 +91,7 @@
       allPeriods:!!((f.dueFrom||f.dueTo)&&!f.from&&!f.to),orderScopeIds:orders.map(p=>p.id),advancePoIds:orders.map(p=>p.id),advanceScopeIndependent:true};
     kpiScope=scope;
     const s=PEAnnual.render('kpis',null,scope);
-    global.PEDashboardGroups?.render(s);if(el('dashboardGroupedTotals'))el('dashboardGroupedTotals').hidden=false;
+    global.PEDashboardGroups?.render(s,f);if(el('dashboardGroupedTotals'))el('dashboardGroupedTotals').hidden=false;
     PEAnnual.chart('collectionChart',[['Collections',s.totals.collections],['Advances Received',s.totals.advances]]);
     PEAnnual.chart('overdueChart',[['Net Collectible',s.totals.collectible],['Retention',s.totals.retention]]);
     PEAnnual.chart('poChart',[['PO Value Incl VAT · PO date',s.periodPoValue],['Invoiced Incl VAT · approval date',s.periodPoInvoiced],['Open PO Balance Incl VAT · POs in period',s.periodPoRemaining]]);
