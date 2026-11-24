@@ -35,7 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -136,11 +136,13 @@ async function loadAll(){
 function setOptions(id,values,label){const el=$(id),old=el.value,vals=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));const list=$(id+'Options');if(list)list.innerHTML=vals.map(v=>`<option value="${esc(v)}"></option>`).join('');el.value=old;}
 function populateFilters(){setOptions('company',allPO.map(x=>x.company),'customers');setOptions('department',allPO.map(x=>x.department),'departments');setOptions('project',allPO.map(x=>x.project_name),'projects');}
 function invoiceTotals(po){return PEWorkspace.orderState(po);}
+let peKpiBase=[];
 function applyFilters(){
  registerPage=1;
  const q=$('search').value.trim().toLowerCase(),c=$('company').value,d=$('department').value,p=$('project').value,s=$('status').value;
  filtered=allPO.filter(x=>PEWorkspace.matches('order',x)&&(!q||[x.po_no,x.erp_code,x.company,x.department,x.project_name,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c.toLowerCase())&&(!d||String(x.department||'').toLowerCase()===d.toLowerCase())&&(!p||String(x.project_name||'').toLowerCase()===p.toLowerCase())&&(!s||(PEWorkspace.orderState(x).status.toLowerCase()===s.toLowerCase())));
- render();
+ peKpiBase=filtered;filtered=PEKPIFilter.filterOrders(filtered,invoiceTotals);
+render();
 }
 function registerRecordLinks(type,row){
  const params=new URLSearchParams({record:type});
@@ -153,9 +155,10 @@ function registerRecordLinks(type,row){
 
 function render(){
  renderRegisterPager();
- const sum=key=>filtered.reduce((total,p)=>total+(key==='value'?num(p.po_value_ex_vat):invoiceTotals(p)[key]),0);
+ const sum=key=>peKpiBase.reduce((total,p)=>total+(key==='value'?num(p.po_value_ex_vat):invoiceTotals(p)[key]),0);
  const cards=[['PO Value Ex VAT',sum('value')],['Total Invoiced Ex VAT',sum('invoiced')],['PO Balance',sum('remaining')]];
  $('kpis').innerHTML=cards.map(([label,value])=>'<article class="kpi"><div class="label">'+label+'</div><div class="value">'+money(value)+'</div></article>').join('');
+ PEKPIFilter.bindOrders($('kpis'));
  const rows=filtered.slice((registerPage-1)*50,registerPage*50).map(p=>{
   const m=invoiceTotals(p),status=m.status,cls=/Completed|Closed/.test(status)?'closed':/Expired|Invalid/.test(status)?'expired':'';
   return '<tr data-access-department="'+esc(p.department)+'" data-po-row="'+esc(p.po_no)+'"><td><button class="po-drill" type="button" data-drill-po="'+esc(p.po_no)+'" aria-expanded="false">'+esc(p.po_no)+' ▾</button></td><td>'+esc(p.erp_code)+'</td><td>'+esc(p.company)+'</td><td>'+esc(p.department)+'</td><td>'+esc(p.project_name)+'</td><td class="num">'+money(p.po_value_ex_vat)+'</td><td class="num">'+money(m.invoiced)+'</td><td class="num">'+money(m.remaining)+'</td><td><span class="pill '+cls+'" title="'+esc('PO date: '+poInvoiceDate(p.po_date)+' · Expiry: '+poInvoiceDate(p.expiry_date))+'">'+esc(status)+'</span></td><td><div class="register-actions">'+registerRecordLinks('po',p)+(PEAccess.can('orders','delete',p.department)?'<button type="button" class="danger" title="Delete" aria-label="Delete" data-po-delete="'+p.id+'">⌫</button>':'')+'<a class="btn secondary" title="PO Report" aria-label="PO Report" href="reports.html?report=invoices&amp;po_no='+encodeURIComponent(p.po_no)+'">Report</a></div></td></tr>';
@@ -256,4 +259,4 @@ $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionS
 </script>
 
 
-</body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
