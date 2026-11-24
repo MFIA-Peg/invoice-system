@@ -2,7 +2,7 @@
 'use strict';
 const fields=['company','department','project','invoiceStatus','paymentStatus','from','to','dueFrom','dueTo','attention'],date=v=>String(v||'').slice(0,10),text=v=>String(v??''),norm=v=>text(v).trim().toLowerCase();
 const names={billed:'Billing Incl VAT',collections:'Collections',advances:'Advances Received',collectible:'Net Collectible',pending:'Pending Approval',retention:'Retention',draft:'Draft',overdue:'Overdue',unissued:'Draft and Pending Approval'};
-const allowed=new Set(Object.values(names).concat(['Monthly Invoiced','Expected Collection','Actual Collection','Current Overdue','PO Value Incl VAT','Invoiced Incl VAT','Open PO Balance Incl VAT']));
+const allowed=new Set(Object.values(names).concat(['Monthly Invoiced','Expected Collection','Actual Collection','Current Overdue','PO Value Incl VAT','Invoiced Incl VAT','Open PO Balance Incl VAT','Due Invoice Collected','Due Invoice Overdue','Approved Invoice Value','Pending Approval Value','Issued Invoice Value','Due Draft Value']));
 function clean(filters={}){const f={};for(const key of fields){const value=text(filters[key]);if(value.length>1500)throw Error('A filter is too long.');if(['from','to','dueFrom','dueTo'].includes(key)&&value&&!/^\d{4}-\d{2}-\d{2}$/.test(value))throw Error('Invalid date filter.');f[key]=value;}if(f.from&&f.to&&f.from>f.to||f.dueFrom&&f.dueTo&&f.dueFrom>f.dueTo)throw Error('The start date must be on or before the end date.');return f;}
 function metricFor(f){const status=norm(f.invoiceStatus);if(f.attention==='overdue')return 'overdue';if(f.attention==='draftDue'||f.attention==='draft'||status==='draft')return 'draft';if(f.attention==='waiting'||/^(?:[12]-)?(?:submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/.test(status))return 'pending';if(status==='retention'||f.paymentStatus==='Retention Only')return 'retention';if(f.paymentStatus==='Not Issued')return 'unissued';if(f.paymentStatus==='Overdue')return 'collectible';return 'billed';}
 function readContext(){const raw=new URLSearchParams(location.search).get('dashboard_context');if(raw===null)return null;const input=JSON.parse(raw),filters=clean(input.filters);if(input.metric&&!allowed.has(input.metric))throw Error('Unknown dashboard report.');for(const k of ['bucketFrom','bucketTo'])if(input[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(input[k]))throw Error('Invalid report month.');return {filters,metric:input.metric||'',bucketFrom:input.bucketFrom||'',bucketTo:input.bucketTo||'',returnFilters:clean(input.returnFilters||filters)};}
@@ -19,8 +19,11 @@ function derive(records,filters){const f=clean(filters),A=global.PEAnnual,today=
  return {filters:f,rows:selected,orders,scope,snapshot:A.snapshot(scope),today};
 }
 function select(derived,metric,context={}){const {snapshot:s,rows,scope,filters:f,today}=derived,A=global.PEAnnual,records=A.records(),within=(d,from,to)=>d&&(!from||d>=from)&&(!to||d<=to),inPeriod=d=>d&&((scope.periodFrom||scope.periodTo)?within(d,scope.periodFrom,scope.periodTo):scope.allPeriods||A.inYear(d)),bucket=d=>within(d,context.bucketFrom,context.bucketTo);let invoices=[],orders=[],receipts=[],advances=[],amount=0;
- const pick=(list,field)=>{invoices=list;amount=list.reduce((n,i)=>n+(field==='total'?A.metrics(i).total:field==='balance'?A.metrics(i).balance:A.metrics(i).retention),0);};
- if(metric==='Billing Incl VAT'||metric==='Invoiced Incl VAT')pick(s.billed,'total');
+ const pick=(list,field)=>{invoices=list;amount=list.reduce((n,i)=>n+(field==='total'?A.metrics(i).total:field==='balance'?A.metrics(i).balance:field==='collected'?A.metrics(i).collected:A.metrics(i).retention),0);};
+ if(metric==='Due Invoice Collected'||metric==='Due Invoice Overdue'){const field=metric==='Due Invoice Collected'?'collected':'balance';pick(s.scoped.filter(i=>A.isIssued(i)&&A.due(i)&&A.due(i)<today&&inPeriod(A.due(i))&&A.metrics(i)[field]>.005),field);}
+ else if(metric==='Approved Invoice Value'||metric==='Pending Approval Value'){const expected=metric==='Approved Invoice Value'?'issued':'waiting';pick(s.scoped.filter(i=>A.workflow(i)===expected&&date(i.start_date)&&date(i.start_date)<=today&&inPeriod(date(i.start_date))&&A.metrics(i).total>.005),'total');}
+ else if(metric==='Issued Invoice Value'||metric==='Due Draft Value'){const draft=metric==='Due Draft Value';pick(s.scoped.filter(i=>(draft?A.workflow(i)==='draft':['issued','waiting'].includes(A.workflow(i)))&&date(i.start_date)&&date(i.start_date)<=today&&inPeriod(date(i.start_date))&&A.metrics(i).total>.005),'total');}
+ else if(metric==='Billing Incl VAT'||metric==='Invoiced Incl VAT')pick(s.billed,'total');
  else if(metric==='Collections'||metric==='Actual Collection'){receipts=s.collections.filter(c=>metric!=='Actual Collection'||bucket(date(c.collection_date)));const ids=new Set(receipts.map(c=>text(c.invoice_id)));invoices=s.scoped.filter(i=>ids.has(text(i.id)));amount=receipts.reduce((n,c)=>n+Number(c.amount||0),0);}
  else if(metric==='Advances Received'){advances=s.advances;const ids=new Set(advances.map(a=>text(a.po_id)));orders=records.orders.filter(p=>ids.has(text(p.id)));invoices=s.scoped.filter(i=>ids.has(text(A.orderFor(i)?.id)));amount=advances.reduce((n,a)=>n+Number(a.amount||0),0);}
  else if(metric==='Net Collectible')pick(s.collectibleInvoices.filter(i=>A.metrics(i).balance>.005),'balance');
@@ -40,4 +43,5 @@ function select(derived,metric,context={}){const {snapshot:s,rows,scope,filters:
 }
 global.PEDashboardContext={fields,names,clean,metricFor,readContext,reportUrl,dashboardUrl,trialUrl:dashboardUrl,derive,select};global.PETrialContext=global.PEDashboardContext;
 })(window);
+
 
