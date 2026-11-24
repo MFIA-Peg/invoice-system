@@ -32,7 +32,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
@@ -121,6 +121,6 @@ async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}await PEAccess.load(supabaseClient);sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script>
-<script src="dashboard-donuts.js?v=20261118d"></script>
-<script src="dashboard-workflows.js?v=20261122a"></script>
+<script src="dashboard-donuts.js?v=20261124kpi1"></script>
+<script src="dashboard-workflows.js?v=20261124kpi1"></script>
 </body></html>

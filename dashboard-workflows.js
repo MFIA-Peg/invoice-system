@@ -5,7 +5,7 @@
   const amount=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(Number(v||0));
   const date=v=>str(v).slice(0,10);
   const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  let shown=[],activeAttention='';
+  let shown=[],activeAttention='',kpiScope={};
   function buildRows(records,asOf=today()){
     const orders=new Map(records.orders.map(p=>[str(p.po_no),p])),ordersById=new Map(records.orders.map(p=>[str(p.id),p])),projects=new Map(records.projects.map(p=>[str(p.id),p]));
     return records.invoices.map(i=>{
@@ -50,8 +50,9 @@
   const columns=['Invoice Number','Customer','Department','Project','Purchase Order','Invoice Date','Due Date','Invoice Status','Payment Status','Total Incl VAT','Paid','Open Collection Balance','Retention Balance'];
   function values(r){return [r.i.invoice_no||'—',r.customer,r.department,r.project,r.i.po_no||r.po?.po_no||'—',date(r.i.start_date)||'—',r.due||'—',r.i.status||'—',r.payment,r.m.total,Number(r.i.paid_amount||0),r.m.balance,r.m.retention];}
   function renderTable(rows,f){
-    el('dashboardInvoices').hidden=!Object.values(f).some(Boolean);
-    shown=rows.filter(r=>matches(r,f)).sort((a,b)=>(a.due||date(a.i.start_date)).localeCompare(b.due||date(b.i.start_date))||str(a.i.invoice_no).localeCompare(str(b.i.invoice_no)));
+    el('dashboardInvoices').hidden=!PEKPIFilter.active()&&!Object.values(f).some(Boolean);
+    const base=rows.filter(r=>matches(r,f,{period:!PEKPIFilter.active()})),ids=new Set(PEKPIFilter.filter(base.map(r=>r.i),'invoice',kpiScope).map(i=>str(i.id)));
+    shown=base.filter(r=>ids.has(str(r.i.id))).sort((a,b)=>(a.due||date(a.i.start_date)).localeCompare(b.due||date(b.i.start_date))||str(a.i.invoice_no).localeCompare(str(b.i.invoice_no)));
     const total=shown.reduce((n,r)=>n+r.m.total,0),overdue=shown.filter(r=>r.overdue).reduce((n,r)=>n+r.m.balance,0);
     el('dashboardInvoiceSummary').textContent=shown.length+' invoices · Total '+amount(total)+' · Overdue '+amount(overdue)+(f.from||f.to?' · Selected due-date period (invoice date when no due date)':activeAttention?' · All years requiring attention':' · '+PEAnnual.year+' due dates / invoice dates for pending invoices');
     el('dashboardInvoiceTable').innerHTML=shown.length?'<table><thead><tr>'+columns.map(c=>'<th>'+c+'</th>').join('')+'<th>Collection Alert</th></tr></thead><tbody>'+shown.map(r=>'<tr>'+values(r).map((v,k)=>'<td'+(k>=9?' class="num"':'')+'>'+esc(k>=9?amount(v):v)+'</td>').join('')+'<td>'+(r.overdue?'<span class="dashboard-overdue">Overdue</span>':'—')+'</td></tr>').join('')+'</tbody></table>':'<p class="muted">No invoices match these filters.</p>';
@@ -65,8 +66,10 @@
       orderNos:(f.invoiceStatus||f.paymentStatus||f.attention)?[...new Set(dimensionRows.filter(r=>!r.cancelled).map(r=>r.po?.po_no??r.i.po_no))]:undefined,
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
+    kpiScope=scope;
     const s=PEAnnual.render('kpis',null,scope);
     PEDashboardDonuts.kpis(s,dimensionRows,f);
+    PEKPIFilter.bindDonuts(el('kpis'),s);
     PEAnnual.chart('collectionChart',[['Collected',s.totals.collected],['Open Balance',s.totals.balance]]);
     PEAnnual.chart('overdueChart',[['Overdue',s.totals.overdue],['Not Yet Due',Math.max(0,s.totals.balance-s.totals.overdue)]]);
     PEAnnual.chart('poChart',[['PO Value',s.poValue],['Invoiced',s.totals.net]]);
@@ -89,6 +92,7 @@
     el('invoiceStatus').value='';el('paymentStatus').value='';renderKPIs();
     el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});
   }
+  document.addEventListener('pe-kpi-filter',()=>{renderKPIs();el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});});
   global.PEDashboard={buildRows,matches,values,selectWorkflow};
 })(window);
 

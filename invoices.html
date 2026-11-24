@@ -37,7 +37,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123summary"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -241,6 +241,7 @@ function relatedFor(x){
  const po=pos.find(p=>String(p.po_no)===String(x.po_no));
  return {pr,po,company:x.company||po?.company||pr?.company||'Unassigned',department:x.department||po?.department||pr?.department||'Unassigned'};
 }
+let peKpiBase=[];
 function applyFilters(){
  registerPage=1;
  const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim(),d=$('department').value.trim(),p=$('project').value.trim(),po=$('po').value.trim(),s=$('status').value.trim();
@@ -259,7 +260,8 @@ function applyFilters(){
   if(q&&![x.invoice_no,x.po_no,x.project_name,x.description,x.status,invoiceStatus(x),r.company,r.department].join(' ').toLowerCase().includes(q))return false;
   return true;
  });
- render();
+ peKpiBase=filtered;filtered=PEKPIFilter.filter(filtered,'invoice',{invoiceIds:peKpiBase.map(i=>i.id)});
+render();
 }
 function registerRecordLinks(type,row){
  const params=new URLSearchParams({record:type});
@@ -546,8 +548,8 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-PEAnnual.render('kpis',null,{profile:'invoices',invoiceIds:filtered.map(i=>i.id)});
+PEAnnual.render('kpis',null,{profile:'invoices',invoiceIds:peKpiBase.map(i=>i.id)});
 };
 })();
 </script>
-</body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>

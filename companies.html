@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -1898,6 +1898,7 @@ function populateCustomerFilterLists(){
  for(const [id,values,label] of definitions){const select=cmById(id),options=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)),key=JSON.stringify(options);if(select.dataset.optionsKey===key)continue;select.dataset.optionsKey=key;const old=select.value;select.innerHTML='<option value="">All '+label+'</option>'+options.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');select.value=options.includes(old)?old:'';}
 }
 
+let peKpiBaseCustomers=[];
 function renderCustomerFinancials() {
  populateCustomerFilterLists();
  const filters = customerFilterIds.map(id=>customerKey(cmById(id).value));
@@ -1915,8 +1916,11 @@ function renderCustomerFinancials() {
   assignedByName.set(key,[...(assignedByName.get(key)||[]),...(assignments.get(Number(c.id))||[])]);
  }
  visibleCustomerFinancialRows = customerFinancialRows.filter(row=>PEWorkspace.matches('customer',row)&&customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
+ peKpiBaseCustomers=visibleCustomerFinancialRows;
+ const kpiScope={profile:'customers',companies:peKpiBaseCustomers.map(c=>c.name)};
+ visibleCustomerFinancialRows=PEKPIFilter.filter(visibleCustomerFinancialRows,'customer',kpiScope);
  const matching = cmState.loaded ? cmState.customers.filter(c=>PEWorkspace.matches('customer',c)&&customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
- const unifiedRows=unifiedCustomerRows(matching,visibleCustomerFinancialRows,cmState.customers);
+ const unifiedRows=unifiedCustomerRows(PEKPIFilter.filter(matching,'customer',kpiScope),visibleCustomerFinancialRows,cmState.customers);
  visibleCustomerMasterRows=unifiedRows.map(customer=>{const finance=financialByName.get(customerKey(customer.name));return customerRegisterValues(customer,finance,customerRegisterDepartments(customer,finance,assignments));});
  cmById('companiesList').replaceChildren();
 
@@ -1976,7 +1980,7 @@ const originalRender=renderCustomerFinancials;
 renderCustomerFinancials=function(){
 originalRender.apply(this,arguments);
 if(customerFinanceLoaded&&!customerFinanceError){
-PEAnnual.render('customerTotalsGrid',null,{profile:'customers',companies:visibleCustomerFinancialRows.map(c=>c.name)});
+PEAnnual.render('customerTotalsGrid',null,{profile:'customers',companies:peKpiBaseCustomers.map(c=>c.name)});
 cmById('customerTotalsNote').textContent=PEAnnual.year+' · Due-date KPIs / payment-date collections';
 PEWorkspace.openFromQuery();
 }
@@ -1990,5 +1994,5 @@ await refreshCustomerWorkspace();
 PEWorkspace.refreshDrill();
 };
 </script>
-</body>
+<script>document.addEventListener('pe-kpi-filter',()=>renderCustomerFinancials());</script></body>
 </html>

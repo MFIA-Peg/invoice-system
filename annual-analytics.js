@@ -208,7 +208,73 @@
     ).join('');
     host.style.setProperty('--kpi-columns', String(Math.ceil(cards.length / 2)));
     if (chartId) chart(chartId, cards.filter(card => !card[3]).map(([label, value]) => [label, value]));
+    global.PEKPIFilter?.bind(host,s,scope);
     return s;
   }
   global.PEAnnual = {load, render, chart, snapshot, year, inYear, due, metrics, records: () => data};
+})(window);
+
+(function(global){
+'use strict';
+let active=null;const str=v=>String(v??''),num=v=>Number(v||0),positive=v=>Math.abs(num(v))>.005;
+function selection(s,label,profile){
+ const A=PEAnnual,records=A.records(),metric=i=>A.metrics(i,s.orderMap.get(str(i.po_no))),norm=label.toLowerCase();
+ let invoices=[],orders=[],collections=[],projects=[];
+ if(profile==='collections'||/^(collected|total collected)$/.test(norm)){
+  collections=s.collections;
+  if(norm==='largest collection'){const max=Math.max(0,...collections.map(c=>num(c.amount)));collections=collections.filter(c=>num(c.amount)===max);}
+  if(norm==='latest collection'){const latest=collections.map(c=>str(c.collection_date)).sort().at(-1);collections=collections.filter(c=>str(c.collection_date)===latest);}
+  const ids=new Set(collections.map(c=>str(c.invoice_id)));invoices=s.scoped.filter(i=>ids.has(str(i.id)));
+ }else if(/purchase order|^po |^open pos$|^advance received$|^remaining po value$/.test(norm)){
+  orders=s.orders;
+  if(/balance|remaining/.test(norm))orders=orders.filter(p=>num(p.po_value_ex_vat)-s.scoped.filter(i=>str(i.po_no)===str(p.po_no)).reduce((v,i)=>v+num(i.invoice_amount),0)>.005);
+  else if(norm==='open pos')orders=orders.filter(p=>!p.archive&&!/closed/i.test(p.status||''));
+  else if(norm==='advance received')orders=orders.filter(p=>positive(p.advance_received_amount));
+  else if(!/purchase orders/.test(norm))orders=orders.filter(p=>positive(p.po_value_ex_vat));
+ }else if(norm==='projects')projects=records.projects.filter(p=>s.activityIds.has(str(p.id)));
+ else if(norm==='draft'||norm==='waiting for approval'||norm==='pending approval'){
+  invoices=s.scoped.filter(i=>A.inYear(i.start_date)&&(norm==='draft'?str(i.status).trim().toLowerCase()==='draft':norm==='waiting for approval'?/^(?:2-)?waiting for approval$/i.test(str(i.status).trim()):profile==='dashboard-waiting'?!i.approval_date&&/^(submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/i.test(str(i.status).trim()):!A.due(i)&&!i.approval_date));
+ }else{
+  invoices=s.annual.filter(i=>{
+   const m=metric(i),due=A.due(i),today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+   if(norm==='paid')return m.balance<=.005&&m.retention<=.005;
+   if(/not yet due/.test(norm))return m.balance>.005&&due>=today;
+   if(/overdue/.test(norm))return m.balance>.005&&due<today;
+   if(/outstanding/.test(norm))return m.balance+m.retention>.005;
+   if(/balance/.test(norm))return m.balance>.005;
+   if(/retention/.test(norm))return m.retention>.005;
+   if(norm==='vat')return positive(m.vat);
+   return true;
+  });
+ }
+ const invoiceIds=new Set(invoices.map(i=>str(i.id))),orderIds=new Set(orders.map(p=>str(p.id))),projectIds=new Set(projects.map(p=>str(p.id)));
+ for(const i of invoices){const po=s.orderMap.get(str(i.po_no));if(po)orderIds.add(str(po.id));if(i.project_id!=null)projectIds.add(str(i.project_id));}
+ for(const p of records.orders)if(orderIds.has(str(p.id))&&p.project_id!=null)projectIds.add(str(p.project_id));
+ const companies=new Set(),departments=new Set();
+ for(const p of records.orders)if(orderIds.has(str(p.id))){companies.add(str(p.company));departments.add(str(p.department));}
+ for(const p of projects){companies.add(str(p.company));departments.add(str(p.department));}
+ for(const i of invoices)if(!s.orderMap.has(str(i.po_no))){const p=records.projects.find(p=>str(p.id)===str(i.project_id));companies.add(str(p?.company??i.company));departments.add(str(p?.department??i.department));}
+ return {invoiceIds,orderIds,projectIds,companies,departments,collectionIds:new Set(collections.map(c=>str(c.id)))};
+}
+function matches(row,type,pick){return type==='invoice'?pick.invoiceIds.has(str(row.id)):type==='order'?pick.orderIds.has(str(row.id)):type==='project'?pick.projectIds.has(str(row.id)):type==='collection'?pick.collectionIds.has(str(row.id)):type==='customer'?pick.companies.has(str(row.name)):type==='department'?pick.departments.has(str(row.name)):false;}
+function filter(rows,type,scope){if(!active||active.custom)return rows;const pick=selection(PEAnnual.snapshot(scope),active.label,active.profile);return rows.filter(row=>matches(row,type,pick));}
+function changed(){document.dispatchEvent(new CustomEvent('pe-kpi-filter'));}
+function clear(){active=null;changed();}
+function decorate(node,label,activate){node.setAttribute('role','button');node.tabIndex=0;node.style.cursor='pointer';node.setAttribute('aria-pressed',String(active?.label===label));node.classList.toggle('pe-kpi-selected',active?.label===label);node.title='Filter records: '+label;node.onclick=activate;node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();}};}
+function toolbar(host){
+ let bar=document.getElementById('peKpiFilterBar');if(!bar){bar=document.createElement('div');bar.id='peKpiFilterBar';bar.style.cssText='display:flex;align-items:center;gap:12px;margin:6px 0;font-size:12px';host.parentElement.insertBefore(bar,host);}
+ bar.replaceChildren();bar.hidden=!active;bar.style.display=active?'flex':'none';if(active){const text=document.createElement('span');text.textContent='Filter / فلتر: '+active.label;const b=document.createElement('button');b.type='button';b.textContent='Clear total filter / إلغاء فلتر المجموع';b.onclick=clear;bar.append(text,b);}
+ if(!document.getElementById('peKpiFilterStyle')){const style=document.createElement('style');style.id='peKpiFilterStyle';style.textContent='.pe-kpi-selected{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff!important}.kpi[role=button]:focus-visible{outline:3px solid #60a5fa}';document.head.append(style);}
+}
+function bind(host,s,scope={}){
+ if(!host)return;toolbar(host);
+ host.querySelectorAll('.kpi').forEach(node=>{const label=node.querySelector('.label')?.textContent.trim();if(!label)return;decorate(node,label,()=>{active=active?.label===label?null:{label,profile:scope.profile};changed();});});
+}
+function bindDonuts(host,s){
+ toolbar(host);host.querySelectorAll('.pe-donut-legend>div,.pe-donut-legend>button').forEach(node=>{const label=node.querySelector('.pe-donut-key')?.textContent.trim();if(!label)return;decorate(node,label,()=>{active=active?.label===label?null:{label,profile:label==='Pending Approval'?'dashboard-waiting':undefined};changed();});});
+}
+function filterOrders(rows,metrics){if(!active?.custom)return rows;return rows.filter(p=>positive(active.label==='PO Value Ex VAT'?p.po_value_ex_vat:metrics(p)[active.label==='PO Balance'?'remaining':'invoiced']));}
+function bindOrders(host){toolbar(host);host.querySelectorAll('.kpi').forEach(node=>{const label=node.querySelector('.label').textContent.trim();decorate(node,label,()=>{active=active?.label===label?null:{label,custom:true};changed();});});}
+global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,active:()=>active,matches};
+document.addEventListener('click',event=>{if(event.target.closest?.('#clear,#clearFilters,#customerClear,[onclick="clearFilters()"],[onclick="resetFilters()"]'))active=null;},true);
 })(window);

@@ -35,7 +35,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -194,6 +194,7 @@ async function deleteCollection(id){
 function resetForm(date=true){
  editingCollection=null;$('invoiceSelect').disabled=false;$('invoiceSearch').disabled=false;$('invoiceSelect').value='';$('invoiceSearch').value='';$('collectionAmount').value='';$('paymentMethod').value='';$('referenceNo').value='';$('collectionNotes').value='';if(date)$('collectionDate').value=today();$('saveCollectionButton').disabled=!canAdd();$('saveCollectionButton').textContent='Save Collection';updateBalance();
 }
+let peKpiBase=[];
 function applyFilters(){
  const im=new Map(invoices.map(i=>[Number(i.id),i]));
  const co=$('filterCompany').value.trim().toLowerCase(),dept=$('filterDepartment').value.trim().toLowerCase();
@@ -216,7 +217,8 @@ function applyFilters(){
   if(q&&![i.invoice_no,i.po_no,company,department,project,c.payment_method,c.reference_no,c.notes,c.collection_date].join(' ').toLowerCase().includes(q))return false;
   return true;
  });
- render();
+ peKpiBase=filteredTransactions;filteredTransactions=PEKPIFilter.filter(filteredTransactions,'collection',{invoiceIds:peKpiBase.map(c=>c.invoice_id),collectionIds:peKpiBase.map(c=>c.id)});
+render();
 }
 function render(){const a=filteredTransactions,im=new Map(invoices.map(i=>[Number(i.id),i])),total=a.reduce((s,x)=>s+num(x.amount),0),invIds=new Set(a.map(x=>x.invoice_id)),methods=new Set(a.map(x=>x.payment_method).filter(Boolean)),companies=new Set(a.map(x=>{const i=im.get(Number(x.invoice_id));return invMetrics(i).pr?.company}).filter(Boolean));
  const cards=[['Total Collected',money(total),'Sum of filtered collection transactions'],['Transactions',a.length,'Collection entries'],['Invoices With Collections',invIds.size,'Distinct invoices'],['Customers',companies.size,'Customers represented'],['Payment Methods',methods.size,'Methods used'],['Average Collection',money(a.length?total/a.length:0),'Average transaction amount'],['Largest Collection',money(a.reduce((m,x)=>Math.max(m,num(x.amount)),0)),'Highest single transaction'],['Latest Collection',a.length?String(a[0].collection_date):'—','Most recent date in filtered results']];
@@ -242,9 +244,9 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-const ids=filteredTransactions.map(c=>c.id),invoicesInScope=filteredTransactions.map(c=>c.invoice_id);
+const ids=peKpiBase.map(c=>c.id),invoicesInScope=peKpiBase.map(c=>c.invoice_id);
 PEAnnual.render('kpis',null,{profile:'collections',invoiceIds:invoicesInScope,collectionIds:ids});
 };
 })();
 </script>
-</body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>

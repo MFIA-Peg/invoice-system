@@ -28,7 +28,7 @@
       const content='<span class="pe-donut-key"><i style="background:'+i.color+'"></i>'+esc(i.label)+'</span><strong>'+esc(money(i.value))+'</strong>';
       return i.workflow?'<button type="button" data-workflow="'+i.workflow+'">'+content+'</button>':'<div>'+content+'</div>';
     }).join('')+'</div><small>'+esc(card.note)+'</small></article>').join('');
-    document.getElementById('kpis').querySelectorAll('[data-workflow]').forEach(b=>b.addEventListener('click',()=>PEDashboard.selectWorkflow(b.dataset.workflow,true)));
+    // The shared KPI filter binds every legend amount, including workflow totals.
   }
   global.PEDashboardDonuts={kpis,chart,colors};
 })(window);

@@ -36,7 +36,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
@@ -104,10 +104,12 @@ function populateFilters(){setOptions('company',allProjects.map(x=>x.company));s
 function projectPOs(project){return allPO.filter(p=>Number(p.project_id)===Number(project.id));}
 function projectInvoices(project){const poNos=new Set(projectPOs(project).map(p=>String(p.po_no)));return allInvoices.filter(i=>Number(i.project_id||0)===Number(project.id)||poNos.has(String(i.po_no)));}
 function invoiceMetrics(project){const inv=projectInvoices(project),po=projectPOs(project),poValue=po.reduce((s,x)=>s+num(x.po_value_ex_vat),0),billed=inv.reduce((s,x)=>s+num(x.invoice_amount),0),gross=inv.reduce((s,x)=>s+num(x.invoice_total_after_advance??x.invoice_total),0),paid=inv.reduce((s,x)=>s+num(x.paid_amount),0),balance=inv.reduce((s,x)=>s+num(x.collection_balance_after_advance??x.open_balance),0),retention=inv.reduce((s,x)=>s+num(x.retention_balance),0),overdue=inv.filter(x=>x.due_date&&String(x.due_date).slice(0,10)<new Date().toISOString().slice(0,10)).reduce((s,x)=>s+num(x.collection_balance_after_advance??x.open_balance),0);return{poCount:po.length,invoiceCount:inv.length,poValue,billed,gross,paid,balance,retention,overdue,remaining:Math.max(0,poValue-billed)};}
+let peKpiBase=[];
 function applyFilters(){
  const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim().toLowerCase(),d=$('department').value.trim().toLowerCase(),p=$('projectName').value.trim().toLowerCase(),s=$('status').value.trim().toLowerCase();
  filtered=allProjects.filter(x=>PEWorkspace.matches('project',x)&&(!q||[x.project_name,x.company,x.department,x.status,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c)&&(!d||String(x.department||'').toLowerCase()===d)&&(!p||String(x.project_name||'').toLowerCase()===p)&&(!s||String(x.status||'').toLowerCase()===s));
- render();
+ peKpiBase=filtered;filtered=PEKPIFilter.filter(filtered,'project',{projectIds:peKpiBase.map(i=>i.id)});
+render();
 }
 function render(){
  const metrics=filtered.map(p=>({p,m:invoiceMetrics(p)})),sum=k=>metrics.reduce((s,x)=>s+x.m[k],0);
@@ -174,8 +176,8 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-PEAnnual.render('kpis',null,{profile:'projects',projectIds:filtered.map(p=>p.id)});
+PEAnnual.render('kpis',null,{profile:'projects',projectIds:peKpiBase.map(p=>p.id)});
 };
 })();
 </script>
-</body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>

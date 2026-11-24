@@ -15,7 +15,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261123i"></script>
+<script src="annual-analytics.js?v=20261124kpi1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
 <script src="workspace-ui.js?v=20261123i"></script>
 <style>
@@ -83,6 +83,7 @@ async function loadAll(){const b=document.getElementById('refreshBtn');b.disable
  await PEAccess.load(db);
  const invoiceRequest=loadReportInvoices();const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
+let peKpiBase=[];
 function applyFilters(){
 const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();
 const from=document.getElementById('fFrom').value,to=document.getElementById('fTo').value,dueFrom=document.getElementById('fDueFrom').value,dueTo=document.getElementById('fDueTo').value;
@@ -107,6 +108,7 @@ fp.pos=pos.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('order',
 if(from||to||dueFrom||dueTo||search||status){fp.pos=fp.pos.filter(x=>relatedPOs.has(String(x.po_no)));}
 fp.projects=projects.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('project',x))&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
 if(from||to||dueFrom||dueTo||search||status){fp.projects=fp.projects.filter(x=>relatedProjects.has(String(x.id)));}
+peKpiBase=fp.invoices;const scope={invoiceIds:peKpiBase.map(i=>i.id)};fp.invoices=PEKPIFilter.filter(fp.invoices,'invoice',scope);fp.pos=PEKPIFilter.filter(fp.pos,'order',scope);fp.projects=PEKPIFilter.filter(fp.projects,'project',scope);
 render();document.getElementById('filterCount').textContent=`${fp.invoices.length} invoices · ${fp.pos.length} POs · ${fp.projects.length} projects`;
 }
 function resetFilters(){['fCompany','fDepartment','fProject','fPO','fFrom','fTo','fDueFrom','fDueTo','fSearch','fStatus'].forEach(id=>document.getElementById(id).value='');applyFilters()}
@@ -148,11 +150,11 @@ renderCharts=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-const s=PEAnnual.render('kpis',null,{invoiceIds:fp.invoices.map(i=>i.id)});
+const s=PEAnnual.render('kpis',null,{invoiceIds:peKpiBase.map(i=>i.id)});
 const bands=[0,0,0,0];
 for(const i of s.annual){const days=ageDays({...i,due_date:PEAnnual.due(i)});if(days===null)continue;const m=PEAnnual.metrics(i,s.orderMap.get(String(i.po_no)));bands[days<=30?0:days<=60?1:days<=90?2:3]+=m.balance;}
 PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],['61–90 days',bands[2]],['Over 90 days',bands[3]]]);
 };
 })();
 </script>
-</body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
