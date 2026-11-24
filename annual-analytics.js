@@ -81,7 +81,7 @@
     const period=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&(!periodFrom&&!periodTo?inYear(d):(!periodFrom||d>=periodFrom)&&(!periodTo||d<=periodTo));
     const reportDate=scope.reportDate||scope.periodTo||global.document?.getElementById?.('peReportDate')?.value||today;
     const issued=scoped.filter(isIssued),billed=issued.filter(i=>period(date(i.approval_date)));
-    const collectibleInvoices=issued.filter(i=>period(due(i))),retentionInvoices=scope.profile==='dashboard'?issued.filter(i=>String(i.invoice_no||'').trim()&&date(i.approval_date)&&date(i.approval_date)<=reportDate):billed;
+    const collectibleInvoices=issued.filter(i=>period(due(i))),retentionInvoices=scope.profile==='dashboard'?issued.filter(i=>String(i.invoice_no||'').trim()&&/^(approved|3-approved|partially paid|completed|paid|retention|bad debit)$/i.test(String(i.status||'').trim())):billed;
     const retentionDue=i=>{if(i.retention_due_date)return date(i.retention_due_date);const p=orderFor(i);if(!p?.retention_applicable||p.retention_period_days==null||!i.approval_date)return '';const d=new Date(date(i.approval_date)+'T12:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+number(p.retention_period_days));return d.toISOString().slice(0,10);};
     const overdueRetentionInvoices=retentionInvoices.filter(i=>retentionDue(i)&&retentionDue(i)<reportDate&&metrics(i).retention>.005);
     const undatedRetentionCount=retentionInvoices.filter(i=>metrics(i).retention>.005&&!retentionDue(i)).length;
@@ -164,7 +164,7 @@
       ['Advances Received',s.totals.advances,'Payment date',s.advances.length,s.undatedAdvances.length?s.undatedAdvances.length+' undated payments excluded':''],
       ['Net Collectible',s.totals.collectible,'Due date · excludes retention and allocated advances',s.collectibleInvoices.filter(i=>metrics(i).balance>.005).length,''],
       ['Pending Approval',s.totals.pending,'Current waiting invoices · all dates',s.waiting.length,''],
-      ['Retention',s.totals.retention,scope?.profile==='dashboard'?'All issued and approved invoices through '+s.reportDate:'Approval date · unreleased balance',s.retentionInvoices.filter(i=>metrics(i).retention>.005).length,scope?.profile==='dashboard'?'Overdue Retention '+currency.format(s.totals.overdueRetention)+(s.undatedRetentionCount?' · '+s.undatedRetentionCount+' missing retention due dates':''):''],
+      ['Retention',s.totals.retention,scope?.profile==='dashboard'?'All issued and approved invoices · no date restriction':'Approval date · unreleased balance',s.retentionInvoices.filter(i=>metrics(i).retention>.005).length,scope?.profile==='dashboard'?'Overdue Retention '+currency.format(s.totals.overdueRetention)+(s.undatedRetentionCount?' · '+s.undatedRetentionCount+' missing retention due dates':''):''],
       ['Draft',s.totals.draft,'Invoice date through '+s.asOf+' · ignores period',s.draft.length,s.undatedDraft.length?s.undatedDraft.length+' undated draft invoices excluded':'']
     ];
     if(scope?.profile==='invoices')cards.push(['Overdue to Report Date',s.totals.overdueToDate,'Current unpaid balance · due before '+s.reportDate,s.overdueInvoices.filter(i=>metrics(i).balance>.005).length,'Includes previous years; excludes retention']);
@@ -176,7 +176,7 @@
     host.innerHTML='<p class="pe-annual-note">'+esc(note)+'</p>'+cards.map(([label,value,basis,count,detail])=>
       '<article class="kpi"><div class="label">'+label+'</div><div class="value">'+esc(currency.format(value))+'</div>'+
       (detail?'<div class="pe-billing-split">'+esc(detail)+'</div>':'')+
-      '<div class="sub">'+esc(label==='Pending Approval'||label==='Draft'?basis:period+' · '+basis)+'<br><span class="pe-invoice-count">'+count+(label==='Advances Received'?' payments':' invoices')+'</span></div></article>').join('');
+      '<div class="sub">'+esc(label==='Pending Approval'||label==='Draft'||(label==='Retention'&&scope?.profile==='dashboard')?basis:period+' · '+basis)+'<br><span class="pe-invoice-count">'+count+(label==='Advances Received'?' payments':' invoices')+'</span></div></article>').join('');
     host.style.setProperty('--kpi-columns', String(Math.ceil(cards.length / 2)));
     if (chartId) chart(chartId, cards.map(([label, value]) => [label, value]));
     global.PEKPIFilter?.bind(host,s,scope);
