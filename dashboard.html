@@ -32,7 +32,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124report1"></script>
+<script src="annual-analytics.js?v=20261124retention1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -108,7 +108,7 @@ async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='tr
 initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261124seven1"></script>
-<script src="dashboard-workflows.js?v=20261124seven1"></script>
+<script src="dashboard-workflows.js?v=20261124retention1"></script>
 <script>
 PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
