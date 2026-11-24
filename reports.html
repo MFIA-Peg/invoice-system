@@ -15,7 +15,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124report1"></script>
+<script src="annual-analytics.js?v=20261124retmatch1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -51,7 +51,7 @@
 <div class="field"><label>Invoice / Payment Status</label><select id="fStatus"><option value="">All Statuses</option><option>Paid</option><option>Partially Paid</option><option>Unpaid</option><option>Overdue</option><option>Retention Only</option></select></div>
 </div><div class="filter-actions" style="margin-top:12px"><button onclick="applyFilters()">Apply Filters</button><button class="secondary" onclick="resetFilters()">Reset</button><span id="filterCount" class="meta"></span></div></section>
 <div class="tabs"><button class="active" data-tab="invoices">Invoice Register</button><button data-tab="collections">Collections & Aging</button><button data-tab="pos">Purchase Orders</button><button data-tab="projects">Projects</button><button data-tab="customers">Customer Summary</button></div></div>
-<section class="panel"><h2>Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.</div><div class="kpis" id="kpis"></div></section>
+<section class="panel"><h2>Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval and Retention ignore the period; Draft includes invoice dates through today.</div><div class="kpis" id="kpis"></div></section>
 <section class="panel">
 <div class="report-section active" id="sec-invoices"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Invoice Register</h2><button class="green" onclick="exportCSV('invoices')">Export Invoice CSV</button></div><div class="table-wrap" id="invoiceTable"></div></div>
 <div class="report-section" id="sec-collections"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Collections & Receivables Aging</h2><button class="green" onclick="exportCSV('collections')">Export Collections CSV</button></div><div class="note" style="margin-bottom:12px">Paid Amount is the cumulative amount stored on each invoice. Since no dated receipt/collection transaction table has been confirmed, this report shows cumulative collections to date and current outstanding aging; it does not claim cash collected within the selected date range.</div><div class="table-wrap" id="collectionTable"></div></div>
@@ -64,6 +64,7 @@
 const SUPABASE_URL='https://hxhfjmtjibwkkbpakopt.supabase.co';
 const SUPABASE_KEY='sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let reportInvoiceById=new Map();
 let projects=[],pos=[],invoices=[],fp={projects:[],pos:[],invoices:[]},charts={};
 const n=v=>Number(v||0);const metrics=x=>PEFinancialMetrics.metrics(x);const invVat=x=>metrics(x).vat;const invGross=x=>metrics(x).invoiceTotal;const invBalance=x=>metrics(x).outstanding;const money=v=>new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:2}).format(n(v));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -83,7 +84,7 @@ function applyRequestedPO(){
 }
 async function loadAll(){const b=document.getElementById('refreshBtn');b.disabled=true;b.textContent='Loading...';showError('');try{
  await PEAccess.load(db);
- const invoiceRequest=loadReportInvoices();const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
+ const invoiceRequest=loadReportInvoices();const [,iv]=await Promise.all([PEAnnual.load(db),invoiceRequest]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;reportInvoiceById=new Map(raw.invoices.map(i=>[String(i.id),i]));invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 let peKpiBase=[],peKpiScope={};
 function applyFilters(){
@@ -93,7 +94,7 @@ function applyFilters(){
  peKpiBase=invoices.filter(dimension);
  const relatedIds=new Set(peKpiBase.map(x=>String(PEAnnual.orderFor(x)?.id)));
  const orders=pos.filter(x=>matchesText(x.company,company)&&matchesText(x.department,dept)&&matchesText(x.project_name,project)&&matchesText(x.po_no,poNo)&&(!status||relatedIds.has(String(x.id)))&&(!search||relatedIds.has(String(x.id))||[x.po_no,x.project_name,x.company,x.department,x.notes].join(' ').toLowerCase().includes(search)));
- peKpiScope={periodFrom:from||dueFrom,periodTo:to||dueTo,invoiceIds:peKpiBase.map(i=>i.id),advancePoIds:orders.map(x=>x.id),advanceScopeIndependent:true};
+ peKpiScope={profile:'reports',periodFrom:from||dueFrom,periodTo:to||dueTo,invoiceIds:peKpiBase.map(i=>i.id),advancePoIds:orders.map(x=>x.id),advanceScopeIndependent:true};
  const bypass=requestedPO!==null&&poNo;
  if(PEKPIFilter.active()){
   fp.invoices=PEKPIFilter.filter(peKpiBase,'invoice',peKpiScope);fp.pos=PEKPIFilter.filter(orders,'order',peKpiScope);
@@ -111,7 +112,7 @@ function render(){const a=fp.invoices;const sum=k=>a.reduce((s,x)=>s+n(x[k]),0);
 renderInvoiceTable();renderCollections();renderPOs();renderProjects();renderCustomers();}
 function table(headers,rows){if(!rows.length)return '<div class="empty">No records match the selected filters.</div>';return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`}
 function badge(x){const s=invStatus(x),cl=s==='Paid'?'paid':s==='Overdue'?'overdue':s==='Partially Paid'?'partial':s==='Unpaid'?'unpaid':'';return `<span class="status ${cl}">${esc(s)}</span>`}
-function reportRetention(invoice){return PEAnnual.isIssued(invoice)?metrics(invoice).retentionBalance:0;}
+function reportRetention(invoice){const source=reportInvoiceById.get(String(invoice.id));return source&&PEAnnual.isRetainedInvoice(source)?PEAnnual.metrics(source).retention:0;}
 function retentionTable(headers,rows,total){
  const output=table(headers,rows),index=headers.findIndex(h=>/retention/i.test(h));if(index<0)return output;
  if(!rows.length)return output+'<p class="report-retention-total">Total Retention Incl VAT: '+money(total)+'</p>';
