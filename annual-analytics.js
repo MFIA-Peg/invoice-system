@@ -24,7 +24,7 @@
     refreshClock();
     if (loading) return loading;
     loading = Promise.all(['invoices', 'pos', 'projects', 'invoice_collections', 'po_advance_payments'].map(table => table === 'invoices' && options.invoices ? Promise.resolve(options.invoices) : rows(client, table)))
-      .then(([invoices, orders, projects, collections, advances]) => { data = {invoices, orders, projects, collections, advances}; })
+      .then(([invoices, orders, projects, collections, advances]) => { data = {invoices, orders, projects, collections, advances, loaded:true}; })
       .finally(() => { loading = null; });
     return loading;
   }
@@ -88,7 +88,10 @@
     const orderIdsByInvoices=new Set(scoped.map(i=>String(orderFor(i)?.id)));
     const advancesInScope=unique(data.advances||[]).filter(a=>{const po=data.orders.find(p=>String(p.id)===String(a.po_id));return po&&dimension(po,po)&&(!scope.advancePoIds||scope.advancePoIds.map(String).includes(String(po.id)))&&(!invoiceIds||scope.advanceScopeIndependent||orderIdsByInvoices.has(String(po.id)));});
     const advances=advancesInScope.filter(a=>period(date(a.payment_date))),undatedAdvances=advancesInScope.filter(a=>!a.payment_date);
-    const totals={billed:0,billedNet:0,billedVat:0,collections:0,advances:0,collectible:0,pending:0,retention:0,draft:0};
+    const reportDate=scope.reportDate||scope.periodTo||global.document?.getElementById?.('peReportDate')?.value||today;
+    const overdueInvoices=issued.filter(i=>due(i)&&due(i)<reportDate&&(!i.approval_date||date(i.approval_date)<=reportDate));
+    const overdueToDate=round(overdueInvoices.reduce((v,i)=>v+metrics(i).balance,0));
+    const totals={overdueToDate,billed:0,billedNet:0,billedVat:0,collections:0,advances:0,collectible:0,pending:0,retention:0,draft:0};
     for(const i of billed){const m=metrics(i);totals.billed+=m.total;totals.billedNet+=m.net;totals.billedVat+=m.vat;}
     totals.collectible=collectibleInvoices.reduce((v,i)=>v+metrics(i).balance,0);
     totals.retention=retentionInvoices.reduce((v,i)=>v+metrics(i).retention,0);
@@ -101,14 +104,14 @@
     Object.assign(totals,{total:totals.billed,net:totals.billedNet,vat:totals.billedVat,collected:totals.collections,balance:totals.collectible,
       settled:round(billed.reduce((v,i)=>v+metrics(i).collected,0)),advanceApplied:round(billed.reduce((v,i)=>v+metrics(i).advance,0)),
       notDue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).notDue,0)),overdue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).overdue,0))});
-    const orders=unique(data.orders).filter(p=>dimension(p,p));
+    const orders=unique(data.orders).filter(p=>dimension(p,p)&&(!p.po_date||date(p.po_date)<=reportDate));
     const billedByOrder=new Map();
-    for(const i of unique(data.invoices)){if(!isIssued(i))continue;const po=orderFor(i);if(!po)continue;const key=String(po.id);billedByOrder.set(key,(billedByOrder.get(key)||0)+metrics(i,po).total);}
+    for(const i of unique(data.invoices)){if(!isIssued(i)||!i.approval_date||date(i.approval_date)>reportDate)continue;const po=orderFor(i);if(!po)continue;const key=String(po.id);billedByOrder.set(key,(billedByOrder.get(key)||0)+metrics(i,po).total);}
     const poValue=round(orders.reduce((v,p)=>v+orderGross(p),0));
     const remaining=round(orders.reduce((v,p)=>v+Math.max(0,orderGross(p)-(billedByOrder.get(String(p.id))||0)),0));
     const poInvoiced=round(orders.reduce((v,p)=>v+(billedByOrder.get(String(p.id))||0),0));
     const activityIds=new Set([...billed.map(i=>String(i.project_id)),...orders.map(p=>String(p.project_id))]);
-    return {totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
+    return {openOrders:orders.filter(p=>orderGross(p)-(billedByOrder.get(String(p.id))||0)>.005),reportDate,overdueInvoices,totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
   }
   function style() {
     if (document.getElementById('peAnnualStyle')) return;
@@ -147,10 +150,11 @@
     const host = document.getElementById(kpiId);
     if (!host) return;
     style();
+    if(['orders','projects'].includes(scope?.profile)&&!document.getElementById('peReportDate')){const label=document.createElement('label');label.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px';label.textContent='Report Date';const input=document.createElement('input');input.id='peReportDate';input.type='date';input.value=today;input.setAttribute('aria-label','Report date');input.onchange=()=>document.dispatchEvent(new CustomEvent('pe-kpi-filter'));label.append(input);host.parentElement.insertBefore(label,host);}
     const s = snapshot(scope);
     const period=s.periodFrom||s.periodTo?(s.periodFrom||'Beginning')+' to '+(s.periodTo||'Today'):String(year);
     const note='Totals include open and closed records within the selected dimensions. Pending Approval ignores the period. Draft includes invoice dates through '+s.asOf+'.';
-    const cards=[
+    let cards=[
       ['Billing Incl VAT',s.totals.billed,'Approval date',s.billed.length,'Ex VAT '+currency.format(s.totals.billedNet)+' · VAT '+currency.format(s.totals.billedVat)],
       ['Collections',s.totals.collections,'Collection date · excludes advances',new Set(s.collections.map(c=>String(c.invoice_id))).size,''],
       ['Advances Received',s.totals.advances,'Payment date',s.advances.length,s.undatedAdvances.length?s.undatedAdvances.length+' undated payments excluded':''],
@@ -158,6 +162,12 @@
       ['Pending Approval',s.totals.pending,'Current waiting invoices · all dates',s.waiting.length,''],
       ['Retention',s.totals.retention,'Approval date · unreleased balance',s.retentionInvoices.filter(i=>metrics(i).retention>.005).length,''],
       ['Draft',s.totals.draft,'Invoice date through '+s.asOf+' · ignores period',s.draft.length,s.undatedDraft.length?s.undatedDraft.length+' undated draft invoices excluded':'']
+    ];
+    if(scope?.profile==='invoices')cards.push(['Overdue to Report Date',s.totals.overdueToDate,'Current unpaid balance · due before '+s.reportDate,s.overdueInvoices.filter(i=>metrics(i).balance>.005).length,'Includes previous years; excludes retention']);
+    if(['orders','projects'].includes(scope?.profile))cards=[
+      ['PO Value Incl VAT',s.poValue,'Through '+s.reportDate,s.orders.length,''],
+      ['Invoiced Incl VAT',s.poInvoiced,'Approval date through '+s.reportDate,unique(data.invoices).filter(i=>isIssued(i)&&i.approval_date&&date(i.approval_date)<=s.reportDate&&s.orders.some(p=>String(p.id)===String(orderFor(i)?.id))).length,''],
+      ['Open PO Balance Incl VAT',s.remaining,'Uninvoiced balance through '+s.reportDate,s.openOrders.length,'']
     ];
     host.innerHTML='<p class="pe-annual-note">'+esc(note)+'</p>'+cards.map(([label,value,basis,count,detail])=>
       '<article class="kpi"><div class="label">'+label+'</div><div class="value">'+esc(currency.format(value))+'</div>'+
@@ -177,14 +187,21 @@ let active=null;const str=v=>String(v??''),num=v=>Number(v||0),positive=v=>Math.
 function selection(s,label,profile){
  const A=PEAnnual,records=A.records(),str=v=>String(v??'');
  let invoices=[],collections=[],advances=[];
- if(label==='Billing Incl VAT')invoices=s.billed;
+ if(label==='Overdue to Report Date')invoices=s.overdueInvoices.filter(i=>A.metrics(i).balance>.005);
+ else if(['PO Value Incl VAT','Invoiced Incl VAT','Open PO Balance Incl VAT'].includes(label)){
+  const bill=p=>records.invoices.filter(i=>A.isIssued(i)&&i.approval_date&&String(i.approval_date).slice(0,10)<=s.reportDate&&str(A.orderFor(i)?.id)===str(p.id));
+  const chosen=s.orders.filter(p=>label==='PO Value Incl VAT'?A.orderGross(p)!==0:label==='Invoiced Incl VAT'?bill(p).length>0:A.orderGross(p)-bill(p).reduce((n,i)=>n+A.metrics(i).total,0)>.005);
+  invoices=records.invoices.filter(i=>chosen.some(p=>str(p.id)===str(A.orderFor(i)?.id))&&A.isIssued(i)&&i.approval_date&&String(i.approval_date).slice(0,10)<=s.reportDate);
+  s={...s,_chosen:chosen};
+ }
+ else if(label==='Billing Incl VAT')invoices=s.billed;
  else if(label==='Collections'){collections=s.collections;const ids=new Set(collections.map(c=>str(c.invoice_id)));invoices=s.scoped.filter(i=>ids.has(str(i.id)));}
  else if(label==='Advances Received'){advances=s.advances;const ids=new Set(advances.map(a=>str(a.po_id)));invoices=s.scoped.filter(i=>ids.has(str(A.orderFor(i)?.id)));}
  else if(label==='Net Collectible')invoices=s.collectibleInvoices.filter(i=>A.metrics(i).balance>.005);
  else if(label==='Pending Approval')invoices=s.waiting;
  else if(label==='Retention')invoices=s.retentionInvoices.filter(i=>A.metrics(i).retention>.005);
  else if(label==='Draft')invoices=s.draft;
- const invoiceIds=new Set(invoices.map(i=>str(i.id))),orderIds=new Set(advances.map(a=>str(a.po_id))),projectIds=new Set();
+ const invoiceIds=new Set(invoices.map(i=>str(i.id))),orderIds=new Set([...advances.map(a=>str(a.po_id)),...(s._chosen||[]).map(p=>str(p.id))]),projectIds=new Set();
  for(const i of invoices){const p=A.orderFor(i);if(p)orderIds.add(str(p.id));if(i.project_id!=null)projectIds.add(str(i.project_id));}
  const companies=new Set(),departments=new Set();
  for(const p of records.orders)if(orderIds.has(str(p.id))){projectIds.add(str(p.project_id));companies.add(str(p.company));departments.add(str(p.department));}

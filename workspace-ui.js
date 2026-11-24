@@ -33,25 +33,23 @@
     const m=PEAnnual.metrics(row,po);
     return m.total>0&&num(row.paid_amount)+num(row.retention_released_amount)+0.005>=m.payableTotal&&m.retention<=0.005;
   }
-  function customerClosed(name){
-    const d=PEAnnual.records(),ps=d.projects.filter(p=>text(p.company)===text(name)),os=d.orders.filter(p=>text(p.company)===text(name));
-    const ids=new Set(ps.map(p=>text(p.id))),nos=new Set(os.map(p=>text(p.po_no)));
-    const iv=d.invoices.filter(i=>ids.has(text(i.project_id))||nos.has(text(i.po_no)));
-    return (ps.length+os.length+iv.length)>0&&ps.every(explicit)&&os.every(po=>orderState(po).closed)&&iv.every(invoiceClosed);
+  let customerSources,customerBalanceMap;
+  function customerBalances(name){
+    const d=PEAnnual.records(),key=[d.invoices,d.orders,d.projects];
+    if(!customerSources||key.some((v,i)=>v!==customerSources[i])){customerSources=key;customerBalanceMap=new Map();
+      const get=n=>{if(!customerBalanceMap.has(n))customerBalanceMap.set(n,{openBalance:0,poBalance:0});return customerBalanceMap.get(n);};
+      for(const p of d.orders)get(text(p.company)).poBalance+=Math.max(0,orderState(p).grossRemaining);
+      for(const i of d.invoices){if(!PEAnnual.isIssued(i))continue;const po=PEAnnual.orderFor(i),pr=d.projects.find(p=>text(p.id)===text(i.project_id));get(text(po?.company??pr?.company??i.company)).openBalance+=PEAnnual.metrics(i,po).remaining;}
+    }
+    return customerBalanceMap.get(text(name))||{openBalance:0,poBalance:0};
   }
+  function customerClosed(name){const d=PEAnnual.records();if(!d.loaded)return false;const m=customerBalances(name);return m.openBalance<=.005&&m.poBalance<=.005;}
   function matches(type,row){
     let closed=false;
     if(type==='invoice')closed=invoiceClosed(row);
     else if(type==='project')closed=explicit(row);
     else if(type==='order')closed=orderState(row).closed;
-    else if(type==='customer'){
-      if(closedView){
-        const d=PEAnnual.records(),ps=d.projects.filter(p=>p.company===row.name),os=d.orders.filter(p=>p.company===row.name);
-        const ids=new Set(ps.map(p=>text(p.id))),nos=new Set(os.map(p=>text(p.po_no)));
-        return ps.some(explicit)||os.some(po=>orderState(po).closed)||d.invoices.some(i=>(ids.has(text(i.project_id))||nos.has(text(i.po_no)))&&invoiceClosed(i));
-      }
-      closed=customerClosed(row.name);
-    }
+    else if(type==='customer')closed=customerClosed(row.name);
     else if(type==='collection'){
       const invoice=PEAnnual.records().invoices.find(i=>text(i.id)===text(row.invoice_id));
       closed=invoice?invoiceClosed(invoice):false;
@@ -182,7 +180,7 @@
     if(drillState.order)drillState.order=d.orders.find(p=>text(p.id)===text(drillState.order.id))||null;
     renderDrill();
   }
-  global.PEWorkspace={orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
+  global.PEWorkspace={customerBalances,orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
 
