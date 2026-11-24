@@ -72,14 +72,14 @@
     refreshClock();
     const orderMap=new Map(data.orders.map(p=>[String(p.po_no),p])),projectMap=new Map(data.projects.map(p=>[String(p.id),p]));
     const set=values=>values&&new Set(values.map(String));
-    const invoiceIds=set(scope.invoiceIds),orderNos=set(scope.orderNos),projectIds=set(scope.projectIds),companies=set(scope.companies),departments=set(scope.departments),collectionIds=set(scope.collectionIds);
+    const invoiceIds=set(scope.invoiceIds),orderNos=set(scope.orderNos),projectIds=set(scope.projectIds),companies=set(scope.companies),departments=set(scope.departments),collectionIds=set(scope.collectionIds),orderScopeIds=set(scope.orderScopeIds);
     function dimension(row,order) {
       const project=projectMap.get(String(row.project_id??order?.project_id));
       return (!orderNos||orderNos.has(String(order?.po_no??row.po_no)))&&(!projectIds||projectIds.has(String(project?.id)))&&(!companies||companies.has(String(order?.company??project?.company??row.company)))&&(!departments||departments.has(String(order?.department??project?.department??row.department)));
     }
     const scoped=unique(data.invoices).filter(i=>workflow(i)!=='cancelled'&&(!invoiceIds||invoiceIds.has(String(i.id)))&&dimension(i,orderFor(i)));
     const periodFrom=scope.periodFrom??scope.dueFrom??scope.collectionFrom??'',periodTo=scope.periodTo??scope.dueTo??scope.collectionTo??'';
-    const period=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&(!periodFrom&&!periodTo?inYear(d):(!periodFrom||d>=periodFrom)&&(!periodTo||d<=periodTo));
+    const period=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&(!periodFrom&&!periodTo?(scope.allPeriods||inYear(d)):(!periodFrom||d>=periodFrom)&&(!periodTo||d<=periodTo));
     const reportDate=scope.reportDate||scope.periodTo||global.document?.getElementById?.('peReportDate')?.value||today;
     const issued=scoped.filter(isIssued),billed=issued.filter(i=>period(date(i.approval_date)));
     const collectibleInvoices=issued.filter(i=>period(due(i))),retentionInvoices=['dashboard','reports'].includes(scope.profile)?issued.filter(isRetainedInvoice):billed;
@@ -91,7 +91,7 @@
     const scopedIds=new Set(scoped.map(i=>String(i.id)));
     const collections=unique(data.collections).filter(c=>scopedIds.has(String(c.invoice_id))&&(!collectionIds||collectionIds.has(String(c.id)))&&period(date(c.collection_date)));
     const orderIdsByInvoices=new Set(scoped.map(i=>String(orderFor(i)?.id)));
-    const advancesInScope=unique(data.advances||[]).filter(a=>{const po=data.orders.find(p=>String(p.id)===String(a.po_id));return po&&dimension(po,po)&&(!scope.advancePoIds||scope.advancePoIds.map(String).includes(String(po.id)))&&(!invoiceIds||scope.advanceScopeIndependent||orderIdsByInvoices.has(String(po.id)));});
+    const advancesInScope=unique(data.advances||[]).filter(a=>{const po=data.orders.find(p=>String(p.id)===String(a.po_id));return po&&(!orderScopeIds||orderScopeIds.has(String(po.id)))&&dimension(po,po)&&(!scope.advancePoIds||scope.advancePoIds.map(String).includes(String(po.id)))&&(!invoiceIds||scope.advanceScopeIndependent||orderIdsByInvoices.has(String(po.id)));});
     const advances=advancesInScope.filter(a=>period(date(a.payment_date))),undatedAdvances=advancesInScope.filter(a=>!a.payment_date);
     const overdueInvoices=issued.filter(i=>due(i)&&due(i)<reportDate&&(!i.approval_date||date(i.approval_date)<=reportDate));
     const overdueToDate=round(overdueInvoices.reduce((v,i)=>v+metrics(i).balance,0));
@@ -109,7 +109,7 @@
     Object.assign(totals,{total:totals.billed,net:totals.billedNet,vat:totals.billedVat,collected:totals.collections,balance:totals.collectible,
       settled:round(billed.reduce((v,i)=>v+metrics(i).collected,0)),advanceApplied:round(billed.reduce((v,i)=>v+metrics(i).advance,0)),
       notDue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).notDue,0)),overdue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).overdue,0))});
-    const orders=unique(data.orders).filter(p=>dimension(p,p)&&(!p.po_date||date(p.po_date)<=reportDate));
+    const orders=unique(data.orders).filter(p=>(!orderScopeIds||orderScopeIds.has(String(p.id)))&&dimension(p,p)&&(!p.po_date||date(p.po_date)<=reportDate));
     const billedByOrder=new Map();
     for(const i of unique(data.invoices)){if(!isIssued(i)||!i.approval_date||date(i.approval_date)>reportDate)continue;const po=orderFor(i);if(!po)continue;const key=String(po.id);billedByOrder.set(key,(billedByOrder.get(key)||0)+metrics(i,po).total);}
     const poValue=round(orders.reduce((v,p)=>v+orderGross(p),0));
@@ -161,7 +161,7 @@
     style();
     if(['orders','projects'].includes(scope?.profile)&&!document.getElementById('peReportDate')){const label=document.createElement('label');label.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px';label.textContent='Report Date';const input=document.createElement('input');input.id='peReportDate';input.type='date';input.value=today;input.setAttribute('aria-label','Report date');input.onchange=()=>document.dispatchEvent(new CustomEvent('pe-kpi-filter'));label.append(input);host.parentElement.insertBefore(label,host);}
     const s = snapshot(scope);
-    const period=s.periodFrom||s.periodTo?(s.periodFrom||'Beginning')+' to '+(s.periodTo||'Today'):String(year);
+    const period=s.periodFrom||s.periodTo?(s.periodFrom||'Beginning')+' to '+(s.periodTo||'No end date'):scope?.allPeriods?'All activity dates':String(year);
     const note='Totals include open and closed records within the selected dimensions. Pending Approval ignores the period. Draft includes invoice dates through '+s.asOf+'.';
     let cards=[
       ['Billing Incl VAT',s.totals.billed,'Approval date',s.billed.length,'Ex VAT '+currency.format(s.totals.billedNet)+' · VAT '+currency.format(s.totals.billedVat)],
@@ -220,7 +220,7 @@ function selection(s,label,profile){
 function matches(row,type,pick){return type==='invoice'?pick.invoiceIds.has(str(row.id)):type==='order'?pick.orderIds.has(str(row.id)):type==='project'?pick.projectIds.has(str(row.id)):type==='collection'?pick.collectionIds.has(str(row.id)):type==='customer'?pick.companies.has(str(row.name)):type==='department'?pick.departments.has(str(row.name)):false;}
 function filter(rows,type,scope){if(!active||active.custom)return rows;const pick=selection(PEAnnual.snapshot(scope),active.label,active.profile);return rows.filter(row=>matches(row,type,pick));}
 function changed(){document.dispatchEvent(new CustomEvent('pe-kpi-filter'));}
-function clear(){active=null;changed();}
+function clear(notify=true){active=null;if(notify)changed();}
 function decorate(node,label,activate){node.setAttribute('role','button');node.tabIndex=0;node.style.cursor='pointer';node.setAttribute('aria-pressed',String(active?.label===label));node.classList.toggle('pe-kpi-selected',active?.label===label);node.title=(active?.label===label?'Clear total filter: ':'Filter records: ')+label;node.onclick=activate;node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();}};}
 function toolbar(host){
  let bar=document.getElementById('peKpiFilterBar');if(!bar){bar=document.createElement('div');bar.id='peKpiFilterBar';bar.style.cssText='display:flex;align-items:center;gap:12px;margin:6px 0;font-size:12px';host.parentElement.insertBefore(bar,host);}
@@ -239,4 +239,5 @@ function bindOrders(host){toolbar(host);host.querySelectorAll('.kpi').forEach(no
 global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,active:()=>active,matches};
 document.addEventListener('click',event=>{if(event.target.closest?.('#clear,#clearFilters,#customerClear,[onclick="clearFilters()"],[onclick="resetFilters()"]'))active=null;},true);
 })(window);
+
 
