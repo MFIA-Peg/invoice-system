@@ -36,23 +36,25 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>.project-action-cell{position:sticky;right:0;background:#fff;z-index:2;box-shadow:-3px 0 8px #14263d10;min-width:190px}th.project-action-cell{background:#14263d;z-index:3}.project-row-actions{display:flex;gap:6px;align-items:center}.project-action{font:600 12px/1.4 Arial,sans-serif!important;padding:7px 9px!important;border:0;border-radius:6px;background:#2563eb;color:white;text-decoration:none;cursor:pointer}.project-action.danger{background:#b42318}</style><script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
-<script src="entry-dialog.js?v=20261123popup1" defer></script>
+<script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html" aria-current="page">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
 <section class="hero"><div><h1>Projects</h1><p>Project portfolio, purchase order coverage and linked invoice performance</p></div><div class="actions"><a class="btn teal" href="companies.html?create=project">+ Add Project</a><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button><a class="btn secondary" href="reports.html?report=projects">Project Financial Report</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
-<section class="panel"><div class="panelhead"><div><h2>Project Financial Summary</h2><div class="muted">Financial values are derived from linked purchase orders and invoice records.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading projects...</div></div></section>
+<section class="panel"><div class="panelhead"><div><h2>Project Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.</div><div class="muted">Financial values are derived from linked purchase orders and invoice records.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading projects...</div></div></section>
 
 <section class="panel"><div class="panelhead"><div><h2>Find Projects</h2><div class="muted">Type part of a customer, department, project name or status.</div></div><button class="secondary" id="clear">Clear Filters</button></div>
 <div class="filters">
@@ -104,12 +106,14 @@ function populateFilters(){setOptions('company',allProjects.map(x=>x.company));s
 function projectPOs(project){return allPO.filter(p=>Number(p.project_id)===Number(project.id));}
 function projectInvoices(project){return allInvoices.filter(i=>String(PEAnnual.orderFor(i)?.project_id??i.project_id)===String(project.id));}
 function invoiceMetrics(project){const inv=projectInvoices(project).filter(PEAnnual.isIssued),po=projectPOs(project),ms=inv.map(i=>PEAnnual.metrics(i,PEAnnual.orderFor(i))),sum=k=>ms.reduce((s,m)=>s+num(m[k]),0),poValue=po.reduce((s,x)=>s+PEAnnual.orderGross(x),0),billed=sum('total'),gross=billed,paid=sum('collected'),balance=sum('notDue'),retention=sum('retention'),overdue=sum('overdue');return{poCount:po.length,invoiceCount:inv.length,poValue,billed,gross,paid,balance,retention,overdue,remaining:po.reduce((s,p)=>s+Math.max(0,PEAnnual.orderGross(p)-inv.filter(i=>String(PEAnnual.orderFor(i)?.id)===String(p.id)).reduce((n,i)=>n+PEAnnual.metrics(i,p).total,0)),0)};}
-let peKpiBase=[];
+let peKpiBase=[],peKpiScope={};
 function applyFilters(){
- const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim().toLowerCase(),d=$('department').value.trim().toLowerCase(),p=$('projectName').value.trim().toLowerCase(),s=$('status').value.trim().toLowerCase();
- filtered=allProjects.filter(x=>PEWorkspace.matches('project',x)&&(!q||[x.project_name,x.company,x.department,x.status,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c)&&(!d||String(x.department||'').toLowerCase()===d)&&(!p||String(x.project_name||'').toLowerCase()===p)&&(!s||String(x.status||'').toLowerCase()===s));
- peKpiBase=filtered;filtered=PEKPIFilter.filter(filtered,'project',{projectIds:peKpiBase.map(i=>i.id)});
-render();
+ const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim().toLowerCase(),d=$('department').value.trim().toLowerCase(),p=$('projectName').value.trim().toLowerCase(),status=$('status').value.trim().toLowerCase();
+ peKpiBase=allProjects.filter(x=>(!q||[x.project_name,x.company,x.department,x.status,x.notes].join(' ').toLowerCase().includes(q))&&(!c||String(x.company||'').toLowerCase()===c)&&(!d||String(x.department||'').toLowerCase()===d)&&(!p||String(x.project_name||'').toLowerCase()===p)&&(!status||String(x.status||'').toLowerCase()===status));
+ const ids=new Set(peKpiBase.map(x=>String(x.id)));
+ peKpiScope={profile:'projects',projectIds:peKpiBase.map(x=>x.id),advancePoIds:allPO.filter(x=>ids.has(String(x.project_id))).map(x=>x.id),advanceScopeIndependent:true};
+ filtered=PEKPIFilter.active()?PEKPIFilter.filter(peKpiBase,'project',peKpiScope):peKpiBase.filter(x=>PEWorkspace.matches('project',x));
+ render();
 }
 function render(){
  const metrics=filtered.map(p=>({p,m:invoiceMetrics(p)})),sum=k=>metrics.reduce((s,x)=>s+x.m[k],0);
@@ -176,9 +180,17 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-PEAnnual.render('kpis',null,{profile:'projects',projectIds:peKpiBase.map(p=>p.id)});
+PEAnnual.render('kpis',null,peKpiScope);
 };
 })();
 </script>
-<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script><script>
+PEAdvancePayments.setClient(db,async()=>{await loadAll();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
+</body></html>
+
+
+
 

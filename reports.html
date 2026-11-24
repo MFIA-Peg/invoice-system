@@ -15,9 +15,11 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <style>
 @media screen{
 .report-control-dock{position:sticky;top:0;z-index:30;background:#f3f6fa;padding:8px 0;border-bottom:1px solid #cbd5e1;box-shadow:0 4px 12px #14263d14;max-height:52vh;overflow:auto}
@@ -31,7 +33,7 @@
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
-<script src="entry-dialog.js?v=20261123popup1" defer></script>
+<script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p class="muted">Report tables cover the selected historical records; KPI cards use the current year. Aggregated contract and invoiced values include VAT.</p><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
@@ -41,15 +43,15 @@
 <div class="field"><label>Department</label><select id="fDepartment" data-filter-source="departmentOptions" aria-label="Department" oninput="applyFilters()"><option value="">All</option></select><datalist id="departmentOptions"></datalist></div>
 <div class="field"><label>Project</label><select id="fProject" data-filter-source="projectOptions" aria-label="Project" oninput="applyFilters()"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
 <div class="field"><label>Purchase Order</label><select id="fPO" data-filter-source="poOptions" aria-label="Purchase Order" oninput="applyFilters()"><option value="">All</option></select><datalist id="poOptions"></datalist></div>
-<div class="field"><label>Invoice / Approval Date From</label><input type="date" id="fFrom"></div>
-<div class="field"><label>Invoice / Approval Date To</label><input type="date" id="fTo"></div>
-<div class="field"><label>Due Date From</label><input type="date" id="fDueFrom"></div>
-<div class="field"><label>Due Date To</label><input type="date" id="fDueTo"></div>
+<div class="field"><label>Period From</label><input type="date" id="fFrom"></div>
+<div class="field"><label>Period To</label><input type="date" id="fTo"></div>
+<div class="field"><label>Table Due Date From</label><input type="date" id="fDueFrom"></div>
+<div class="field"><label>Table Due Date To</label><input type="date" id="fDueTo"></div>
 <div class="field"><label>Search Text</label><input type="search" id="fSearch" placeholder="Invoice, PO, project, company, description..." oninput="applyFilters()"></div>
 <div class="field"><label>Invoice / Payment Status</label><select id="fStatus"><option value="">All Statuses</option><option>Paid</option><option>Partially Paid</option><option>Unpaid</option><option>Overdue</option><option>Retention Only</option></select></div>
 </div><div class="filter-actions" style="margin-top:12px"><button onclick="applyFilters()">Apply Filters</button><button class="secondary" onclick="resetFilters()">Reset</button><span id="filterCount" class="meta"></span></div></section>
 <div class="tabs"><button class="active" data-tab="invoices">Invoice Register</button><button data-tab="collections">Collections & Aging</button><button data-tab="pos">Purchase Orders</button><button data-tab="projects">Projects</button><button data-tab="customers">Customer Summary</button></div></div>
-<section class="panel"><h2>Management Summary</h2><div class="kpis" id="kpis"></div></section>
+<section class="panel"><h2>Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.</div><div class="kpis" id="kpis"></div></section>
 <section class="panel">
 <div class="report-section active" id="sec-invoices"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Invoice Register</h2><button class="green" onclick="exportCSV('invoices')">Export Invoice CSV</button></div><div class="table-wrap" id="invoiceTable"></div></div>
 <div class="report-section" id="sec-collections"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Collections & Receivables Aging</h2><button class="green" onclick="exportCSV('collections')">Export Collections CSV</button></div><div class="note" style="margin-bottom:12px">Paid Amount is the cumulative amount stored on each invoice. Since no dated receipt/collection transaction table has been confirmed, this report shows cumulative collections to date and current outstanding aging; it does not claim cash collected within the selected date range.</div><div class="table-wrap" id="collectionTable"></div></div>
@@ -83,33 +85,26 @@ async function loadAll(){const b=document.getElementById('refreshBtn');b.disable
  await PEAccess.load(db);
  const invoiceRequest=loadReportInvoices();const [,iv]=await Promise.all([PEAnnual.load(db,{invoices:invoiceRequest}),invoiceRequest]);const raw=PEAnnual.records();projects=raw.projects;pos=raw.orders;invoices=iv;populate('companyOptions',[...projects.map(x=>x.company),...pos.map(x=>x.company)]);populate('departmentOptions',[...projects.map(x=>x.department),...pos.map(x=>x.department)]);populate('projectOptions',projects.map(x=>x.project_name));populate('poOptions',pos.map(x=>x.po_no));window.PESearchableSelects?.refresh();applyRequestedPO();applyFilters();document.getElementById('lastUpdated').textContent='Data refreshed: '+new Date().toLocaleString();}catch(e){showError('Unable to load reports: '+(e.message||e)+' . Check Supabase access and confirm that invoice_details_with_retention exists.');}finally{b.disabled=false;b.textContent='Refresh Data'}}
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
-let peKpiBase=[];
+let peKpiBase=[],peKpiScope={};
 function applyFilters(){
-const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim();
-const from=document.getElementById('fFrom').value,to=document.getElementById('fTo').value,dueFrom=document.getElementById('fDueFrom').value,dueTo=document.getElementById('fDueTo').value;
-const status=document.getElementById('fStatus').value,search=(document.getElementById('fSearch').value||'').trim().toLowerCase();
-const pmap=new Map(projects.map(x=>[String(x.id),x]));const pomap=new Map(pos.map(x=>[String(x.po_no),x]));
-fp.invoices=invoices.filter(x=>{
- if(!(requestedPO!==null&&poNo)&&!PEWorkspace.matches('invoice',x))return false;
- const pr=pmap.get(String(x.project_id))||projects.find(p=>p.project_name===x.project_name),po=pomap.get(String(x.po_no));
- const d=dateOnly(x.approval_date||x.start_date),dd=dateOnly(x.due_date);
- if(company&&!matchesText(pr?.company||po?.company,company))return false;
- if(dept&&!matchesText(pr?.department||po?.department,dept))return false;
- if(project&&!matchesText(x.project_name,project))return false;
- if(poNo&&!matchesText(x.po_no,poNo))return false;
- if(from&&(!d||d<from))return false;if(to&&(!d||d>to))return false;
- if(dueFrom&&(!dd||dd<dueFrom))return false;if(dueTo&&(!dd||dd>dueTo))return false;
- if(status&&invStatus(x)!==status)return false;
- if(search){const hay=[x.invoice_no,x.po_no,x.project_name,x.description,pr?.company,pr?.department,po?.company,po?.department,x.status,invStatus(x)].join(' ').toLowerCase();if(!hay.includes(search))return false;}
- return true;
-});
-const relatedPOs=new Set(fp.invoices.map(x=>String(x.po_no)));const relatedProjects=new Set(fp.invoices.map(x=>String(x.project_id)));
-fp.pos=pos.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('order',x))&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||matchesText(x.po_no,poNo)));
-if(from||to||dueFrom||dueTo||search||status){fp.pos=fp.pos.filter(x=>relatedPOs.has(String(x.po_no)));}
-fp.projects=projects.filter(x=>(!!(requestedPO!==null&&poNo)||PEWorkspace.matches('project',x))&&(!company||matchesText(x.company,company))&&(!dept||matchesText(x.department,dept))&&(!project||matchesText(x.project_name,project))&&(!poNo||fp.pos.some(p=>p.project_id===x.id)));
-if(from||to||dueFrom||dueTo||search||status){fp.projects=fp.projects.filter(x=>relatedProjects.has(String(x.id)));}
-peKpiBase=fp.invoices;const scope={invoiceIds:peKpiBase.map(i=>i.id)};fp.invoices=PEKPIFilter.filter(fp.invoices,'invoice',scope);fp.pos=PEKPIFilter.filter(fp.pos,'order',scope);fp.projects=PEKPIFilter.filter(fp.projects,'project',scope);
-render();document.getElementById('filterCount').textContent=`${fp.invoices.length} invoices · ${fp.pos.length} POs · ${fp.projects.length} projects`;
+ const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim(),from=document.getElementById('fFrom').value,to=document.getElementById('fTo').value,dueFrom=document.getElementById('fDueFrom').value,dueTo=document.getElementById('fDueTo').value,status=document.getElementById('fStatus').value,search=(document.getElementById('fSearch').value||'').trim().toLowerCase();
+ const pmap=new Map(projects.map(x=>[String(x.id),x]));
+ const dimension=x=>{const po=PEAnnual.orderFor(x),pr=pmap.get(String(x.project_id??po?.project_id));return matchesText(po?.company||pr?.company,company)&&matchesText(po?.department||pr?.department,dept)&&matchesText(pr?.project_name||x.project_name,project)&&matchesText(x.po_no,poNo)&&(!status||invStatus(x)===status)&&(!search||[x.invoice_no,x.po_no,x.project_name,x.description,pr?.company,pr?.department,po?.company,po?.department,x.status,invStatus(x)].join(' ').toLowerCase().includes(search));};
+ peKpiBase=invoices.filter(dimension);
+ const relatedIds=new Set(peKpiBase.map(x=>String(PEAnnual.orderFor(x)?.id)));
+ const orders=pos.filter(x=>matchesText(x.company,company)&&matchesText(x.department,dept)&&matchesText(x.project_name,project)&&matchesText(x.po_no,poNo)&&(!status||relatedIds.has(String(x.id)))&&(!search||relatedIds.has(String(x.id))||[x.po_no,x.project_name,x.company,x.department,x.notes].join(' ').toLowerCase().includes(search)));
+ peKpiScope={periodFrom:from||dueFrom,periodTo:to||dueTo,invoiceIds:peKpiBase.map(i=>i.id),advancePoIds:orders.map(x=>x.id),advanceScopeIndependent:true};
+ const bypass=requestedPO!==null&&poNo;
+ if(PEKPIFilter.active()){
+  fp.invoices=PEKPIFilter.filter(peKpiBase,'invoice',peKpiScope);fp.pos=PEKPIFilter.filter(orders,'order',peKpiScope);
+  fp.projects=PEKPIFilter.filter(projects.filter(x=>matchesText(x.company,company)&&matchesText(x.department,dept)&&matchesText(x.project_name,project)),'project',peKpiScope);
+ }else{
+  fp.invoices=peKpiBase.filter(x=>{if(!bypass&&!PEWorkspace.matches('invoice',x))return false;const d=dateOnly(x.approval_date||x.start_date),dd=dateOnly(x.due_date);return (!from||d&&d>=from)&&(!to||d&&d<=to)&&(!dueFrom||dd&&dd>=dueFrom)&&(!dueTo||dd&&dd<=dueTo);});
+  const relatedPOs=new Set(fp.invoices.map(x=>String(x.po_no))),relatedProjects=new Set(fp.invoices.map(x=>String(x.project_id)));
+  fp.pos=orders.filter(x=>(bypass||PEWorkspace.matches('order',x))&&(!(from||to||dueFrom||dueTo||search||status)||relatedPOs.has(String(x.po_no))));
+  fp.projects=projects.filter(x=>(bypass||PEWorkspace.matches('project',x))&&matchesText(x.company,company)&&matchesText(x.department,dept)&&matchesText(x.project_name,project)&&(!poNo||fp.pos.some(p=>String(p.project_id)===String(x.id)))&&(!(from||to||dueFrom||dueTo||search||status)||relatedProjects.has(String(x.id))));
+ }
+ render();document.getElementById('filterCount').textContent=fp.invoices.length+' invoices · '+fp.pos.length+' POs · '+fp.projects.length+' projects';
 }
 function resetFilters(){['fCompany','fDepartment','fProject','fPO','fFrom','fTo','fDueFrom','fDueTo','fSearch','fStatus'].forEach(id=>document.getElementById(id).value='');applyFilters()}
 function render(){const a=fp.invoices;const sum=k=>a.reduce((s,x)=>s+n(x[k]),0);const ex=sum('invoice_amount'),vat=a.reduce((s,x)=>s+invVat(x),0),gross=a.reduce((s,x)=>s+invGross(x),0),paid=sum('paid_amount'),bal=a.reduce((s,x)=>s+invBalance(x),0),ret=sum('retention_balance');const due=a.filter(x=>invStatus(x)==='Overdue').reduce((s,x)=>s+invBalance(x),0);const kpis=[['Invoice Value (Excl. VAT)',money(ex),'Filtered invoices'],['VAT',money(vat),'VAT amount'],['Invoice Total (Incl. VAT)',money(gross),'Gross invoiced value'],['Cumulative Paid',money(paid),'Paid amount recorded'],['Outstanding Balance',money(bal),'Open invoice balance'],['Overdue Receivables',money(due),'Past due date'],['Retention Balance',money(ret),'Not yet released'],['Invoice Count',a.length,'Filtered invoices']];document.getElementById('kpis').innerHTML=kpis.map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
@@ -150,12 +145,20 @@ renderCharts=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-const s=PEAnnual.render('kpis',null,{invoiceIds:peKpiBase.map(i=>i.id)});
+const s=PEAnnual.render('kpis',null,peKpiScope);
 const bands=[0,0,0,0];
 for(const i of s.annual){const days=ageDays({...i,due_date:PEAnnual.due(i)});if(days===null)continue;const m=PEAnnual.metrics(i,s.orderMap.get(String(i.po_no)));bands[days<=30?0:days<=60?1:days<=90?2:3]+=m.balance;}
 PEAnnual.chart('agingChart',[['0–30 days',bands[0]],['31–60 days',bands[1]],['61–90 days',bands[2]],['Over 90 days',bands[3]]]);
 };
 })();
 </script>
-<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script><script>
+PEAdvancePayments.setClient(db,async()=>{await loadAll();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
+</body></html>
+
+
+
 

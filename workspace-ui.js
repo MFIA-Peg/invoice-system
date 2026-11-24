@@ -78,7 +78,7 @@
     const host=document.getElementById('monthlyComparison');if(!host)return;
     const s=PEAnnual.snapshot(scope),y=PEAnnual.year,series=Array.from({length:4},()=>Array(13).fill(0));
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    const from=scope?.dueFrom||'',to=scope?.dueTo||'',filtered=!!(from||to),overdueRows=[];
+    const from=scope?.periodFrom??scope?.dueFrom??'',to=scope?.periodTo??scope?.dueTo??'',filtered=!!(from||to),overdueRows=[];
     const inPeriod=date=>!!date&&(!from||date>=from)&&(!to||date<=to);
     const records=PEAnnual.records(),projects=new Map(records.projects.map(p=>[text(p.id),p]));
     function add(values,date,value){if(PEAnnual.inYear(date)&&inPeriod(String(date).slice(0,10))){const m=Number(String(date).slice(5,7));if(m>=1&&m<=12)values[m]+=value;}}
@@ -185,6 +185,7 @@
   global.PEWorkspace={orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+
 
 
 

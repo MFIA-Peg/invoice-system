@@ -35,15 +35,17 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
-<script src="entry-dialog.js?v=20261123popup1" defer></script>
+<script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html" aria-current="page">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Verifying session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
@@ -51,7 +53,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <section class="hero"><div><h1>Collections</h1><p>Collection transactions, receivables performance and payment tracking</p></div><div class="actions"><button class="teal" id="refresh">↻ Refresh</button><button id="export">↓ Export to Excel</button></div></section>
 <div id="errorBox" class="error" role="alert"></div>
 
-<section class="panel"><div class="panelhead"><div><h2>Collection Financial Summary</h2><div class="muted">Summary recalculates automatically using the current filters.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading collections...</div></div></section>
+<section class="panel"><div class="panelhead"><div><h2>Collection Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.</div><div class="muted">Summary recalculates automatically using the current filters.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading collections...</div></div></section>
 
 
 <section class="panel"><div class="panelhead"><div><h2>Record New Collection</h2><div class="muted">Select an open invoice and record the received payment.</div></div></div>
@@ -76,8 +78,8 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="field"><label for="filterInvoice">Invoice Number</label><select id="filterInvoice" data-filter-source="invoiceOptions" aria-label="Invoice Number"><option value="">All</option></select><datalist id="invoiceOptions"></datalist></div>
 <div class="field"><label for="filterMethod">Payment Method</label><select id="filterMethod" data-filter-source="methodOptions" aria-label="Payment Method"><option value="">All</option></select><datalist id="methodOptions"></datalist></div>
 <div class="field"><label for="filterReference">Reference Number</label><select id="filterReference" data-filter-source="referenceOptions" aria-label="Reference Number"><option value="">All</option></select><datalist id="referenceOptions"></datalist></div>
-<div class="field"><label for="filterFrom">Collection Date From</label><input type="date" id="filterFrom"></div>
-<div class="field"><label for="filterTo">Collection Date To</label><input type="date" id="filterTo"></div>
+<div class="field"><label for="filterFrom">Period From</label><input type="date" id="filterFrom"></div>
+<div class="field"><label for="filterTo">Period To</label><input type="date" id="filterTo"></div>
 </div></section>
 
 <section class="panel"><div class="panelhead"><div><h2>Collection Transactions</h2><div class="muted" id="resultCount">Loading records...</div></div></div>
@@ -117,7 +119,7 @@ async function loadCollections(){await PEAccess.load(client);const b=$('refresh'
  await PEAnnual.load(client);
 
  const {projects:p,orders:po,invoices:i,collections:c}=PEAnnual.records();
- projects=p.filter(x=>allowedProject(x.id)&&allowedDept(x.department));const ids=new Set(projects.map(x=>Number(x.id)));pos=po.filter(x=>ids.has(Number(x.project_id))&&x.archive!==true);invoices=i.filter(x=>ids.has(Number(x.project_id||pos.find(y=>y.po_no===x.po_no)?.project_id)));const invIds=new Set(invoices.map(x=>Number(x.id)));
+ projects=p.filter(x=>allowedProject(x.id)&&allowedDept(x.department));const ids=new Set(projects.map(x=>Number(x.id)));pos=po.filter(x=>ids.has(Number(x.project_id)));invoices=i.filter(x=>ids.has(Number(x.project_id||pos.find(y=>y.po_no===x.po_no)?.project_id)));const invIds=new Set(invoices.map(x=>Number(x.id)));
  transactions=c.filter(x=>invIds.has(Number(x.invoice_id))).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date))||b.id-a.id);
  populateFilters();fillInvoices();applyFilters();
  }catch(e){showError('Load failed: '+(e.message||e));$('transactionsTable').innerHTML=`<div class="empty">${esc(e.message)}</div>`}
@@ -194,31 +196,20 @@ async function deleteCollection(id){
 function resetForm(date=true){
  editingCollection=null;$('invoiceSelect').disabled=false;$('invoiceSearch').disabled=false;$('invoiceSelect').value='';$('invoiceSearch').value='';$('collectionAmount').value='';$('paymentMethod').value='';$('referenceNo').value='';$('collectionNotes').value='';if(date)$('collectionDate').value=today();$('saveCollectionButton').disabled=!canAdd();$('saveCollectionButton').textContent='Save Collection';updateBalance();
 }
-let peKpiBase=[];
+let peKpiBase=[],peKpiScope={};
 function applyFilters(){
- const im=new Map(invoices.map(i=>[Number(i.id),i]));
- const co=$('filterCompany').value.trim().toLowerCase(),dept=$('filterDepartment').value.trim().toLowerCase();
- const pr=$('filterProject').value.trim().toLowerCase(),po=$('filterPO').value.trim().toLowerCase();
- const invoice=$('filterInvoice').value.trim().toLowerCase(),method=$('filterMethod').value.trim().toLowerCase();
- const reference=$('filterReference').value.trim().toLowerCase(),q=$('search').value.trim().toLowerCase();
- const from=$('filterFrom').value,to=$('filterTo').value;
- filteredTransactions=transactions.filter(c=>{
-  if(!PEWorkspace.matches('collection',c))return false;
-  const i=im.get(Number(c.invoice_id)),m=i&&invMetrics(i);if(!i)return false;
-  const company=m.pr?.company||'',department=m.pr?.department||'',project=m.pr?.project_name||i.project_name||'';
-  if(co&&String(company).toLowerCase()!==co)return false;
-  if(dept&&String(department).toLowerCase()!==dept)return false;
-  if(pr&&String(project).toLowerCase()!==pr)return false;
-  if(po&&String(i.po_no||'').toLowerCase()!==po)return false;
-  if(invoice&&String(i.invoice_no||'').toLowerCase()!==invoice)return false;
-  if(method&&String(c.payment_method||'').toLowerCase()!==method)return false;
-  if(reference&&String(c.reference_no||'').toLowerCase()!==reference)return false;
-  if(from&&c.collection_date<from)return false;if(to&&c.collection_date>to)return false;
-  if(q&&![i.invoice_no,i.po_no,company,department,project,c.payment_method,c.reference_no,c.notes,c.collection_date].join(' ').toLowerCase().includes(q))return false;
-  return true;
- });
- peKpiBase=filteredTransactions;filteredTransactions=PEKPIFilter.filter(filteredTransactions,'collection',{invoiceIds:peKpiBase.map(c=>c.invoice_id),collectionIds:peKpiBase.map(c=>c.id)});
-render();
+ const im=new Map(invoices.map(i=>[String(i.id),i])),co=$('filterCompany').value.trim().toLowerCase(),dept=$('filterDepartment').value.trim().toLowerCase(),pr=$('filterProject').value.trim().toLowerCase(),po=$('filterPO').value.trim().toLowerCase(),invoice=$('filterInvoice').value.trim().toLowerCase(),method=$('filterMethod').value.trim().toLowerCase(),reference=$('filterReference').value.trim().toLowerCase(),q=$('search').value.trim().toLowerCase(),from=$('filterFrom').value,to=$('filterTo').value;
+ const exact=(a,b)=>!b||String(a||'').toLowerCase()===b;
+ const invoiceDimension=i=>{const order=PEAnnual.orderFor(i),project=projects.find(p=>String(p.id)===String(i.project_id??order?.project_id));return exact(order?.company||project?.company||i.company,co)&&exact(order?.department||project?.department||i.department,dept)&&exact(project?.project_name||i.project_name||order?.project_name,pr)&&exact(i.po_no,po)&&exact(i.invoice_no,invoice);};
+ const textMatch=(i,c)=>!q||[i?.invoice_no,i?.po_no,i?.project_name,PEAnnual.orderFor(i||{})?.company,PEAnnual.orderFor(i||{})?.department,c?.payment_method,c?.reference_no,c?.notes,c?.collection_date].join(' ').toLowerCase().includes(q);
+ const dimInvoices=invoices.filter(i=>invoiceDimension(i)&&(!q||textMatch(i)||transactions.some(c=>String(c.invoice_id)===String(i.id)&&textMatch(i,c))));
+ const ids=new Set(dimInvoices.map(i=>String(i.id)));
+ peKpiBase=transactions.filter(c=>{const i=im.get(String(c.invoice_id));return i&&ids.has(String(i.id))&&exact(c.payment_method,method)&&exact(c.reference_no,reference)&&textMatch(i,c);});
+ const invoicePoIds=new Set(dimInvoices.map(i=>String(PEAnnual.orderFor(i)?.id)));
+ const advanceOrders=pos.filter(x=>exact(x.company,co)&&exact(x.department,dept)&&exact(x.project_name,pr)&&exact(x.po_no,po)&&(!invoice||invoicePoIds.has(String(x.id)))&&(!q||invoicePoIds.has(String(x.id))||[x.po_no,x.project_name,x.company,x.department,x.notes].join(' ').toLowerCase().includes(q)));
+ peKpiScope={profile:'collections',periodFrom:from,periodTo:to,invoiceIds:dimInvoices.map(i=>i.id),collectionIds:peKpiBase.map(c=>c.id),advancePoIds:advanceOrders.map(x=>x.id),advanceScopeIndependent:true};
+ filteredTransactions=PEKPIFilter.active()?PEKPIFilter.filter(peKpiBase,'collection',peKpiScope):peKpiBase.filter(c=>PEWorkspace.matches('collection',c)&&(!from||c.collection_date>=from)&&(!to||c.collection_date<=to));
+ render();
 }
 function render(){const a=filteredTransactions,im=new Map(invoices.map(i=>[Number(i.id),i])),total=a.reduce((s,x)=>s+num(x.amount),0),invIds=new Set(a.map(x=>x.invoice_id)),methods=new Set(a.map(x=>x.payment_method).filter(Boolean)),companies=new Set(a.map(x=>{const i=im.get(Number(x.invoice_id));return invMetrics(i).pr?.company}).filter(Boolean));
  const cards=[['Total Collected',money(total),'Sum of filtered collection transactions'],['Transactions',a.length,'Collection entries'],['Invoices With Collections',invIds.size,'Distinct invoices'],['Customers',companies.size,'Customers represented'],['Payment Methods',methods.size,'Methods used'],['Average Collection',money(a.length?total/a.length:0),'Average transaction amount'],['Largest Collection',money(a.reduce((m,x)=>Math.max(m,num(x.amount)),0)),'Highest single transaction'],['Latest Collection',a.length?String(a[0].collection_date):'—','Most recent date in filtered results']];
@@ -244,10 +235,17 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-const ids=peKpiBase.map(c=>c.id),invoicesInScope=peKpiBase.map(c=>c.invoice_id);
-PEAnnual.render('kpis',null,{profile:'collections',invoiceIds:invoicesInScope,collectionIds:ids});
+PEAnnual.render('kpis',null,peKpiScope);
 };
 })();
 </script>
-<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script><script>
+PEAdvancePayments.setClient(client,async()=>{await loadCollections();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
+</body></html>
+
+
+
 
