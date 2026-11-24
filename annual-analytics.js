@@ -114,8 +114,12 @@
     const poValue=round(orders.reduce((v,p)=>v+orderGross(p),0));
     const remaining=round(orders.reduce((v,p)=>v+Math.max(0,orderGross(p)-(billedByOrder.get(String(p.id))||0)),0));
     const poInvoiced=round(orders.reduce((v,p)=>v+(billedByOrder.get(String(p.id))||0),0));
+    const periodOrders=orders.filter(p=>period(date(p.po_date)));
+    const periodPoValue=round(periodOrders.reduce((v,p)=>v+orderGross(p),0));
+    const periodPoInvoiced=totals.billed;
+    const periodPoRemaining=round(periodOrders.reduce((v,p)=>v+Math.max(0,orderGross(p)-(billedByOrder.get(String(p.id))||0)),0));
     const activityIds=new Set([...billed.map(i=>String(i.project_id)),...orders.map(p=>String(p.project_id))]);
-    return {overdueRetentionInvoices,undatedRetentionCount,openOrders:orders.filter(p=>orderGross(p)-(billedByOrder.get(String(p.id))||0)>.005),reportDate,overdueInvoices,totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
+    return {periodOrders,periodPoValue,periodPoInvoiced,periodPoRemaining,overdueRetentionInvoices,undatedRetentionCount,openOrders:orders.filter(p=>orderGross(p)-(billedByOrder.get(String(p.id))||0)>.005),reportDate,overdueInvoices,totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
   }
   function style() {
     if (document.getElementById('peAnnualStyle')) return;

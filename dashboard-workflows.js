@@ -77,7 +77,7 @@
     // the previous comparison donuts or duplicate their values.
     PEAnnual.chart('collectionChart',[['Collections',s.totals.collections],['Advances Received',s.totals.advances]]);
     PEAnnual.chart('overdueChart',[['Net Collectible',s.totals.collectible],['Retention',s.totals.retention]]);
-    PEAnnual.chart('poChart',[['PO Value Incl VAT',s.poValue],['PO Invoiced Incl VAT',s.poInvoiced],['Remaining PO Value Incl VAT',s.remaining]]);
+    PEAnnual.chart('poChart',[['PO Value Incl VAT · PO date',s.periodPoValue],['Invoiced Incl VAT · approval date',s.periodPoInvoiced],['Open PO Balance Incl VAT · POs in period',s.periodPoRemaining]]);
     PEWorkspace.monthly(scope);renderAlerts(rows,f);renderTable(rows,f);
     const undated=(s.undatedAdvances||[]).length;
     el('status').textContent=(f.from||f.to?(f.from||'Start')+' — '+(f.to||'End'):PEAnnual.year)+' · Billing and retention: approval date · Collections and advances: payment date · Net collectible: due date · Pending approval and draft: current as of '+today()+(undated?' · '+undated+' advance payment(s) need a payment date':'');
