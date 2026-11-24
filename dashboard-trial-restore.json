@@ -1,1 +1,11 @@
-{"date":"2026-11-24","originalCommit":"506b58019cf5293ff63827e9de3b5f60569b0180","backupBranch":"backup/dashboard-before-summary-trial-20261124","classicUrl":"https://mfia-peg.github.io/invoice-system/dashboard.html?restore_trial=1","trialUrl":"https://mfia-peg.github.io/invoice-system/dashboard-trial.html","mode":"separate opt-in page","dataChanges":"No invoice, purchase order, project, customer, collection, role or policy rows changed","additiveDatabaseFunction":"public.dashboard_summary_trial_v1(jsonb,text)","return":"Use Return to Classic Dashboard. The original page and its calculations remain available."}
+{
+  "status": "summary_dashboard_adopted",
+  "date": "2026-11-24",
+  "productionUrl": "https://mfia-peg.github.io/invoice-system/dashboard.html",
+  "legacyTrialUrl": "redirects to dashboard.html",
+  "previousCommit": "ed4e08a55151b7b0e8e8687a8fc6d5a83609b332",
+  "backupBranch": "backup/before-summary-adoption-20261124",
+  "originalClassicBackupBranch": "backup/dashboard-before-summary-trial-20261124",
+  "restoration": "The old dashboard is retained in backup branches only. No classic mode or classic restore control is exposed in the application.",
+  "dataChanges": "No financial data, roles or database policies changed during adoption."
+}

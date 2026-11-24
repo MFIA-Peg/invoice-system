@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <style>html{font-size:18px}</style><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Power Energy — Financial Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a}.wrap{padding:22px;max-width:1600px;margin:auto}.top,.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #0f172a0a}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}h1{font-size:26px;margin:0 0 7px}.muted{color:#64748b;font-size:15px}button{border:0;border-radius:7px;padding:10px 15px;background:#2563eb;color:#fff;cursor:pointer;font-weight:600}button.secondary{background:#64748b}button.green{background:#0f766e}.filters{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin:12px 0 16px}.filters label{display:block;font-size:14px;font-weight:700;color:#475569;margin-bottom:6px}.filters select,.filters input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;background:white}.actions{display:flex;gap:8px;flex-wrap:wrap}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.kpi{border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#fff;min-height:115px}.label{font-size:15px;font-weight:700;color:#64748b}.value{font-size:clamp(22px,calc(2.2vw + 2px),31px);font-weight:700;color:#0f766e;margin-top:12px;overflow-wrap:anywhere}.note{font-size:14px;color:#64748b;margin-top:6px}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.chart-card{border:1px solid #e2e8f0;border-radius:10px;padding:16px;min-width:0}.chart-card h3{font-size:17px;margin:0 0 5px}.chart-card .note{min-height:30px}.chart-box{height:245px;position:relative;margin-top:8px}@media(max-width:1050px){.charts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.charts{grid-template-columns:1fr}}@media(max-width:900px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.wrap{padding:10px}.filters,.kpis{grid-template-columns:1fr}.top,.panel{padding:14px}}
 
@@ -32,24 +32,29 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124trial1"></script>
-<script src="advance-payments.js?v=20261124seven1"></script>
+
+
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124filteraudit1"></script>
+
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
-<script src="searchable-selects.js?v=20261118a" defer></script>
+
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
-<script src="access-control.js?v=20261123c"></script>
-<script src="unified-ui.js?v=20261124headers1" defer></script>
-<script src="entry-dialog.js?v=20261124seven1" defer></script>
+
+
+
 <link rel="stylesheet" href="dashboard-table-fit.css?v=20261124a">
 <link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124filteraudit1">
-</head><body>
+<style>
+.trial-card{display:block;text-decoration:none;color:inherit}.trial-card:hover,.trial-card:focus-visible{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}.trial-card .sub,.pe-billing-split{font-size:11px;color:#64748b;margin-top:6px}.invoice-alert{text-decoration:none;color:inherit}.trial-chart-row,.trial-group-row{display:grid;grid-template-columns:minmax(100px,40%) 1fr max-content;gap:9px;align-items:center;text-decoration:none;color:#14263d;padding:8px 0;font-size:11px}.trial-chart-row:hover,.trial-group-row:hover{background:#eff6ff}.trial-track{display:block;background:#e2e8f0;height:12px;border-radius:3px;overflow:hidden}.trial-track>span{display:block;height:100%;background:#0f766e}.trial-chart-row b,.trial-group-row b{font-variant-numeric:tabular-nums;white-space:nowrap}.trial-group-row>span:first-child{overflow-wrap:anywhere}#trialGroupGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.trial-group{min-width:0;border:1px solid #e2e8f0;border-radius:8px;padding:12px}.trial-group h3{font-size:15px;margin:0}.trial-group p{font-size:11px}.trial-group-list{max-height:420px;overflow:auto}.trial-results[hidden]{display:none!important}.pe-monthly-wrap{overflow-x:auto}.pe-monthly-wrap svg{display:block;width:100%;height:auto}.pe-monthly-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px}.pe-monthly-legend span:before{content:'';display:inline-block;width:9px;height:9px;background:var(--series);margin-right:5px}.chart-box{height:auto;min-height:150px}.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:1000px){#trialGroupGrid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="access-control.js?v=20261124trial1"></script>
+<script src="dashboard-context.js?v=20261124adopt1"></script>
+<script src="searchable-selects.js?v=20261118a" defer></script></head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
-<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><a class="btn" id="trySummaryDashboard" href="dashboard-trial.html" title="Try Summary Dashboard" aria-label="Try Summary Dashboard">⚡</a><button class="green" type="button" onclick="exportToExcel()" id="dashboardExport" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
+<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="openReport()" id="dashboardExport" title="Open Filtered Report" aria-label="Open Filtered Report">⇩</button><button class="secondary" onclick="loadSummary()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
 <section class="panel" id="dashboardFilters"><h2>Filter financial activity</h2><div class="filters">
 <div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
 <div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
@@ -61,68 +66,15 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <div><label for="dueFromDate">Due Date From</label><input type="date" id="dueFromDate"></div>
 <div><label for="dueToDate">Due Date To</label><input type="date" id="dueToDate"></div></div>
 <p class="muted" style="font-size:11px;margin:4px 0 8px">Due Date filters apply to all matching invoices, using approval date + payment terms when needed. Period follows each measure’s date. A blank Period defaults to the current year; with a Due Date range alone, all activity dates for those invoices are included. Retention and Pending Approval ignore Period; Draft includes invoice dates through today.</p>
-<div class="actions"><button onclick="renderKPIs()" title="Apply Filters" aria-label="Apply Filters">✓</button><button class="secondary" onclick="clearFilters()" title="Clear Filters" aria-label="Clear Filters">⟲</button><button id="clearAttention" class="secondary" type="button" title="Clear Alert Selection" aria-label="Clear Alert Selection" hidden>×</button><a class="btn" href="invoices.html" title="Open Invoices" aria-label="Open Invoices">↗</a><a class="btn" href="closed-records.html" title="Closed Records" aria-label="Closed Records">▣</a></div><div id="dashboardFilterError" role="alert"></div></section>
-<section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
+<div class="actions"><button onclick="loadSummary()" title="Apply Filters" aria-label="Apply Filters">✓</button><button class="secondary" onclick="clearFilters()" title="Clear Filters" aria-label="Clear Filters">⟲</button><button id="clearAttention" class="secondary" type="button" title="Clear Alert Selection" aria-label="Clear Alert Selection" hidden>×</button><a class="btn" href="invoices.html" title="Open Invoices" aria-label="Open Invoices">↗</a><a class="btn" href="closed-records.html" title="Closed Records" aria-label="Closed Records">▣</a></div><div id="dashboardFilterError" role="alert"></div></section>
+<section class="panel trial-results" hidden><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to open its invoices in Reports. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
 <section class="panel"><h2>Financial Summary</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
-<section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Monthly invoicing uses the invoice date and includes VAT. Expected collection uses the invoice due date. Actual collection uses the recorded collection date. The Billing summary card above uses approval date.</p><div id="monthlyComparison"></div></section>
-<section class="panel" id="dashboardInvoices" hidden><h2>Invoice Report</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
-<section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
+<section class="panel trial-results" hidden><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Monthly invoicing uses the invoice date and includes VAT. Expected collection uses the invoice due date. Actual collection uses the recorded collection date. The Billing summary card above uses approval date. Select a bar to open report details.</p><div id="monthlyComparison"></div></section>
+
+<section class="panel trial-results" hidden><h2>Receivables and order coverage</h2><div class="charts">
 <article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
 <article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention covers all issued and approved invoices, without a financial-period restriction.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
 <article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">Selected period: PO value by PO date; invoicing by approval date, including invoices on older POs. Open balance is for POs dated in the period, after issued billing through the report end. Undated POs are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
 </div></section>
-</main><script>
-const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
-const SUPABASE_KEY="sb_publishable_xdtW1wLuLjRUTs5z4MZEQA_H8hTEFi9";
-const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let data={projects:[],pos:[],invoices:[]};
-let dashboardCharts={collection:null,overdue:null,po:null};
-const excluded=s=>['cancelled','canceled','void'].includes(String(s||'').toLowerCase());
-function money(v){return new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',maximumFractionDigits:0}).format(Number(v||0));}
-async function fetchAll(table,columns){let rows=[],from=0;while(true){const {data,error}=await supabaseClient.from(table).select(columns).order('id').range(from,from+999);if(error)throw Error(table+': '+error.message);rows.push(...(data||[]));if(!data||data.length<1000)break;from+=1000;if(from>100000)throw Error('Data exceeds safe retrieval limit');}return rows;}
-function invoiceMetrics(i,po){const invoiceBase=Math.max(0,Number(i.invoice_amount||0)-Number(i.advance_amortisation||0));const vat=po&&po.vat?invoiceBase*0.15:0;const total=invoiceBase+vat;const retentionTotal=Number(i.retention_amount||0)+Number(i.retention_vat||0);const retentionOnly=String(i.status||'').trim().toUpperCase()==='RETENTION';const recordedRetention=Math.max(0,retentionTotal-Number(i.retention_released_amount||0));const retentionBalance=retentionOnly?Math.min(recordedRetention,Math.max(0,total-Number(i.paid_amount||0)-Number(i.retention_released_amount||0))):recordedRetention;const netPayable=Math.max(0,total-retentionTotal);const collected=Math.max(0,Number(i.paid_amount||0));const collectionBalance=retentionOnly?0:Math.max(0,netPayable-collected);let due=null;if(i.approval_date&&i.payment_terms!==null&&i.payment_terms!==undefined){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00');d.setDate(d.getDate()+Number(i.payment_terms));due=d.toISOString().slice(0,10);}return{invoiceBase,vat,total,retentionTotal,retentionBalance,netPayable,collected,collectionBalance,outstanding:collectionBalance+retentionBalance,due};}
-function options(id,values,label){const el=document.getElementById(id),old=el.value;const vals=[...new Set(values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!==''))].sort((a,b)=>String(a).localeCompare(String(b)));el.innerHTML=`<option value="">All ${label}</option>`+vals.map(v=>`<option value="${String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}">${String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</option>`).join('');if(vals.some(v=>String(v)===old))el.value=old;}
-function selectedProjects(){const c=document.getElementById('company').value,p=document.getElementById('project').value,d=document.getElementById('department').value;return data.projects.filter(x=>(!c||x.company===c)&&(!p||x.project_name===p)&&(!d||x.department===d));}
-function inRange(d){const a=document.getElementById('fromDate').value,b=document.getElementById('toDate').value;if(!a&&!b)return true;if(!d)return false;d=String(d).slice(0,10);return(!a||d>=a)&&(!b||d<=b);}
-function renderKPIs(){document.getElementById('kpis').textContent='Loading financial summary...';}
-function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
-async function loadDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='…';try{
- await PEAnnual.load(supabaseClient);
-const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='↻';}}
-
-function exportToExcel(){
-  const projects=selectedProjects(), ids=new Set(projects.map(p=>Number(p.id)));
-  const poByNumber=new Map(data.pos.map(p=>[String(p.po_no),p]));
-  const projectById=new Map(data.projects.map(p=>[Number(p.id),p]));
-  const rows=data.invoices.filter(i=>{const pid=Number(i.project_id||poByNumber.get(String(i.po_no))?.project_id);return ids.has(pid)&&!excluded(i.status);})
-    .map(i=>{const po=poByNumber.get(String(i.po_no));const p=projectById.get(Number(i.project_id||po?.project_id));return {i,p,m:invoiceMetrics(i,po)};})
-    .filter(x=>inRange(x.m.due));
-  const columns=['Customer','Department','Project','PO Number','Invoice Number','Status','Invoice Amount SAR','Collected SAR','Open Collection SAR','Retention Balance SAR','Outstanding SAR','Due Date'];
-  const csvCell=v=>'"'+String(v??'').replace(/^[=+@-]/,s=>"'"+s).replace(/"/g,'""')+'"';
-  const output=[columns,...rows.map(({i,p,m})=>[p?.company||'',p?.department||'',p?.project_name||i.project_name||'',i.po_no||'',i.invoice_no||'',i.status||'',m.total,m.collected,m.collectionBalance,m.retentionBalance,m.outstanding,m.due||''])];
-  const csv='\uFEFF'+output.map(r=>r.map(csvCell).join(',')).join('\r\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Power_Energy_Financial_Dashboard_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-window.exportToExcel=exportToExcel;
-
-async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if(error){alert('Sign out failed: '+error.message);return;}sessionStorage.clear();location.replace('login.html');}
-async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}await PEAccess.load(supabaseClient);sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
-initialize();
-</script>
-<script src="dashboard-donuts.js?v=20261124seven1"></script>
-<script src="dashboard-groups.js?v=20261124uppergroups1"></script>
-<script src="dashboard-workflows.js?v=20261124uppergroups1"></script>
-<script>
-PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
-const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
-if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
-</script>
-<script src="dashboard-trial-context.js?v=20261124trial1"></script><script src="dashboard-trial-launch.js?v=20261124trial1"></script></body></html>
-
-
-
-
-
+<section class="panel trial-results" hidden id="dashboardGroupedTotals"><h2>Grouped Totals</h2><p class="muted" id="trialGroupNote"></p><div id="trialGroupGrid"></div></section></main><script src="dashboard-summary.js?v=20261124adopt1"></script></body></html>
 

@@ -7,7 +7,7 @@ function clean(filters={}){const f={};for(const key of fields){const value=text(
 function metricFor(f){const status=norm(f.invoiceStatus);if(f.attention==='overdue')return 'overdue';if(f.attention==='draftDue'||f.attention==='draft'||status==='draft')return 'draft';if(f.attention==='waiting'||/^(?:[12]-)?(?:submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$/.test(status))return 'pending';if(status==='retention'||f.paymentStatus==='Retention Only')return 'retention';if(f.paymentStatus==='Not Issued')return 'unissued';if(f.paymentStatus==='Overdue')return 'collectible';return 'billed';}
 function readContext(){const raw=new URLSearchParams(location.search).get('dashboard_context');if(raw===null)return null;const input=JSON.parse(raw),filters=clean(input.filters);if(input.metric&&!allowed.has(input.metric))throw Error('Unknown dashboard report.');for(const k of ['bucketFrom','bucketTo'])if(input[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(input[k]))throw Error('Invalid report month.');return {filters,metric:input.metric||'',bucketFrom:input.bucketFrom||'',bucketTo:input.bucketTo||'',returnFilters:clean(input.returnFilters||filters)};}
 function reportUrl(filters,metric='',extra={}){const original=clean(filters),f=clean({...original,...extra.filters});if(metric&&!allowed.has(metric))throw Error('Unknown dashboard report.');const ctx={filters:f,metric,returnFilters:original};for(const k of ['bucketFrom','bucketTo'])if(extra[k])ctx[k]=extra[k];const params=new URLSearchParams({dashboard_context:JSON.stringify(ctx),report:extra.report||'invoices'});return 'reports.html?'+params;}
-function trialUrl(filters){return 'dashboard-trial.html?'+new URLSearchParams({state:JSON.stringify(clean(filters))});}
+function dashboardUrl(filters){return 'dashboard.html?'+new URLSearchParams({state:JSON.stringify(clean(filters))});}
 function dimensionValue(...values){return values.map(v=>text(v).trim()).find(Boolean)||'Unassigned';}
 function derive(records,filters){const f=clean(filters),A=global.PEAnnual,today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),projects=new Map(records.projects.map(p=>[text(p.id),p]));
  const orderRows=new Map(records.orders.map(po=>{const p=projects.get(text(po.project_id));return [text(po.id),{po,customer:dimensionValue(po.company,p?.company),department:dimensionValue(po.department,p?.department),project:dimensionValue(p?.project_name,po.project_name)}];}));
@@ -38,5 +38,6 @@ function select(derived,metric,context={}){const {snapshot:s,rows,scope,filters:
  const projects=new Set(orders.map(p=>text(p.project_id)).concat(invoices.map(i=>text(A.orderFor(i)?.project_id??i.project_id))));
  return {invoices,orders,projects:records.projects.filter(p=>projects.has(text(p.id))),receipts,advances,amount:A.round(amount)};
 }
-global.PETrialContext={fields,names,clean,metricFor,readContext,reportUrl,trialUrl,derive,select};
+global.PEDashboardContext={fields,names,clean,metricFor,readContext,reportUrl,dashboardUrl,trialUrl:dashboardUrl,derive,select};global.PETrialContext=global.PEDashboardContext;
 })(window);
+
