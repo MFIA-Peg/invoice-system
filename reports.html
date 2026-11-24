@@ -15,7 +15,7 @@
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124retmatch1"></script>
+<script src="annual-analytics.js?v=20261124trial1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -34,7 +34,7 @@
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261124headers1" defer></script>
 <script src="entry-dialog.js?v=20261124seven1" defer></script>
-</head>
+<script src="dashboard-trial-context.js?v=20261124trial1"></script><script src="dashboard-report-context.js?v=20261124trial1"></script></head>
 <body><div class="wrap">
 <header class="top"><div><h1>Professional Financial Reports</h1><p class="muted">Report tables cover the selected historical records; KPI cards use the current year. Aggregated contract and invoiced values include VAT.</p><p>Projects · Purchase Orders · Invoices · Collections · Retention</p><div class="meta" id="lastUpdated" style="color:#cbd5e1">Connecting to database...</div></div><div class="actions"><button class="secondary" onclick="location.href='dashboard.html'">← Dashboard</button><button class="green" onclick="loadAll()" id="refreshBtn">Refresh Data</button><button onclick="window.print()">Print / Save PDF</button></div></header>
 <div class="error" id="errorBox"></div>
@@ -88,6 +88,7 @@ async function loadAll(){const b=document.getElementById('refreshBtn');b.disable
 function showError(msg){const e=document.getElementById('errorBox');e.textContent=msg;e.style.display=msg?'block':'none'}
 let peKpiBase=[],peKpiScope={};
 function applyFilters(){
+ if(window.PEDashboardReportContext?.apply())return;
  const company=document.getElementById('fCompany').value.trim(),dept=document.getElementById('fDepartment').value.trim(),project=document.getElementById('fProject').value.trim(),poNo=document.getElementById('fPO').value.trim(),from=document.getElementById('fFrom').value,to=document.getElementById('fTo').value,dueFrom=document.getElementById('fDueFrom').value,dueTo=document.getElementById('fDueTo').value,status=document.getElementById('fStatus').value,search=(document.getElementById('fSearch').value||'').trim().toLowerCase();
  const pmap=new Map(projects.map(x=>[String(x.id),x]));
  const dimension=x=>{const po=PEAnnual.orderFor(x),pr=pmap.get(String(x.project_id??po?.project_id));return matchesText(po?.company||pr?.company,company)&&matchesText(po?.department||pr?.department,dept)&&matchesText(pr?.project_name||x.project_name,project)&&matchesText(x.po_no,poNo)&&(!status||invStatus(x)===status)&&(!search||[x.invoice_no,x.po_no,x.project_name,x.description,pr?.company,pr?.department,po?.company,po?.department,x.status,invStatus(x)].join(' ').toLowerCase().includes(search));};
@@ -107,7 +108,7 @@ function applyFilters(){
  }
  render();document.getElementById('filterCount').textContent=fp.invoices.length+' invoices · '+fp.pos.length+' POs · '+fp.projects.length+' projects';
 }
-function resetFilters(){['fCompany','fDepartment','fProject','fPO','fFrom','fTo','fDueFrom','fDueTo','fSearch','fStatus'].forEach(id=>document.getElementById(id).value='');applyFilters()}
+function resetFilters(){window.PEDashboardReportContext?.reset();['fCompany','fDepartment','fProject','fPO','fFrom','fTo','fDueFrom','fDueTo','fSearch','fStatus'].forEach(id=>document.getElementById(id).value='');applyFilters()}
 function render(){const a=fp.invoices;const sum=k=>a.reduce((s,x)=>s+n(x[k]),0);const ex=sum('invoice_amount'),vat=a.reduce((s,x)=>s+invVat(x),0),gross=a.reduce((s,x)=>s+invGross(x),0),paid=sum('paid_amount'),bal=a.reduce((s,x)=>s+invBalance(x),0),ret=a.reduce((n,i)=>n+reportRetention(i),0);const due=a.filter(x=>invStatus(x)==='Overdue').reduce((s,x)=>s+invBalance(x),0);const kpis=[['Invoice Value (Excl. VAT)',money(ex),'Filtered invoices'],['VAT',money(vat),'VAT amount'],['Invoice Total (Incl. VAT)',money(gross),'Gross invoiced value'],['Cumulative Paid',money(paid),'Paid amount recorded'],['Outstanding Balance',money(bal),'Open invoice balance'],['Overdue Receivables',money(due),'Past due date'],['Retention Balance',money(ret),'Not yet released'],['Invoice Count',a.length,'Filtered invoices']];document.getElementById('kpis').innerHTML=kpis.map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
 renderInvoiceTable();renderCollections();renderPOs();renderProjects();renderCustomers();}
 function table(headers,rows){if(!rows.length)return '<div class="empty">No records match the selected filters.</div>';return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`}
@@ -135,7 +136,7 @@ function renderCustomers(){if(!PEAccess.can('customers','view')){document.getEle
  document.getElementById('customerTable').innerHTML=retentionTable(['Customer / Company','Projects','POs','Invoices','PO Value Incl VAT','Advance Amortised Ex VAT','Net Invoice Ex VAT (reference)','VAT (reference)','Invoice Total Incl VAT','Cumulative Paid','Outstanding Balance','Retention Balance'],rows,list.reduce((n,g)=>n+g.retention,0));
 }
 function renderCharts(){const a=fp.invoices;const values=[a.reduce((s,x)=>s+n(x.invoice_amount),0),a.reduce((s,x)=>s+invVat(x),0),a.reduce((s,x)=>s+n(x.paid_amount),0),a.reduce((s,x)=>s+invBalance(x),0)];const aging=[0,0,0,0];a.filter(x=>invBalance(x)>.005).forEach(x=>{const d=ageDays(x);if(d===null)return;if(d<=30)aging[0]+=invBalance(x);else if(d<=60)aging[1]+=invBalance(x);else if(d<=90)aging[2]+=invBalance(x);else aging[3]+=invBalance(x)});if(charts.comp)charts.comp.destroy();if(charts.age)charts.age.destroy();charts.comp=new Chart(document.getElementById('compositionChart'),{type:'bar',data:{labels:['Ex VAT','VAT','Paid to date','Open balance'],datasets:[{label:'SAR',data:values}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});charts.age=new Chart(document.getElementById('agingChart'),{type:'bar',data:{labels:['0–30 days','31–60 days','61–90 days','Over 90 days'],datasets:[{label:'Outstanding SAR',data:aging}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}})}
-function exportCSV(kind){const module=kind==='pos'?'orders':kind;if(!PEAccess.can(module,'view')){alert('You do not have View permission for this report.');return;}let rows=[],name='report';if(kind==='invoices'){name='invoice-register';rows=[['Invoice No','Project','PO No','Approval Date','Due Date','Amount Ex VAT','Advance Amortisation','Net Invoice Amount','VAT (Full Invoice)','Invoice Total Incl VAT','Collected Incl VAT','Open Balance','Retention Balance','Payment Status','Invoice Status'],...fp.invoices.map(x=>[x.invoice_no,x.project_name,x.po_no,x.approval_date,x.due_date,x.invoice_amount,x.advance_amortisation,x.net_invoice_amount,invVat(x),invGross(x),metrics(x).collected,invBalance(x),reportRetention(x),invStatus(x),x.status])]}
+function exportCSV(kind){if(window.PEDashboardReportContext?.exportCash(kind))return;const module=kind==='pos'?'orders':kind;if(!PEAccess.can(module,'view')){alert('You do not have View permission for this report.');return;}let rows=[],name='report';if(kind==='invoices'){name='invoice-register';rows=[['Invoice No','Project','PO No','Approval Date','Due Date','Amount Ex VAT','Advance Amortisation','Net Invoice Amount','VAT (Full Invoice)','Invoice Total Incl VAT','Collected Incl VAT','Open Balance','Retention Balance','Payment Status','Invoice Status'],...fp.invoices.map(x=>[x.invoice_no,x.project_name,x.po_no,x.approval_date,x.due_date,x.invoice_amount,x.advance_amortisation,x.net_invoice_amount,invVat(x),invGross(x),metrics(x).collected,invBalance(x),reportRetention(x),invStatus(x),x.status])]}
 if(kind==='collections'){name='collections-aging';rows=[['Invoice','Project','PO','Due Date','Days Overdue','Open Balance','Retention Balance','Paid Amount'],...fp.invoices.filter(x=>PEAnnual.isIssued(x)&&invBalance(x)>.005).map(x=>[x.invoice_no,x.project_name,x.po_no,x.due_date,ageDays(x),invBalance(x),reportRetention(x),metrics(x).collected])]}
 if(kind==='pos'){name='purchase-orders';rows=[['PO No','Project','Company','PO Value Incl VAT','Invoiced Incl VAT','Remaining Incl VAT','Advance %','Advance Amount Ex VAT','Advance Amortised Ex VAT','Advance Balance Ex VAT','Utilization %','Status'],...fp.pos.map(p=>{const ii=fp.invoices.filter(x=>PEAnnual.isIssued(x)&&String(PEAnnual.orderFor(x)?.id)===String(p.id)),v=ii.reduce((s,x)=>s+invGross(x),0),am=ii.reduce((s,x)=>s+n(x.advance_amortisation),0),adv=n(p.po_value_ex_vat)*n(p.advance_payment_percentage)/100;return [p.po_no,p.project_name,p.company,PEAnnual.orderGross(p),v,PEAnnual.orderGross(p)-v,p.advance_payment_percentage,adv,am,Math.max(0,adv-am),PEAnnual.orderGross(p)?v/PEAnnual.orderGross(p)*100:0,p.status]})]}
 if(kind==='projects'){name='project-summary';rows=[['Project','Company','Department','PO Count','PO Value Incl VAT','Invoice Total','Paid','Outstanding','Retention','Status'],...fp.projects.map(p=>{const pp=fp.pos.filter(x=>x.project_id===p.id),ii=fp.invoices.filter(x=>PEAnnual.isIssued(x)&&String(PEAnnual.orderFor(x)?.project_id??x.project_id)===String(p.id));return [p.project_name,p.company,p.department,pp.length,pp.reduce((s,x)=>s+PEAnnual.orderGross(x),0),ii.reduce((s,x)=>s+invGross(x),0),ii.reduce((s,x)=>s+metrics(x).collected,0),ii.reduce((s,x)=>s+invBalance(x),0),ii.reduce((s,x)=>s+reportRetention(x),0),p.status]})]}
@@ -165,6 +166,7 @@ const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.her
 if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
 </script>
 </body></html>
+
 
 
 

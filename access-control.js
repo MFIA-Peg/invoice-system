@@ -23,7 +23,7 @@ function canCustomer(action,id){if(state.manager)return true;if(id==null||!state
 async function load(client,module=pageModule()){
  if(!loading&&(loadedClient!==client||Date.now()-loadedAt>5000))loading=client.rpc('get_my_module_access').then(r=>{if(r.error)throw r.error;state=r.data||{};if(!state.user_id)throw new Error('An active account with a completed password change is required.');loadedAt=Date.now();loadedClient=client;return state;}).finally(()=>loading=null);
  await loading;
- if((module&&!can(module,'view'))||(state.mode==='viewer'&&!['dashboard.html','reports.html'].includes(location.pathname.split('/').pop()))){document.body.classList.add('pe-access-denied');let banner=document.getElementById('peAccessMessage');if(!banner){banner=document.createElement('div');banner.id='peAccessMessage';banner.setAttribute('role','alert');banner.style.cssText='margin:30px;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px';document.body.prepend(banner);}banner.textContent='You do not have permission to open this screen. Contact your Finance Manager.';throw new Error('You do not have View permission for this screen.');}
+ if((module&&!can(module,'view'))||(state.mode==='viewer'&&!['dashboard.html','dashboard-trial.html','reports.html'].includes(location.pathname.split('/').pop()))){document.body.classList.add('pe-access-denied');let banner=document.getElementById('peAccessMessage');if(!banner){banner=document.createElement('div');banner.id='peAccessMessage';banner.setAttribute('role','alert');banner.style.cssText='margin:30px;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px';document.body.prepend(banner);}banner.textContent='You do not have permission to open this screen. Contact your Finance Manager.';throw new Error('You do not have View permission for this screen.');}
  document.body.classList.remove('pe-access-denied');document.getElementById('peAccessMessage')?.remove();document.dispatchEvent(new Event('pe-access-ready'));schedule();return state;
 }
 async function requirePermission(client,module,action,department){
@@ -91,3 +91,4 @@ function installGuards(client){
 document.addEventListener('DOMContentLoaded',()=>{new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});schedule();});
 global.PEAccess={load,can,require:requirePermission,pageModule,installGuards,canCustomer,get state(){return state;}};
 })(window);
+

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<style>html{font-size:18px}</style><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Power Energy — Summary Dashboard Trial</title>
+
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a}.wrap{padding:22px;max-width:1600px;margin:auto}.top,.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #0f172a0a}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}h1{font-size:26px;margin:0 0 7px}.muted{color:#64748b;font-size:15px}button{border:0;border-radius:7px;padding:10px 15px;background:#2563eb;color:#fff;cursor:pointer;font-weight:600}button.secondary{background:#64748b}button.green{background:#0f766e}.filters{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin:12px 0 16px}.filters label{display:block;font-size:14px;font-weight:700;color:#475569;margin-bottom:6px}.filters select,.filters input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;background:white}.actions{display:flex;gap:8px;flex-wrap:wrap}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.kpi{border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#fff;min-height:115px}.label{font-size:15px;font-weight:700;color:#64748b}.value{font-size:clamp(22px,calc(2.2vw + 2px),31px);font-weight:700;color:#0f766e;margin-top:12px;overflow-wrap:anywhere}.note{font-size:14px;color:#64748b;margin-top:6px}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.chart-card{border:1px solid #e2e8f0;border-radius:10px;padding:16px;min-width:0}.chart-card h3{font-size:17px;margin:0 0 5px}.chart-card .note{min-height:30px}.chart-box{height:245px;position:relative;margin-top:8px}@media(max-width:1050px){.charts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.charts{grid-template-columns:1fr}}@media(max-width:900px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.wrap{padding:10px}.filters,.kpis{grid-template-columns:1fr}.top,.panel{padding:14px}}
+
+/* Unified Power Energy design */
+:root{--navy:#14263d;--blue:#2563eb;--teal:#0f766e;--line:#e2e8f0;--muted:#64748b}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#f3f6fb;color:#18283d}
+.wrap{max-width:1480px;padding:30px 26px 70px}
+.top,.panel{border-radius:15px;border:1px solid var(--line);box-shadow:0 8px 32px rgba(19,38,61,.06);padding:22px;margin-bottom:20px}
+.top h1{font-size:31px;letter-spacing:-.6px;color:var(--navy)}
+button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+.kpi,.chart-card{border-radius:12px}.kpi .value{color:var(--navy)}
+#pe-global-nav{font-family:Inter,Segoe UI,Arial,sans-serif}
+@media(max-width:560px){.wrap{padding:16px 12px 50px}.top h1{font-size:25px}}
+</style><style id="pe-navigation-style">
+#pe-global-nav{position:sticky;top:0;z-index:20;background:#14263d;color:white;box-shadow:0 3px 16px #14263d20}
+#pe-global-nav .pe-nav-inner{max-width:1600px;margin:auto;padding:10px 22px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;box-sizing:border-box}
+#pe-global-nav .pe-nav-links{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:1 1 760px}
+#pe-global-nav a{display:inline-block;white-space:nowrap;padding:8px 10px;border-radius:7px;text-decoration:none;color:#dbeafe;font:650 14px/1.3 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav a[hidden]{display:none}
+#pe-global-nav a:hover,#pe-global-nav a[aria-current="page"]{background:#ffffff20;color:white}
+#pe-global-nav .pe-nav-account{display:flex;align-items:center;gap:9px;color:#cbd5e1;font:14px/1.4 Inter,Segoe UI,Arial,sans-serif}
+#pe-global-nav .pe-nav-account button{white-space:nowrap;border:0;border-radius:8px;padding:8px 10px;background:#475569;color:white;font:650 14px/1.3 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}
+@media(max-width:760px){#pe-global-nav .pe-nav-inner{padding:8px 12px}#pe-global-nav .pe-nav-links{flex-wrap:nowrap;overflow:auto;min-width:0}#pe-global-nav .pe-nav-account{margin-left:auto}}
+</style>
+<style id="display-sizing">
+@media screen{
+.wrap,#pe-global-nav .pe-nav-inner{width:100%;max-width:none;box-sizing:border-box}
+:where(button,input,select,textarea){font-size:15px}
+}
+</style>
+
+
+
+<link rel="stylesheet" href="workspace-layout.css?v=20261117b">
+
+<link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
+<link rel="stylesheet" href="compact-layout.css?v=20261118c">
+<link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
+
+<link rel="stylesheet" href="unified-ui.css?v=20261123g">
+
+
+
+<link rel="stylesheet" href="dashboard-table-fit.css?v=20261124a">
+<link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124filteraudit1">
+<style>
+.trial-card{display:block;text-decoration:none;color:inherit}.trial-card:hover,.trial-card:focus-visible{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}.trial-card .sub,.pe-billing-split{font-size:11px;color:#64748b;margin-top:6px}.invoice-alert{text-decoration:none;color:inherit}.trial-chart-row,.trial-group-row{display:grid;grid-template-columns:minmax(100px,40%) 1fr max-content;gap:9px;align-items:center;text-decoration:none;color:#14263d;padding:8px 0;font-size:11px}.trial-chart-row:hover,.trial-group-row:hover{background:#eff6ff}.trial-track{display:block;background:#e2e8f0;height:12px;border-radius:3px;overflow:hidden}.trial-track>span{display:block;height:100%;background:#0f766e}.trial-chart-row b,.trial-group-row b{font-variant-numeric:tabular-nums;white-space:nowrap}.trial-group-row>span:first-child{overflow-wrap:anywhere}#trialGroupGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.trial-group{min-width:0;border:1px solid #e2e8f0;border-radius:8px;padding:12px}.trial-group h3{font-size:15px;margin:0}.trial-group p{font-size:11px}.trial-group-list{max-height:420px;overflow:auto}.trial-results[hidden]{display:none!important}.pe-monthly-wrap{overflow-x:auto}.pe-monthly-wrap svg{display:block;width:100%;height:auto}.pe-monthly-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px}.pe-monthly-legend span:before{content:'';display:inline-block;width:9px;height:9px;background:var(--series);margin-right:5px}.chart-box{height:auto;min-height:150px}.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:1000px){#trialGroupGrid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="access-control.js?v=20261124trial1"></script>
+<script src="dashboard-trial-context.js?v=20261124trial1"></script>
+<script src="searchable-selects.js?v=20261118a" defer></script></head><body>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
+<section class="dashboard-header"><div><h1>Financial Dashboard · Summary Trial</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><a class="btn" id="classicDashboard" href="dashboard.html?restore_trial=1" title="Return to Classic Dashboard" aria-label="Return to Classic Dashboard">↩</a><button class="green" type="button" onclick="openReport()" id="dashboardExport" title="Open Filtered Report" aria-label="Open Filtered Report">⇩</button><button class="secondary" onclick="loadTrial()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
+<section class="panel" id="dashboardFilters"><h2>Filter financial activity</h2><div class="filters">
+<div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
+<div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
+<div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
+<div><label for="invoiceStatus">Invoice Status</label><select id="invoiceStatus"><option value="">All invoice statuses</option></select></div>
+<div><label for="paymentStatus">Payment Status</label><select id="paymentStatus"><option value="">All payment statuses</option><option>Unpaid</option><option>Not Issued</option><option>Partially Paid</option><option>Paid</option><option>Retention Only</option><option>Overdue</option></select></div>
+<div><label for="fromDate">Period From</label><input type="date" id="fromDate"></div>
+<div><label for="toDate">Period To</label><input type="date" id="toDate"></div>
+<div><label for="dueFromDate">Due Date From</label><input type="date" id="dueFromDate"></div>
+<div><label for="dueToDate">Due Date To</label><input type="date" id="dueToDate"></div></div>
+<p class="muted" style="font-size:11px;margin:4px 0 8px">Due Date filters apply to all matching invoices, using approval date + payment terms when needed. Period follows each measure’s date. A blank Period defaults to the current year; with a Due Date range alone, all activity dates for those invoices are included. Retention and Pending Approval ignore Period; Draft includes invoice dates through today.</p>
+<div class="actions"><button onclick="loadTrial()" title="Apply Filters" aria-label="Apply Filters">✓</button><button class="secondary" onclick="clearFilters()" title="Clear Filters" aria-label="Clear Filters">⟲</button><button id="clearAttention" class="secondary" type="button" title="Clear Alert Selection" aria-label="Clear Alert Selection" hidden>×</button><a class="btn" href="invoices.html" title="Open Invoices" aria-label="Open Invoices">↗</a><a class="btn" href="closed-records.html" title="Closed Records" aria-label="Closed Records">▣</a></div><div id="dashboardFilterError" role="alert"></div></section>
+<section class="panel trial-results" hidden><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to open its invoices in Reports. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
+<section class="panel"><h2>Financial Summary</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
+<section class="panel trial-results" hidden><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Monthly invoicing uses the invoice date and includes VAT. Expected collection uses the invoice due date. Actual collection uses the recorded collection date. The Billing summary card above uses approval date. Select a bar to open report details.</p><div id="monthlyComparison"></div></section>
+
+<section class="panel trial-results" hidden><h2>Receivables and order coverage</h2><div class="charts">
+<article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
+<article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention covers all issued and approved invoices, without a financial-period restriction.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
+<article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">Selected period: PO value by PO date; invoicing by approval date, including invoices on older POs. Open balance is for POs dated in the period, after issued billing through the report end. Undated POs are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
+</div></section>
+<section class="panel trial-results" hidden id="dashboardGroupedTotals"><h2>Grouped Totals</h2><p class="muted" id="trialGroupNote"></p><div id="trialGroupGrid"></div></section></main><script src="dashboard-trial.js?v=20261124trial1"></script></body></html>
