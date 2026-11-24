@@ -46,10 +46,11 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <script src="unified-ui.js?v=20261123d" defer></script>
 <script src="entry-dialog.js?v=20261124seven1" defer></script>
 <link rel="stylesheet" href="dashboard-table-fit.css?v=20261124a">
+<link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124a">
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
 <section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
-<section class="panel"><h2>Filter financial activity</h2><div class="filters">
+<section class="panel" id="dashboardFilters"><h2>Filter financial activity</h2><div class="filters">
 <div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
 <div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
 <div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
@@ -110,7 +111,7 @@ initialize();
 </script>
 <script src="dashboard-donuts.js?v=20261124seven1"></script>
 <script src="dashboard-groups.js?v=20261124a"></script>
-<script src="dashboard-workflows.js?v=20261124groups1"></script>
+<script src="dashboard-workflows.js?v=20261124sync1"></script>
 <script>
 PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));

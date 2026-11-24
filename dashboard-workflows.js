@@ -91,7 +91,12 @@
   const nativeClear=global.clearFilters;
   global.clearFilters=function(){activeAttention='';el('invoiceStatus').value='';el('paymentStatus').value='';nativeClear();};
   el('clearAttention').addEventListener('click',()=>{activeAttention='';renderKPIs();});
-  ['invoiceStatus','paymentStatus'].forEach(id=>el(id).addEventListener('change',()=>{activeAttention='';renderKPIs();}));
+  let filterFrame=0;
+  function scheduleFilterRender(){if(filterFrame)return;filterFrame=requestAnimationFrame(()=>{filterFrame=0;activeAttention='';renderKPIs();});}
+  ['company','department','project','invoiceStatus','paymentStatus','fromDate','toDate'].forEach(id=>{
+    el(id).addEventListener('input',scheduleFilterRender);
+    el(id).addEventListener('change',scheduleFilterRender);
+  });
   function selectWorkflow(kind,currentYear=false){
     if(currentYear&&!el('fromDate').value&&!el('toDate').value){el('fromDate').value=PEAnnual.year+'-01-01';el('toDate').value=PEAnnual.year+'-12-31';}
     activeAttention=kind==='draft'?'draft':'waiting';
