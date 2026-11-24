@@ -182,11 +182,11 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="annual-analytics.js?v=20261124report1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124seven1"></script>
+<script src="workspace-ui.js?v=20261124report1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261123e"></script>
@@ -1860,7 +1860,7 @@ const customerRegisterColumns=[
 function unifiedCustomerRows(matching,financialRows,allRegistered){
  const registeredKeys=new Set(allRegistered.map(c=>customerKey(c.name)));
  return [...matching,...financialRows.filter(f=>!registeredKeys.has(customerKey(f.name))).map(f=>({id:null,name:f.name,financialOnly:true}))]
-  .sort((a,b)=>a.name.localeCompare(b.name));
+  .sort((a,b)=>PEWorkspace.customerBalances(b.name).openBalance-PEWorkspace.customerBalances(a.name).openBalance||a.name.localeCompare(b.name));
 }
 function customerRegisterDepartments(customer,finance,assignments){
  const assigned=customer.financialOnly?[]:assignments.get(Number(customer.id))||[];
