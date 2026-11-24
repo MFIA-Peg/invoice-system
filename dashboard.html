@@ -32,9 +32,9 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124kpi1"></script>
+<script src="annual-analytics.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261123i"></script>
+<script src="workspace-ui.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
@@ -60,9 +60,9 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Invoice totals include VAT. Expected collection follows invoice due dates. Actual collection follows the recorded collection date.</p><div id="monthlyComparison"></div></section>
 <section class="panel" id="dashboardInvoices" hidden><h2>Filtered invoice details</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
-<article class="chart-card"><h3>Collections and remaining balance</h3><div class="chart-box"><div id="collectionChart"></div></div></article>
-<article class="chart-card"><h3>Overdue and not yet due</h3><div class="chart-box"><div id="overdueChart"></div></div></article>
-<article class="chart-card"><h3>Purchase order value and invoicing</h3><div class="note">PO values follow PO dates. Invoiced amounts follow invoice due dates.</div><div class="chart-box"><div id="poChart"></div></div></article>
+<article class="chart-card"><h3>Cash receipts and invoice settlement</h3><div class="note">Payment-period cash flow compared with settlement of the selected issued invoices; these measures are not added together.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
+<article class="chart-card"><h3>Remaining receivables including VAT</h3><div class="note">Not yet due, overdue and retention are separate components.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
+<article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">PO-date contract cohort: issued invoicing and remaining contract value. Draft and waiting invoices are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
 </div></section>
 </main><script>
 const SUPABASE_URL="https://hxhfjmtjibwkkbpakopt.supabase.co";
@@ -121,6 +121,7 @@ async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}await PEAccess.load(supabaseClient);sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script>
-<script src="dashboard-donuts.js?v=20261124kpi1"></script>
-<script src="dashboard-workflows.js?v=20261124kpi1"></script>
+<script src="dashboard-donuts.js?v=20261124gross1"></script>
+<script src="dashboard-workflows.js?v=20261124gross1"></script>
 </body></html>
+

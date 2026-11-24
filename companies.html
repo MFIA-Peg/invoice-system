@@ -182,9 +182,9 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124kpi1"></script>
+<script src="annual-analytics.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261123i"></script>
+<script src="workspace-ui.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261123e"></script>
@@ -231,7 +231,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 </section>
 
 <section class="card panel" id="customerMasterCard">
-<div class="panelhead"><div><h2>Customers</h2><div id="cmStatus" class="muted" role="status">Loading customers…</div><p class="muted customer-register-note">One row per registered customer, with linked departments and financial activity. Amounts below cover accessible history; KPI cards show the current year. All amounts are SAR.</p></div>
+<div class="panelhead"><div><h2>Customers</h2><div id="cmStatus" class="muted" role="status">Loading customers…</div><p class="muted customer-register-note">One row per registered customer. Table totals cover accessible history and include VAT; KPI cards show the current year. Not Due, Overdue and Retention are separate balances. All amounts are SAR.</p></div>
 <div class="actions"><button id="cmAdd" onclick="cmOpenCreate()" class="teal" style="display:none">Add Customer</button><button onclick="cmLoad()" class="secondary">Refresh Customers</button></div></div>
 <div id="cmList" class="cm-scroll"></div>
 </section>
@@ -321,16 +321,17 @@ async function loadExecutiveDashboard(){
 function fillFilter(id,values,first){const e=document.getElementById(id);if(!e)return;const old=e.value;const vals=[...new Set(values.filter(x=>x!==null&&x!==undefined&&String(x).trim()!==''))].sort((a,b)=>String(a).localeCompare(String(b)));e.innerHTML=`<option value="">${first}</option>`+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');if(vals.some(v=>String(v)===old))e.value=old;}
 function populateExecutiveFilters(){fillFilter('dashCompanyFilter',executiveData.projects.map(p=>p.company),'All companies');fillFilter('dashProjectFilter',executiveData.projects.map(p=>p.project_name),'All projects');fillFilter('dashDepartmentFilter',executiveData.projects.map(p=>p.department),'All departments');const c=document.getElementById('dashCompanyFilter');if(c)c.onchange=()=>{const list=executiveData.projects.filter(p=>!c.value||p.company===c.value);fillFilter('dashProjectFilter',list.map(p=>p.project_name),'All projects');};}
 function dateInRange(v,a,b){if(!a&&!b)return true;if(!v)return false;const d=String(v).slice(0,10);return(!a||d>=a)&&(!b||d<=b);}
-function invoiceMetrics(i,po){const invoiceBase=Math.max(0,Number(i.invoice_amount||0)-Number(i.advance_amortisation||0));const vat=po&&po.vat?invoiceBase*0.15:0;const total=invoiceBase+vat;const retentionTotal=Number(i.retention_amount||0)+Number(i.retention_vat||0);const retentionOnly=String(i.status||'').trim().toUpperCase()==='RETENTION';const recordedRetention=Math.max(0,retentionTotal-Number(i.retention_released_amount||0));const retentionBalance=Math.min(recordedRetention,Math.max(0,total-Number(i.paid_amount||0)-Number(i.retention_released_amount||0)));const netPayable=Math.max(0,total-retentionTotal);const collected=Math.max(0,Number(i.paid_amount||0));const collectionBalance=retentionOnly?0:Math.max(0,netPayable-collected);let due=null;if(i.approval_date&&i.payment_terms!==null&&i.payment_terms!==undefined){const d=new Date(String(i.approval_date).slice(0,10)+'T00:00:00');d.setDate(d.getDate()+Number(i.payment_terms));due=d.toISOString().slice(0,10);}return{invoiceBase,vat,total,retentionTotal,retentionBalance,netPayable,collected,collectionBalance,outstanding:collectionBalance+retentionBalance,due};}
+function invoiceMetrics(i,po){const m=PEAnnual.metrics(i,po);return{invoiceBase:m.net,vat:m.vat,total:m.total,retentionTotal:Number(i.retention_amount||0)+Number(i.retention_vat||0),retentionBalance:m.retention,netPayable:m.payableTotal,collected:m.collected,collectionBalance:m.balance,outstanding:m.notDue,overdue:m.overdue,notDue:m.notDue,due:PEAnnual.due(i)};}
 function getExecutiveSnapshot(){const c=document.getElementById('dashCompanyFilter')?.value||'',pname=document.getElementById('dashProjectFilter')?.value||'',dep=document.getElementById('dashDepartmentFilter')?.value||'',from=document.getElementById('dashDateFrom')?.value||'',to=document.getElementById('dashDateTo')?.value||'';const pmap=new Map(executiveData.projects.map(p=>[Number(p.id),p])),pomap=new Map(executiveData.pos.map(p=>[String(p.po_no),p]));const allowed=p=>p&&(!c||p.company===c)&&(!pname||p.project_name===pname)&&(!dep||p.department===dep);const projects=executiveData.projects.filter(allowed),ids=new Set(projects.map(p=>Number(p.id)));const pos=executiveData.pos.filter(po=>ids.has(Number(po.project_id))&&dateInRange(po.po_date,from,to));const invoices=executiveData.invoices.filter(i=>{const po=pomap.get(String(i.po_no)),p=pmap.get(Number(i.project_id||po?.project_id));return allowed(p)&&dateInRange(i.start_date||i.approval_date,from,to);}).map(i=>({...i,_project:pmap.get(Number(i.project_id||pomap.get(String(i.po_no))?.project_id)),_po:pomap.get(String(i.po_no)),_m:invoiceMetrics(i,pomap.get(String(i.po_no)))}));return{projects,pos,invoices,pomap};}
 function renderExecutiveDashboard(){
- if(!isExecutiveRole())return;const s=getExecutiveSnapshot();currentExecutiveSnapshot=s;const today=new Date().toISOString().slice(0,10);const valid=s.invoices.filter(i=>!['cancelled','canceled','void'].includes(String(i.status||'').toLowerCase()));const billed=valid.reduce((n,i)=>n+i._m.total,0);const invoiceCollections=valid.reduce((n,i)=>n+i._m.collected,0);const advanceCollections=s.pos.reduce((n,p)=>n+Number(p.advance_received_amount||0),0);const collected=invoiceCollections+advanceCollections;const fullyPaid=valid.filter(i=>i._m.collectionBalance<=0.005&&i._m.retentionBalance<=0.005).reduce((n,i)=>n+i._m.total,0);const retention=valid.reduce((n,i)=>n+i._m.retentionBalance,0);const outstanding=valid.reduce((n,i)=>n+i._m.outstanding,0);const pending=valid.filter(i=>!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase()));const overdue=valid.filter(i=>i._m.collectionBalance>0.005&&i._m.due&&i._m.due<today);const sum=(a,fn)=>a.reduce((n,x)=>n+fn(x),0);const k=(label,value,sub='')=>`<div class="kpi financial"><div class="label">${label}</div><div class="value">${moneySAR(value)}</div><div class="sub">${sub}</div></div>`;
+ if(!isExecutiveRole())return;const s=getExecutiveSnapshot();currentExecutiveSnapshot=s;const today=new Date().toISOString().slice(0,10);const valid=s.invoices.filter(PEAnnual.isIssued);const billed=valid.reduce((n,i)=>n+i._m.total,0);const invoiceCollections=valid.reduce((n,i)=>n+i._m.collected,0);const collected=invoiceCollections;const fullyPaid=valid.filter(i=>i._m.collectionBalance<=0.005&&i._m.retentionBalance<=0.005).reduce((n,i)=>n+i._m.total,0);const retention=valid.reduce((n,i)=>n+i._m.retentionBalance,0);const outstanding=valid.reduce((n,i)=>n+i._m.outstanding,0);const pending=s.invoices.filter(i=>PEAnnual.workflow(i)==='waiting');const overdue=valid.filter(i=>i._m.overdue>0.005);const sum=(a,fn)=>a.reduce((n,x)=>n+fn(x),0);const k=(label,value,sub='')=>`<div class="kpi financial"><div class="label">${label}</div><div class="value">${moneySAR(value)}</div><div class="sub">${sub}</div></div>`;
  const financialKpiGrid=document.getElementById('financialKpiGrid');
- if(financialKpiGrid) financialKpiGrid.innerHTML=[k('Total Billing',billed,'After advance amortization and before retention'),k('Total Paid',fullyPaid,'Fully paid invoices with retention settled'),k('Total Collected',collected,'Partial and full invoice collections + advances received'),k('Outstanding Balance',outstanding,'Includes collection balance and outstanding retention'),k('Invoices Pending Approval',sum(pending,i=>i._m.total),`${pending.length} invoices`),k('Overdue Invoices',sum(overdue,i=>i._m.collectionBalance),`${overdue.length} invoices`),k('Not Yet Due',sum(valid.filter(i=>i._m.collectionBalance>0.005&&i._m.due&&i._m.due>=today),i=>i._m.collectionBalance),'Unpaid invoices before due date'),k('Outstanding Retention',retention,'After released retention amounts'),k('Purchase Order Value',sum(s.pos,p=>Number(p.po_value_ex_vat||0)),'Before VAT'),k('Purchase Order Balance',sum(s.pos,p=>Math.max(0,Number(p.po_value_ex_vat||0)-sum(valid.filter(i=>String(i.po_no)===String(p.po_no)),i=>i._m.invoiceBase))),'PO value less invoicing before VAT')].join('');
- const companyName=i=>i._project?.company||i._po?.company||'Unassigned';const aggregate={};const ensure=n=>aggregate[n]||(aggregate[n]={billed:0,paid:0,collected:0,outstanding:0,retention:0,overdue:0,pending:0,poValue:0,poBalance:0,projects:new Set(),poCount:0});
+ if(financialKpiGrid) financialKpiGrid.innerHTML=[k('Total Billing',billed,'Issued invoices including VAT'),k('Total Collected',collected,'Invoice collections including released retention'),k('Invoices Pending Approval',sum(pending,i=>i._m.total),`${pending.length} invoices`),k('Overdue Invoices',sum(overdue,i=>i._m.collectionBalance),`${overdue.length} invoices`),k('Not Yet Due',sum(valid,i=>i._m.notDue),'Unpaid invoices before due date'),k('Outstanding Retention',retention,'After released retention amounts'),k('Purchase Order Value',sum(s.pos,p=>PEAnnual.orderGross(p)),'Including VAT'),k('Purchase Order Balance',sum(s.pos,p=>Math.max(0,PEAnnual.orderGross(p)-sum(valid.filter(i=>String(PEAnnual.orderFor(i)?.id)===String(p.id)),i=>i._m.total))),'PO value less issued invoicing including VAT')].join('');
+ const companyName=i=>i._po?.company||i._project?.company||'Unassigned';const aggregate={};const ensure=n=>aggregate[n]||(aggregate[n]={billed:0,paid:0,collected:0,outstanding:0,retention:0,overdue:0,pending:0,poValue:0,poBalance:0,projects:new Set(),poCount:0});
  s.projects.forEach(p=>ensure(p.company||'Unassigned').projects.add(Number(p.id)));
- s.pos.forEach(po=>{const a=ensure(po.company||'Unassigned');a.poValue+=Number(po.po_value_ex_vat||0);a.collected+=Number(po.advance_received_amount||0);a.poCount++;a.poBalance+=Math.max(0,Number(po.po_value_ex_vat||0)-sum(valid.filter(i=>String(i.po_no)===String(po.po_no)),i=>i._m.invoiceBase));});
- valid.forEach(i=>{const a=ensure(companyName(i));a.billed+=i._m.total;a.collected+=i._m.collected;a.outstanding+=i._m.outstanding;a.retention+=i._m.retentionBalance;if(i._m.collectionBalance<=0.005&&i._m.retentionBalance<=0.005)a.paid+=i._m.total;if(!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase()))a.pending+=i._m.total;if(i._m.collectionBalance>0.005&&i._m.due&&i._m.due<today)a.overdue+=i._m.collectionBalance;});
+ s.pos.forEach(po=>{const a=ensure(po.company||'Unassigned');a.poValue+=PEAnnual.orderGross(po);a.poCount++;a.poBalance+=Math.max(0,PEAnnual.orderGross(po)-sum(valid.filter(i=>String(PEAnnual.orderFor(i)?.id)===String(po.id)),i=>i._m.total));});
+ valid.forEach(i=>{const a=ensure(companyName(i));a.billed+=i._m.total;a.collected+=i._m.collected;a.outstanding+=i._m.outstanding;a.retention+=i._m.retentionBalance;if(i._m.collectionBalance<=0.005&&i._m.retentionBalance<=0.005)a.paid+=i._m.total;a.overdue+=i._m.overdue;});
+ pending.forEach(i=>{ensure(companyName(i)).pending+=i._m.total;});
  const names=Object.keys(aggregate).sort((a,b)=>a.localeCompare(b));const values=key=>names.map(n=>aggregate[n][key]);
  drawMultiChart('companyBillingCollectionChart',names,[{label:'Billing',data:values('billed')},{label:'Collected',data:values('collected')}]);
  drawMultiChart('companyBalanceRetentionChart',names,[{label:'Outstanding Balance',data:values('outstanding')},{label:'Outstanding Retention',data:values('retention')}]);
@@ -353,23 +354,26 @@ async function loadCompanies(){
  }
  const pos=executiveData.pos||[],invoices=executiveData.invoices||[];
  const poMap=new Map(pos.map(p=>[String(p.po_no||'').trim(),p]));
- const calc=i=>invoiceMetrics(i,poMap.get(String(i.po_no||'').trim()));
+ const calc=i=>invoiceMetrics(i,PEAnnual.orderFor(i));
+ const customerOfInvoice=i=>String(PEAnnual.orderFor(i)?.company||executiveData.projects.find(p=>String(p.id)===String(i.project_id))?.company||i.company||'').trim().toLowerCase();
+ for(const po of pos){const name=String(po.company||'').trim();if(name&&!groups.has(name))groups.set(name,[]);}
  customerFinancialRows=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([name,rows])=>{
   const ids=new Set(rows.map(p=>Number(p.id)));
-  const cp=pos.filter(po=>ids.has(Number(po.project_id))||String(po.company||'').trim().toLowerCase()===name.trim().toLowerCase());
+  const cp=pos.filter(po=>String(po.company||executiveData.projects.find(p=>Number(p.id)===Number(po.project_id))?.company||'').trim().toLowerCase()===name.trim().toLowerCase());
   const cpNos=new Set(cp.map(po=>String(po.po_no||'').trim()));
-  const ci=invoices.filter(i=>(ids.has(Number(i.project_id))||cpNos.has(String(i.po_no||'').trim())||String(i.company||'').trim().toLowerCase()===name.trim().toLowerCase())&&!['cancelled','canceled','void'].includes(String(i.status||'').toLowerCase()));
+  const owned=invoices.filter(i=>customerOfInvoice(i)===name.trim().toLowerCase());
+  const ci=owned.filter(PEAnnual.isIssued);
   const billed=ci.reduce((n,i)=>n+calc(i).total,0);
-  const collected=ci.reduce((n,i)=>n+calc(i).collected,0)+cp.reduce((n,p)=>n+Number(p.advance_received_amount||0),0);
+  const collected=ci.reduce((n,i)=>n+calc(i).collected,0);
   const out=ci.reduce((n,i)=>n+calc(i).outstanding,0);
   const ret=ci.reduce((n,i)=>n+calc(i).retentionBalance,0);
   const paid=ci.filter(i=>calc(i).collectionBalance<=.005&&calc(i).retentionBalance<=.005).reduce((n,i)=>n+calc(i).total,0);
-  const poVal=cp.reduce((n,p)=>n+Number(p.po_value_ex_vat||0),0);
-  const poBal=cp.reduce((n,p)=>n+Math.max(0,Number(p.po_value_ex_vat||0)-ci.filter(i=>String(i.po_no)===String(p.po_no)).reduce((a,i)=>a+calc(i).invoiceBase,0)),0);
+  const poVal=cp.reduce((n,p)=>n+PEAnnual.orderGross(p),0);
+  const poBal=cp.reduce((n,p)=>n+Math.max(0,PEAnnual.orderGross(p)-ci.filter(i=>String(PEAnnual.orderFor(i)?.id)===String(p.id)).reduce((a,i)=>a+calc(i).total,0)),0);
   const today=new Date().toISOString().slice(0,10);
-  const pending=ci.filter(i=>!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase())).reduce((n,i)=>n+calc(i).total,0);
-  const overdue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due<today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);
-  const notDue=ci.filter(i=>{const m=calc(i);return m.collectionBalance>0.005&&m.due&&m.due>=today;}).reduce((n,i)=>n+calc(i).collectionBalance,0);
+  const pending=owned.filter(i=>PEAnnual.workflow(i)==='waiting').reduce((n,i)=>n+calc(i).total,0);
+  const overdue=ci.reduce((n,i)=>n+calc(i).overdue,0);
+  const notDue=ci.reduce((n,i)=>n+calc(i).notDue,0);
   return {name,projects:rows,poCount:cp.length,poVal,poBal,billed,paid,collected,out,pending,overdue,notDue,ret};
  });
  renderCustomerFinancials();
@@ -637,7 +641,7 @@ return;
 const poNumbers = data.map(po => po.po_no).filter(Boolean);
 const { data: invoiceRows, error: invoiceError } = await supabaseClient
   .from("invoice_details_with_retention")
-  .select("po_no, invoice_amount")
+  .select("*")
   .in("po_no", poNumbers);
 
 if(invoiceError){
@@ -646,9 +650,10 @@ if(invoiceError){
 }
 
 const invoicedByPO = {};
-(invoiceRows || []).forEach(inv => {
-  const key = inv.po_no;
-  invoicedByPO[key] = (invoicedByPO[key] || 0) + Number(inv.invoice_amount || 0);
+(invoiceRows || []).filter(PEAnnual.isIssued).forEach(inv => {
+  const po=data.find(p=>inv.pos_id!=null?String(p.id)===String(inv.pos_id):String(p.po_no)===String(inv.po_no));if(!po)return;
+  const key=String(po.id);
+  invoicedByPO[key]=(invoicedByPO[key]||0)+PEAnnual.metrics(inv,po).total;
 });
 
 let html = `
@@ -656,9 +661,9 @@ let html = `
 <tr>
 <th>PO Number</th>
 <th>Company</th>
-<th>PO Value (Excl. VAT)</th>
-<th>Invoices Issued (Excl. VAT)</th>
-<th>PO Balance (Excl. VAT)</th>
+<th>PO Value Incl VAT</th>
+<th>Invoices Issued Incl VAT</th>
+<th>PO Balance Incl VAT</th>
 <th>Date</th>
 <th>Invoices</th>
 <th>Add Invoice</th>
@@ -666,8 +671,8 @@ let html = `
 `;
 
 data.forEach(po=>{
-  const poValue = Number(po.po_value_ex_vat || 0);
-  const invoicedAmount = Number(invoicedByPO[po.po_no] || 0);
+  const poValue=PEAnnual.orderGross(po);
+  const invoicedAmount=Number(invoicedByPO[String(po.id)]||0);
   const poBalance = poValue - invoicedAmount;
 
 html += `
@@ -1231,9 +1236,9 @@ async function openProject(projectId){
  if(pe){alert(pe.message);return;}
  const poNos=(pos||[]).map(x=>x.po_no).filter(Boolean);
  let invs=[]; if(poNos.length){const r=await supabaseClient.from('invoice_details_with_retention').select('*').in('po_no',poNos); if(!r.error) invs=r.data||[];}
- const totalInv=invs.reduce((a,x)=>a+Number(x.invoice_amount||0),0);
- const retained=invs.reduce((a,x)=>a+Number(x.retention_total||0),0);
- document.getElementById('projectDetails').innerHTML=`<div id="projectSummary" class="current-project"><div class="modal-actions"><button style="background:#64748b" onclick="backToCompanyProjects()">Back to Projects</button></div><h3>${escapeHtml(pr.project_name)}</h3><p><b>Company:</b> ${escapeHtml(pr.company)}</p><p><b>Department:</b> ${escapeHtml(pr.department)}</p><p><b>Project Manager:</b> ${escapeHtml(pr.project_manager)}</p><p><b>Status:</b> ${escapeHtml(pr.status)}</p><p><b>Invoices Excl. VAT:</b> ${totalInv.toFixed(2)} | <b>Retention:</b> ${retained.toFixed(2)}</p><button onclick="editProject(${pr.id})">Edit Project</button></div><div id="purchaseOrdersSection"><h3>Purchase Orders</h3><div id="poList">Loading...</div></div>`;
+ const totalInv=invs.filter(PEAnnual.isIssued).reduce((a,x)=>a+PEAnnual.metrics(x,PEAnnual.orderFor(x)).total,0);
+ const retained=invs.filter(PEAnnual.isIssued).reduce((a,x)=>a+PEAnnual.metrics(x,PEAnnual.orderFor(x)).retention,0);
+ document.getElementById('projectDetails').innerHTML=`<div id="projectSummary" class="current-project"><div class="modal-actions"><button style="background:#64748b" onclick="backToCompanyProjects()">Back to Projects</button></div><h3>${escapeHtml(pr.project_name)}</h3><p><b>Company:</b> ${escapeHtml(pr.company)}</p><p><b>Department:</b> ${escapeHtml(pr.department)}</p><p><b>Project Manager:</b> ${escapeHtml(pr.project_manager)}</p><p><b>Status:</b> ${escapeHtml(pr.status)}</p><p><b>Issued Invoices Incl VAT:</b> ${totalInv.toFixed(2)} | <b>Retention:</b> ${retained.toFixed(2)}</p><button onclick="editProject(${pr.id})">Edit Project</button></div><div id="purchaseOrdersSection"><h3>Purchase Orders</h3><div id="poList">Loading...</div></div>`;
  setDashboardFocus('project');
  await loadPOs(projectId);
 }
@@ -1243,10 +1248,10 @@ async function loadPOs(projectId){
  if(error){document.getElementById('poList').textContent=error.message;return;}
  const poNos=(pos||[]).map(p=>p.po_no).filter(Boolean); let rows=[];
  if(poNos.length){const r=await supabaseClient.from('invoice_details_with_retention').select('*').in('po_no',poNos); if(r.error){document.getElementById('poList').textContent=r.error.message;return;} rows=r.data||[];}
- const invBy={}; rows.forEach(i=>invBy[i.po_no]=(invBy[i.po_no]||0)+Number(i.invoice_amount||0));
+ const invBy={};rows.filter(PEAnnual.isIssued).forEach(i=>{const po=pos.find(p=>i.pos_id!=null?String(p.id)===String(i.pos_id):String(p.po_no)===String(i.po_no));if(po)invBy[po.id]=(invBy[po.id]||0)+PEAnnual.metrics(i,po).total;});
  const open=(pos||[]).filter(p=>p.status!=='Closed');
- let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value</th><th>Invoiced</th><th>PO Balance</th><th>Advance %</th><th>Advance Amount</th><th>Advance Amortised</th><th>Advance Balance</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th><th>Delete</th></tr>';
- open.forEach(po=>{const bal=Number(po.po_value_ex_vat||0)-(invBy[po.po_no]||0);const advAmount=Number(po.po_value_ex_vat||0)*Number(po.advance_payment_percentage||0)/100;const advUsed=rows.filter(x=>x.po_no===po.po_no).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);const advBalance=Math.max(0,advAmount-advUsed);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${Number(po.po_value_ex_vat||0).toFixed(2)}</td><td>${(invBy[po.po_no]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${Number(po.advance_payment_percentage||0).toFixed(2)}%</td><td>${advAmount.toFixed(2)}</td><td>${advUsed.toFixed(2)}</td><td>${advBalance.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td><td><button class="btn-danger" onclick="deletePO(${po.id})">Delete</button></td></tr>`;});
+ let html='<table><tr><th>PO Number</th><th>Company</th><th>PO Value Incl VAT</th><th>Invoiced Incl VAT</th><th>PO Balance Incl VAT</th><th>Advance %</th><th>Advance Amount Ex VAT</th><th>Advance Amortised Ex VAT</th><th>Advance Balance Ex VAT</th><th>Retention</th><th>Retention %</th><th>Period (Days)</th><th>Invoices</th><th>Add Invoice</th><th>Edit</th><th>Files</th><th>Delete</th></tr>';
+ open.forEach(po=>{const bal=PEAnnual.orderGross(po)-(invBy[po.id]||0);const advAmount=Number(po.po_value_ex_vat||0)*Number(po.advance_payment_percentage||0)/100;const advUsed=rows.filter(x=>x.po_no===po.po_no).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);const advBalance=Math.max(0,advAmount-advUsed);html+=`<tr><td>${escapeHtml(po.po_no)}</td><td>${escapeHtml(po.company)}</td><td>${PEAnnual.orderGross(po).toFixed(2)}</td><td>${(invBy[po.id]||0).toFixed(2)}</td><td>${bal.toFixed(2)}</td><td>${Number(po.advance_payment_percentage||0).toFixed(2)}%</td><td>${advAmount.toFixed(2)}</td><td>${advUsed.toFixed(2)}</td><td>${advBalance.toFixed(2)}</td><td>${po.retention_applicable?'Yes':'No'}</td><td>${Number(po.retention_percentage||0).toFixed(2)}%</td><td>${Number(po.retention_period_days||0)}</td><td><button onclick="openInvoices('${escapeHtml(po.po_no).replace(/'/g,"\\'")}')">Open</button></td><td><button class="btn-po" onclick="addInvoice('${escapeHtml(po.po_no).replace(/'/g,"\\'")}',${projectId})">Add Invoice</button></td><td><button onclick="editPO(${po.id})">Edit</button></td><td><button onclick="manageAttachments('po',${po.id})">Attachments</button></td><td><button class="btn-danger" onclick="deletePO(${po.id})">Delete</button></td></tr>`;});
  document.getElementById('poList').innerHTML=html+'</table>'+(open.length?'':'<p>No open purchase orders.</p>');
 }
 
@@ -1459,7 +1464,7 @@ async function showCompletedProjects(){
 async function showClosedPurchaseOrders(){
  const {data,error}=await supabaseClient.from('pos').select('*').eq('status','Closed').order('id');
  if(error){alert(error.message);return;}
- let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Excl. VAT</th><th>PO Date</th><th>Status</th><th>Open</th><th>Delete</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${Number(x.po_value_ex_vat||0).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedPO(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deletePO(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
+ let h='<h2>Closed Purchase Orders</h2><table><tr><th>PO Number</th><th>Company</th><th>Project</th><th>PO Value Incl VAT</th><th>PO Date</th><th>Status</th><th>Open</th><th>Delete</th></tr>'+(data||[]).map(x=>`<tr><td>${escapeHtml(x.po_no)}</td><td>${escapeHtml(x.company)}</td><td>${escapeHtml(x.project_name)}</td><td>${PEAnnual.orderGross(x).toFixed(2)}</td><td>${escapeHtml(x.po_date||'')}</td><td>${escapeHtml(x.status)}</td><td><button onclick="openClosedPO(${x.id})">Open</button></td><td><button class="btn-danger" onclick="deletePO(${x.id})">Delete</button></td></tr>`).join('')+'</table><div class="modal-actions"><button onclick="document.getElementById(\'closedModal\').style.display=\'none\'">Close</button></div>';
  document.getElementById('closedModalContent').innerHTML=h;document.getElementById('closedModal').style.display='block';
 }
 
@@ -1837,17 +1842,17 @@ window.addEventListener('load',()=>{if(!document.documentElement.classList.conta
 
 const customerMetrics = [
  ['Purchase Order Value','poVal'], ['Purchase Order Balance','poBal'],
- ['Billing','billed'], ['Paid','paid'], ['Collected','collected'],
- ['Outstanding Balance','out'], ['Pending Approval','pending'],
+ ['Billing Incl VAT','billed'], ['Collected Incl VAT','collected'],
+ ['Pending Approval','pending'],
  ['Overdue Balance','overdue'], ['Not Yet Due','notDue'], ['Retention','ret']
 ];
 const financialHeaders = ['Customer','Projects','Purchase Orders',...customerMetrics.map(([label])=>label)];
 
 const customerRegisterColumns=[
  {label:'Customer',width:180},{label:'Departments',width:135},{label:'Projects',width:75,count:true},{label:'Purchase Orders',width:90,count:true},
- {label:'PO Value Ex VAT',width:125,money:true},{label:'Uninvoiced PO Value Ex VAT',width:125,money:true},
- {label:'Invoiced Incl VAT',width:125,money:true},{label:'Settled Invoice Value',width:125,money:true},{label:'Collected Incl Advances',width:125,money:true},
- {label:'Outstanding Incl Retention',width:125,money:true},{label:'Pending Approval Incl VAT',width:125,money:true},
+ {label:'PO Value Incl VAT',width:125,money:true},{label:'Uninvoiced PO Value Incl VAT',width:125,money:true},
+ {label:'Invoiced Incl VAT',width:125,money:true},{label:'Collected Incl VAT',width:125,money:true},
+ {label:'Pending Approval Incl VAT',width:125,money:true},
  {label:'Overdue Collection',width:125,money:true},{label:'Not Yet Due',width:125,money:true},{label:'Retention Balance',width:125,money:true}
 ];
 function unifiedCustomerRows(matching,financialRows,allRegistered){
@@ -1863,7 +1868,7 @@ function customerRegisterDepartments(customer,finance,assignments){
 function customerRegisterValues(customer,finance,departments){
  const missing=customerFinanceLoaded&&!customerFinanceError?0:null;
  return [customer.name,departments,finance?.projects?.length??missing,finance?.poCount??missing,
-  ...['poVal','poBal','billed','paid','collected','out','pending','overdue','notDue','ret'].map(key=>finance?.[key]??missing)];
+  ...['poVal','poBal','billed','collected','pending','overdue','notDue','ret'].map(key=>finance?.[key]??missing)];
 }
 
 const customerFilterIds = ['cmSearch','companySearch','customerDepartment','customerProject','customerStatus'];
@@ -1996,3 +2001,4 @@ PEWorkspace.refreshDrill();
 </script>
 <script>document.addEventListener('pe-kpi-filter',()=>renderCustomerFinancials());</script></body>
 </html>
+

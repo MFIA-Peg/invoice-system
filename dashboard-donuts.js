@@ -16,15 +16,14 @@
   }
   function kpis(s,rows=[],f={}){
     const t=s.totals,year=PEAnnual.year;
-    const pending=rows.filter(r=>!r.cancelled&&(r.waiting||r.draft)&&PEAnnual.inYear(r.i.start_date)&&PEDashboard.matches(r,f,{attention:false}));
-    const waiting=pending.filter(r=>r.waiting),drafts=pending.filter(r=>r.draft),sum=a=>a.reduce((v,r)=>v+n(r.m.total),0);
+    const waiting=s.waiting||[],drafts=s.draft||[];
     const cards=[
-      {title:'Invoice Value & VAT',mode:'parts',note:'Parts of invoice total · Due date',items:[{label:'Invoice Value Ex VAT',value:t.net,color:colors.green},{label:'VAT',value:t.vat,color:colors.orange}]},
-      {title:'Invoice Total & Collected',mode:'rings',note:'Separate rings · Invoice due dates / collection payment dates',items:[{label:'Invoice Total',value:t.total,color:colors.blue},{label:'Collected',value:t.collected,color:colors.green}]},
-      {title:'Open Balance, Overdue & Retention',mode:'rings',note:'Separate rings · Overdue is included in Open Balance',items:[{label:'Open Balance',value:t.balance,color:colors.blue},{label:'Overdue',value:t.overdue,color:colors.red},{label:'Retention',value:t.retention,color:colors.orange}]},
-      {title:'Pending Approval & Draft',mode:'parts',note:'Separate statuses · Invoice date · '+waiting.length+' awaiting approval / '+drafts.length+' draft',items:[{label:'Pending Approval',value:sum(waiting),color:colors.orange,workflow:'waiting'},{label:'Draft',value:sum(drafts),color:colors.blue,workflow:'draft'}]}
+      {title:'Purchase Order Invoicing Incl VAT',mode:'rings',note:'PO date cohort · Actual invoicing and unbilled balance; overbilling is shown in full.',items:[{label:'PO Invoiced Incl VAT',value:s.poInvoiced,color:colors.green},{label:'Remaining PO Value Incl VAT',value:s.remaining,color:colors.orange}]},
+      {title:'Invoice Total & Settlement Incl VAT',mode:'rings',note:'Comparison only: Invoice Total is the control total; settlement is included in it. Allocated advance is shown separately in the reconciliation.',items:[{label:'Invoice Total Incl VAT',value:t.total,color:colors.blue},{label:'Settled Against Invoices',value:t.settled,color:colors.green},{label:'Advance Applied Incl VAT',value:t.advanceApplied,color:colors.orange}]},
+      {title:'Remaining Invoice Balance Incl VAT',mode:'parts',note:'Separate components: not yet due + overdue + unreleased retention; no overlap.',items:[{label:'Not Yet Due',value:t.notDue,color:colors.blue},{label:'Overdue',value:t.overdue,color:colors.red},{label:'Retention',value:t.retention,color:colors.orange}]},
+      {title:'Waiting For Approval & Draft Incl VAT',mode:'parts',note:'Outside issued invoice total · Invoice date · '+waiting.length+' awaiting approval / '+drafts.length+' draft',items:[{label:'Waiting For approval',value:t.pending,color:colors.orange,workflow:'waiting'},{label:'Draft',value:t.draft,color:colors.blue,workflow:'draft'}]}
     ];
-    document.getElementById('kpis').innerHTML='<p class="pe-donut-period">'+year+' · Filtered current-year figures · Amounts in SAR</p>'+cards.map(card=>'<article class="pe-comparison-donut"><h3>'+esc(card.title)+'</h3>'+chart(card.items,card.mode,card.title)+'<div class="pe-donut-legend">'+card.items.map(i=>{
+    document.getElementById('kpis').innerHTML='<p class="pe-donut-period">'+year+' · All financial amounts include VAT · Invoice Total = settlement + allocated advance + not yet due + overdue + retention. Period cash receipts are a separate flow.</p>'+cards.map(card=>'<article class="pe-comparison-donut"><h3>'+esc(card.title)+'</h3>'+chart(card.items,card.mode,card.title)+'<div class="pe-donut-legend">'+card.items.map(i=>{
       const content='<span class="pe-donut-key"><i style="background:'+i.color+'"></i>'+esc(i.label)+'</span><strong>'+esc(money(i.value))+'</strong>';
       return i.workflow?'<button type="button" data-workflow="'+i.workflow+'">'+content+'</button>':'<div>'+content+'</div>';
     }).join('')+'</div><small>'+esc(card.note)+'</small></article>').join('');
@@ -32,4 +31,5 @@
   }
   global.PEDashboardDonuts={kpis,chart,colors};
 })(window);
+
 

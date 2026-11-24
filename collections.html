@@ -35,9 +35,9 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124kpi1"></script>
+<script src="annual-analytics.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261123i"></script>
+<script src="workspace-ui.js?v=20261124gross1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
@@ -99,7 +99,7 @@ function canEditCollection(department){return PEAccess.can('collections','edit',
 function canDeleteCollection(department){return PEAccess.can('collections','delete',department)}
 function allowedProject(id){return isManager()||profile?.all_projects||profile?.projectIds.has(Number(id))}
 function allowedDept(d){return isManager()||profile?.all_departments||profile?.departments.has(String(d||''))}
-function invMetrics(i){const po=pos.find(p=>String(p.po_no)===String(i.po_no)),pr=projects.find(p=>Number(p.id)===Number(i.project_id||po?.project_id));const base=Math.max(0,Number(i.invoice_amount||0)-Number(i.advance_amortisation||0)),gross=base+(po?.vat?base*.15:0),ret=Number(i.retention_amount||0)+Number(i.retention_vat||0),col=Number(i.paid_amount||0);return{po,pr,gross,col,balance:Math.max(0,gross-ret-col)}}
+function invMetrics(i){const po=PEAnnual.orderFor(i),pr=projects.find(p=>Number(p.id)===Number(i.project_id||po?.project_id)),m=PEAnnual.metrics(i,po);return{po,pr,gross:m.total,col:m.collected,balance:m.balance}}
 function showError(s){$('errorBox').textContent=s;$('errorBox').style.display=s?'block':'none'}
 function status(t,bad=false){$('formStatus').textContent=t;$('formStatus').style.color=bad?'#b91c1c':'#047857'}
 async function rows(t,s){const {data,error}=await client.from(t).select(s);if(error)throw error;return data||[]}
@@ -250,3 +250,4 @@ PEAnnual.render('kpis',null,{profile:'collections',invoiceIds:invoicesInScope,co
 })();
 </script>
 <script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+
