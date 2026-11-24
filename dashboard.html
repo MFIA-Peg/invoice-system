@@ -32,9 +32,11 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <link rel="stylesheet" href="dashboard-workflows.css?v=20261118a">
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <link rel="stylesheet" href="dashboard-donuts.css?v=20261118d">
@@ -42,26 +44,26 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
-<script src="entry-dialog.js?v=20261123popup1" defer></script>
+<script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head><body>
-<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header><main class="wrap dashboard-content">
-<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()">Export to Excel</button><button class="secondary" onclick="loadDashboard()" id="refreshButton">Refresh</button></div></section>
+<header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
+<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
 <section class="panel"><h2>Filter financial activity</h2><div class="filters">
 <div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
 <div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
 <div><label for="department">Department</label><select id="department"><option value="">All departments</option></select></div>
 <div><label for="invoiceStatus">Invoice Status</label><select id="invoiceStatus"><option value="">All invoice statuses</option></select></div>
 <div><label for="paymentStatus">Payment Status</label><select id="paymentStatus"><option value="">All payment statuses</option><option>Unpaid</option><option>Partially Paid</option><option>Paid</option><option>Retention Only</option><option>Overdue</option></select></div>
-<div><label for="fromDate">Due date from</label><input type="date" id="fromDate"></div>
-<div><label for="toDate">Due date to</label><input type="date" id="toDate"></div></div>
-<div class="actions"><button onclick="renderKPIs()">Apply Filters</button><button class="secondary" onclick="clearFilters()">Clear Filters</button><button id="clearAttention" class="secondary" type="button" hidden>Clear alert selection</button><a class="btn" href="invoices.html">Open Invoices</a><a class="btn" href="closed-records.html">Closed Records</a></div><div id="dashboardFilterError" role="alert"></div></section>
-<section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years unless a period is selected. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
-<section class="panel"><h2>Billing, collections and balances</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
-<section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Invoice totals include VAT. Expected collection follows invoice due dates. Actual collection follows the recorded collection date.</p><div id="monthlyComparison"></div></section>
+<div><label for="fromDate">Period From</label><input type="date" id="fromDate"></div>
+<div><label for="toDate">Period To</label><input type="date" id="toDate"></div></div>
+<div class="actions"><button onclick="renderKPIs()" title="Apply Filters" aria-label="Apply Filters">✓</button><button class="secondary" onclick="clearFilters()" title="Clear Filters" aria-label="Clear Filters">⟲</button><button id="clearAttention" class="secondary" type="button" title="Clear Alert Selection" aria-label="Clear Alert Selection" hidden>×</button><a class="btn" href="invoices.html" title="Open Invoices" aria-label="Open Invoices">↗</a><a class="btn" href="closed-records.html" title="Closed Records" aria-label="Closed Records">▣</a></div><div id="dashboardFilterError" role="alert"></div></section>
+<section class="panel"><h2>Invoice alerts</h2><p class="muted" style="font-size:12px">Select an alert to show its invoices below. Unresolved alerts include previous years and ignore the financial period. Draft checks use the recorded invoice date, not the collection due date.</p><div id="invoiceAlerts" class="dashboard-alerts" aria-live="polite"></div></section>
+<section class="panel"><h2>Financial Summary</h2><div class="kpis" id="kpis"><div class="muted">Loading financial data...</div></div><div class="note" id="status"></div></section>
+<section class="panel"><h2>Monthly comparison</h2><p class="muted" style="font-size:12px">Monthly invoicing uses the invoice date and includes VAT. Expected collection uses the invoice due date. Actual collection uses the recorded collection date. The Billing summary card above uses approval date.</p><div id="monthlyComparison"></div></section>
 <section class="panel" id="dashboardInvoices" hidden><h2>Filtered invoice details</h2><p id="dashboardInvoiceSummary" class="muted" style="font-size:12px" aria-live="polite"></p><div id="dashboardInvoiceTable"></div></section>
 <section class="panel"><h2>Receivables and order coverage</h2><div class="charts">
-<article class="chart-card"><h3>Cash receipts and invoice settlement</h3><div class="note">Payment-period cash flow compared with settlement of the selected issued invoices; these measures are not added together.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
-<article class="chart-card"><h3>Remaining receivables including VAT</h3><div class="note">Not yet due, overdue and retention are separate components.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
+<article class="chart-card"><h3>Collections and advances</h3><div class="note">Both use the actual payment date. Invoice collections exclude advance payments.</div><div class="chart-box"><div id="collectionChart"></div></div></article>
+<article class="chart-card"><h3>Net collectible and retention</h3><div class="note">Net collectible follows due date and excludes settled amounts, allocated advances and unreleased retention. Retention follows approval date.</div><div class="chart-box"><div id="overdueChart"></div></div></article>
 <article class="chart-card"><h3>Purchase order value and invoicing including VAT</h3><div class="note">PO-date contract cohort: issued invoicing and remaining contract value. Draft and waiting invoices are excluded.</div><div class="chart-box"><div id="poChart"></div></div></article>
 </div></section>
 </main><script>
@@ -77,28 +79,12 @@ function invoiceMetrics(i,po){const invoiceBase=Math.max(0,Number(i.invoice_amou
 function options(id,values,label){const el=document.getElementById(id),old=el.value;const vals=[...new Set(values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!==''))].sort((a,b)=>String(a).localeCompare(String(b)));el.innerHTML=`<option value="">All ${label}</option>`+vals.map(v=>`<option value="${String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}">${String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</option>`).join('');if(vals.some(v=>String(v)===old))el.value=old;}
 function selectedProjects(){const c=document.getElementById('company').value,p=document.getElementById('project').value,d=document.getElementById('department').value;return data.projects.filter(x=>(!c||x.company===c)&&(!p||x.project_name===p)&&(!d||x.department===d));}
 function inRange(d){const a=document.getElementById('fromDate').value,b=document.getElementById('toDate').value;if(!a&&!b)return true;if(!d)return false;d=String(d).slice(0,10);return(!a||d>=a)&&(!b||d<=b);}
-function renderKPIs(){const projects=selectedProjects(),ids=new Set(projects.map(p=>Number(p.id))),pos=data.pos.filter(p=>ids.has(Number(p.project_id))),poMap=new Map(data.pos.map(p=>[String(p.po_no),p]));const all=data.invoices.filter(i=>ids.has(Number(i.project_id||poMap.get(String(i.po_no))?.project_id))&&!excluded(i.status));const dated=all.map(i=>({...i,m:invoiceMetrics(i,poMap.get(String(i.po_no)))}));const period=dated.filter(i=>inRange(i.m.due));const today=new Date().toISOString().slice(0,10);const sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
-// Collected is intentionally not restricted by the Due Date period; it still respects the three dimension filters.
-const invoiced=sum(period,i=>i.m.total),collected=sum(dated,i=>i.m.collected),open=sum(dated,i=>i.m.outstanding);
-const overdue= sum(dated.filter(i=>i.m.collectionBalance>0.005&&i.m.due&&i.m.due<today),i=>i.m.collectionBalance);
-const pending=dated.filter(i=>!i.approval_date||['draft','pending approval','submitted'].includes(String(i.status||'').toLowerCase()));
-const invoicedByPO=new Map();dated.forEach(i=>invoicedByPO.set(String(i.po_no),(invoicedByPO.get(String(i.po_no))||0)+i.m.invoiceBase));
-const poNotInvoiced=sum(pos,p=>Math.max(0,Number(p.po_value_ex_vat||0)-(invoicedByPO.get(String(p.po_no))||0)));
-const cards=[['Invoiced',invoiced,'Invoices with Due Date in selected period'],['Collected',collected,'All recorded invoice collections; no date restriction'],['Open',open,'Outstanding collection and retention balances'],['Overdue',overdue,'Outstanding collection balance past Due Date'],['Pending Approval',sum(pending,i=>i.m.total),`${pending.length} invoices not yet approved`],['PO Not Invoiced',poNotInvoiced,'Open PO value less invoiced value, before VAT']];
-document.getElementById('kpis').innerHTML=cards.map(([name,value,sub])=>`<article class="kpi"><div class="label">${name}</div><div class="value">${money(value)}</div><div class="note">${sub}</div></article>`).join('');
-const poInvoiced=sum(pos,p=>Math.min(Number(p.po_value_ex_vat||0),invoicedByPO.get(String(p.po_no))||0));
-const poRemaining=Math.max(0,sum(pos,p=>Number(p.po_value_ex_vat||0))-poInvoiced);
-const overdueOpen=Math.min(open,overdue),notOverdueOpen=Math.max(0,open-overdueOpen);
-function drawDonut(){}
-drawDonut('collection','collectionChart',['Collected','Open'],[collected,open]);
-drawDonut('overdue','overdueChart',['Overdue','Other Open Balance'],[overdueOpen,notOverdueOpen]);
-drawDonut('po','poChart',['Invoiced','Not Invoiced'],[poInvoiced,poRemaining]);
-document.getElementById('status').textContent=`Showing ${projects.length} projects, ${pos.length} purchase orders and ${dated.length} invoices under the selected dimensions.`;}
+function renderKPIs(){document.getElementById('kpis').textContent='Loading financial summary...';}
 function clearFilters(){['company','project','department','fromDate','toDate'].forEach(id=>document.getElementById(id).value='');options('project',data.projects.map(p=>p.project_name),'projects');renderKPIs();}
 document.getElementById('company').addEventListener('change',()=>{const c=document.getElementById('company').value;options('project',data.projects.filter(p=>!c||p.company===c).map(p=>p.project_name),'projects');});
-async function loadDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='Loading...';try{
+async function loadDashboard(){await PEAccess.load(supabaseClient);const b=document.getElementById('refreshButton');b.disabled=true;b.textContent='…';try{
  await PEAnnual.load(supabaseClient);
-const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='Refresh';}}
+const {projects,orders:pos,invoices}=PEAnnual.records();data={projects,pos:pos.filter(p=>p.archive!==true&&!['closed','cancelled'].includes(String(p.status||'').toLowerCase())),invoices};options('company',projects.map(p=>p.company),'companies');options('project',projects.map(p=>p.project_name),'projects');options('department',projects.map(p=>p.department),'departments');renderKPIs();}catch(e){document.getElementById('status').textContent='Unable to load data: '+e.message;console.error(e);}finally{b.disabled=false;b.textContent='↻';}}
 
 function exportToExcel(){
   const projects=selectedProjects(), ids=new Set(projects.map(p=>Number(p.id)));
@@ -121,7 +107,15 @@ async function logoutUser(){const {error}=await supabaseClient.auth.signOut();if
 async function initialize(){if(sessionStorage.getItem('pe_login_verified')!=='true'){location.replace('login.html');return;}const {data:{session},error}=await supabaseClient.auth.getSession();if(error||!session){sessionStorage.removeItem('pe_login_verified');location.replace('login.html');return;}const {data:profile,error:pe}=await supabaseClient.from('users_profile').select('username,full_name,role,active').eq('auth_user_id',session.user.id).maybeSingle();if(pe||!profile||profile.active!==true){sessionStorage.removeItem('pe_login_verified');await supabaseClient.auth.signOut();location.replace('login.html');return;}await PEAccess.load(supabaseClient);sessionStorage.setItem('pe_user_role',profile.role||'');document.getElementById('usersLink').hidden=profile.role!=='finance_manager';sessionStorage.setItem('pe_username',profile.username||'');sessionStorage.setItem('pe_full_name',profile.full_name||'');document.getElementById('signedInUser').textContent=`Signed in: ${profile.full_name||profile.username||''} · Role: ${profile.role||''}`;await loadDashboard();}
 initialize();
 </script>
-<script src="dashboard-donuts.js?v=20261124gross1"></script>
-<script src="dashboard-workflows.js?v=20261124gross1"></script>
+<script src="dashboard-donuts.js?v=20261124seven1"></script>
+<script src="dashboard-workflows.js?v=20261124seven1"></script>
+<script>
+PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
 </body></html>
+
+
+
 

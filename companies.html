@@ -182,9 +182,11 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261123e"></script>
@@ -197,7 +199,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261123d" defer></script>
-<script src="entry-dialog.js?v=20261123popup1" defer></script>
+<script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head>
 
 <body>
@@ -1297,7 +1299,7 @@ function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOn
  <section class="form-section"><h3>3. Retention and Advance Payment Deductions</h3><div class="invoice-fields">
  <div class="invoice-field"><label>Subject to Retention</label><select id="poe_retention"><option value="false" ${!data.retention_applicable?'selected':''}>No</option><option value="true" ${data.retention_applicable?'selected':''}>Yes</option></select></div><div class="invoice-field"><label>Retention %</label><input id="poe_retention_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.retention_percentage||0)}"></div>
  <div class="invoice-field"><label>Retention Calculation</label><select id="poe_retention_basis"><option value="before_vat" ${data.retention_basis==='before_vat'?'selected':''}>Before VAT</option><option value="after_vat" ${data.retention_basis!=='before_vat'?'selected':''}>After VAT</option></select><small>The percentage applies to the invoice value before VAT. After VAT also retains the corresponding VAT. Existing invoices are not recalculated when this setting changes.</small></div><div class="invoice-field"><label>Retention Period (Days)</label><input id="poe_retention_days" type="number" min="0" value="${Number(data.retention_period_days||0)}"></div><div class="invoice-field"><label>Advance Payment %</label><input id="poe_advance_pct" type="number" min="0" max="100" step="0.01" value="${Number(data.advance_payment_percentage||0)}" oninput="updatePOAdvancePreview()"></div>
- <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
+ <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" readonly title="Managed through dated advance payments" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
  </div></section><div class="modal-actions"><button id="savePOButton" class="btn-po" onclick="savePOChanges(${creating})">${creating?'Save Purchase Order':'Save Changes'}</button>${creating?'':`<button onclick="manageAttachments('po',${id})">Attachments</button>`}<button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
  PEOrderLookups.prepare(data,creating?'add':'edit',viewOnly).catch(error=>{document.getElementById('savePOButton')?.setAttribute('disabled','');alert('Could not load purchase order lists: '+error.message);});
@@ -1903,7 +1905,7 @@ function populateCustomerFilterLists(){
  for(const [id,values,label] of definitions){const select=cmById(id),options=[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b)),key=JSON.stringify(options);if(select.dataset.optionsKey===key)continue;select.dataset.optionsKey=key;const old=select.value;select.innerHTML='<option value="">All '+label+'</option>'+options.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');select.value=options.includes(old)?old:'';}
 }
 
-let peKpiBaseCustomers=[];
+let peKpiBaseCustomers=[],peKpiScopeCustomers={};
 function renderCustomerFinancials() {
  populateCustomerFilterLists();
  const filters = customerFilterIds.map(id=>customerKey(cmById(id).value));
@@ -1920,12 +1922,18 @@ function renderCustomerFinancials() {
   const key=customerKey(c.name);
   assignedByName.set(key,[...(assignedByName.get(key)||[]),...(assignments.get(Number(c.id))||[])]);
  }
- visibleCustomerFinancialRows = customerFinancialRows.filter(row=>PEWorkspace.matches('customer',row)&&customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
- peKpiBaseCustomers=visibleCustomerFinancialRows;
- const kpiScope={profile:'customers',companies:peKpiBaseCustomers.map(c=>c.name)};
- visibleCustomerFinancialRows=PEKPIFilter.filter(visibleCustomerFinancialRows,'customer',kpiScope);
- const matching = cmState.loaded ? cmState.customers.filter(c=>PEWorkspace.matches('customer',c)&&customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)) : [];
- const unifiedRows=unifiedCustomerRows(PEKPIFilter.filter(matching,'customer',kpiScope),visibleCustomerFinancialRows,cmState.customers);
+ const allFinancial=customerFinancialRows.filter(row=>customerMatches(row.name,row.projects,assignedByName.get(customerKey(row.name))||[],filters));
+ const allMasters=cmState.loaded?cmState.customers.filter(c=>customerMatches(c.name,financialByName.get(customerKey(c.name))?.projects||[],assignments.get(Number(c.id))||[],filters)):[];
+ peKpiBaseCustomers=allFinancial;
+ const names=[...new Set([...allFinancial.map(c=>c.name),...allMasters.map(c=>c.name)])],nameSet=new Set(names.map(customerKey));
+ const department=cmById('customerDepartment').value.trim(),projectName=cmById('customerProject').value.trim(),projectStatus=cmById('customerStatus').value.trim();
+ const projectIds=projectName||projectStatus?PEAnnual.records().projects.filter(p=>nameSet.has(customerKey(p.company))&&(!department||customerKey(p.department)===customerKey(department))&&(!projectName||customerKey(p.project_name)===customerKey(projectName))&&(!projectStatus||customerKey(p.status)===customerKey(projectStatus))).map(p=>p.id):undefined;
+ const projectSet=projectIds&&new Set(projectIds.map(String));
+ const advanceOrders=PEAnnual.records().orders.filter(p=>nameSet.has(customerKey(p.company))&&(!department||customerKey(p.department)===customerKey(department))&&(!projectSet||projectSet.has(String(p.project_id))));
+ peKpiScopeCustomers={profile:'customers',companies:names,departments:department?[department]:undefined,projectIds,advancePoIds:advanceOrders.map(p=>p.id),advanceScopeIndependent:true};
+ visibleCustomerFinancialRows=PEKPIFilter.active()?PEKPIFilter.filter(allFinancial,'customer',peKpiScopeCustomers):allFinancial.filter(row=>PEWorkspace.matches('customer',row));
+ const matching=PEKPIFilter.active()?PEKPIFilter.filter(allMasters,'customer',peKpiScopeCustomers):allMasters.filter(c=>PEWorkspace.matches('customer',c));
+ const unifiedRows=unifiedCustomerRows(matching,visibleCustomerFinancialRows,cmState.customers);
  visibleCustomerMasterRows=unifiedRows.map(customer=>{const finance=financialByName.get(customerKey(customer.name));return customerRegisterValues(customer,finance,customerRegisterDepartments(customer,finance,assignments));});
  cmById('companiesList').replaceChildren();
 
@@ -1985,8 +1993,8 @@ const originalRender=renderCustomerFinancials;
 renderCustomerFinancials=function(){
 originalRender.apply(this,arguments);
 if(customerFinanceLoaded&&!customerFinanceError){
-PEAnnual.render('customerTotalsGrid',null,{profile:'customers',companies:peKpiBaseCustomers.map(c=>c.name)});
-cmById('customerTotalsNote').textContent=PEAnnual.year+' · Due-date KPIs / payment-date collections';
+PEAnnual.render('customerTotalsGrid',null,peKpiScopeCustomers);
+cmById('customerTotalsNote').textContent='Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.';
 PEWorkspace.openFromQuery();
 }
 };
@@ -1999,6 +2007,14 @@ await refreshCustomerWorkspace();
 PEWorkspace.refreshDrill();
 };
 </script>
-<script>document.addEventListener('pe-kpi-filter',()=>renderCustomerFinancials());</script></body>
+<script>document.addEventListener('pe-kpi-filter',()=>renderCustomerFinancials());</script><script>
+PEAdvancePayments.setClient(supabaseClient,async()=>{await refreshDashboard();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
+</body>
 </html>
+
+
+
 

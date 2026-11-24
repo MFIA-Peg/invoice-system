@@ -27,7 +27,10 @@
     if(f.paymentStatus==='Overdue'?!row.overdue:f.paymentStatus&&row.payment!==f.paymentStatus)return false;
     if(attention&&f.attention&&!row[f.attention])return false;
     if(!period)return true;
-    const d=row.due||date(row.i.start_date);
+    // The general period list follows approval for issued invoices. Operational
+    // queues remain current as-of lists; selected cards supply exact membership.
+    if(row.draft||row.waiting)return true;
+    const d=date(row.i.approval_date);
     if(f.from||f.to)return !!d&&(!f.from||d>=f.from)&&(!f.to||d<=f.to);
     return f.attention?true:PEAnnual.inYear(d);
   }
@@ -37,9 +40,9 @@
     select.innerHTML='<option value="">All invoice statuses</option>'+[...new Set(rows.map(r=>str(r.i.status).trim()).filter(Boolean))].sort().map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');select.value=old;
   }
   function renderAlerts(rows,f){
-    const base=rows.filter(r=>matches(r,f,{attention:false}));
-    // Without a period, operational alerts include older unresolved invoices.
-    const operational=(f.from||f.to)?base:rows.filter(r=>matches(r,f,{period:false,attention:false}));
+    // Operational alerts are as-of queues. A financial period never hides an
+    // older unresolved draft, approval request or overdue receivable.
+    const operational=rows.filter(r=>matches(r,f,{period:false,attention:false}));
     const specs=[['draftDue','Drafts due for issue','Invoice date is today or earlier; status remains Draft.'],['waiting','Awaiting approval','Invoice workflow remains Waiting For approval.'],['overdue','Overdue collection','Issued invoice cash balance past its due date; excludes retention.']];
     el('invoiceAlerts').innerHTML=specs.map(([key,title,note])=>{
       const group=operational.filter(r=>r[key]),total=group.reduce((n,r)=>n+(key==='overdue'?r.m.balance:r.m.total),0);
@@ -54,7 +57,7 @@
     const base=rows.filter(r=>matches(r,f,{period:!PEKPIFilter.active()})),ids=new Set(PEKPIFilter.filter(base.map(r=>r.i),'invoice',kpiScope).map(i=>str(i.id)));
     shown=base.filter(r=>ids.has(str(r.i.id))).sort((a,b)=>(a.due||date(a.i.start_date)).localeCompare(b.due||date(b.i.start_date))||str(a.i.invoice_no).localeCompare(str(b.i.invoice_no)));
     const total=shown.reduce((n,r)=>n+r.m.total,0),overdue=shown.filter(r=>r.overdue).reduce((n,r)=>n+r.m.balance,0);
-    el('dashboardInvoiceSummary').textContent=shown.length+' invoices · Total '+amount(total)+' · Overdue '+amount(overdue)+(f.from||f.to?' · Selected due-date period (invoice date when no due date)':activeAttention?' · All years requiring attention':' · '+PEAnnual.year+' due dates / invoice dates for pending invoices');
+    el('dashboardInvoiceSummary').textContent=shown.length+' invoices · Total '+amount(total)+' · Overdue '+amount(overdue)+(PEKPIFilter.active()?' · '+PEKPIFilter.active().label:activeAttention?' · Current unresolved queue, all years':' · Approval-date period; draft and approval queues are current as of today');
     el('dashboardInvoiceTable').innerHTML=shown.length?'<table><thead><tr>'+columns.map(c=>'<th>'+c+'</th>').join('')+'<th>Collection Alert</th></tr></thead><tbody>'+shown.map(r=>'<tr>'+values(r).map((v,k)=>'<td'+(k>=9?' class="num"':'')+'>'+esc(k>=9?amount(v):v)+'</td>').join('')+'<td>'+(r.overdue?'<span class="dashboard-overdue">Overdue</span>':'—')+'</td></tr>').join('')+'</tbody></table>':'<p class="muted">No invoices match these filters.</p>';
   }
   global.renderKPIs=function(){
@@ -62,19 +65,20 @@
     if(f.from&&f.to&&f.from>f.to){el('dashboardFilterError').textContent='The start date must be on or before the end date.';return;}
     el('dashboardFilterError').textContent='';
     const dimensionRows=rows.filter(r=>matches(r,f,{period:false}));
-    const scope={invoiceIds:dimensionRows.map(r=>r.i.id),dueFrom:f.from,dueTo:f.to,collectionFrom:f.from,collectionTo:f.to,orderFrom:f.from,orderTo:f.to,
+    const scope={invoiceIds:dimensionRows.map(r=>r.i.id),periodFrom:f.from,periodTo:f.to,advanceScopeIndependent:true,
       orderNos:(f.invoiceStatus||f.paymentStatus||f.attention)?[...new Set(dimensionRows.filter(r=>!r.cancelled).map(r=>r.po?.po_no??r.i.po_no))]:undefined,
       companies:f.company?[f.company]:undefined,departments:f.department?[f.department]:undefined,
       projectIds:f.project?data.projects.filter(p=>p.project_name===f.project).map(p=>p.id):undefined};
     kpiScope=scope;
     const s=PEAnnual.render('kpis',null,scope);
-    PEDashboardDonuts.kpis(s,dimensionRows,f);
-    PEKPIFilter.bindDonuts(el('kpis'),s);
-    PEAnnual.chart('collectionChart',[['Cash Received (period)',s.totals.collected],['Settled Against Invoices',s.totals.settled]]);
-    PEAnnual.chart('overdueChart',[['Overdue Incl VAT',s.totals.overdue],['Not Yet Due Incl VAT',s.totals.notDue],['Retention Incl VAT',s.totals.retention]]);
+    // Seven shared financial cards are authoritative. Do not replace them with
+    // the previous comparison donuts or duplicate their values.
+    PEAnnual.chart('collectionChart',[['Collections',s.totals.collections],['Advances Received',s.totals.advances]]);
+    PEAnnual.chart('overdueChart',[['Net Collectible',s.totals.collectible],['Retention',s.totals.retention]]);
     PEAnnual.chart('poChart',[['PO Value Incl VAT',s.poValue],['PO Invoiced Incl VAT',s.poInvoiced],['Remaining PO Value Incl VAT',s.remaining]]);
     PEWorkspace.monthly(scope);renderAlerts(rows,f);renderTable(rows,f);
-    el('status').textContent=PEAnnual.year+' · Current-year KPIs · Invoice due dates / collection payment dates';
+    const undated=(s.undatedAdvances||[]).length;
+    el('status').textContent=(f.from||f.to?(f.from||'Start')+' — '+(f.to||'End'):PEAnnual.year)+' · Billing and retention: approval date · Collections and advances: payment date · Net collectible: due date · Pending approval and draft: current as of '+today()+(undated?' · '+undated+' advance payment(s) need a payment date':'');
     el('clearAttention').hidden=!activeAttention;
   };
   global.exportToExcel=function(){
@@ -95,6 +99,7 @@
   document.addEventListener('pe-kpi-filter',()=>{renderKPIs();el('dashboardInvoices').scrollIntoView({behavior:'smooth',block:'start'});});
   global.PEDashboard={buildRows,matches,values,selectWorkflow};
 })(window);
+
 
 
 

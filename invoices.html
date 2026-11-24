@@ -37,9 +37,11 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124gross1"></script>
+<script src="annual-analytics.js?v=20261124seven1"></script>
+<script src="advance-payments.js?v=20261124seven1"></script>
+
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124gross1"></script>
+<script src="workspace-ui.js?v=20261124seven1"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <script src="retention-calculation.js?v=20261118a"></script>
@@ -105,14 +107,14 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #tableWrap col{width:auto!important}#tableWrap col:last-child{width:120px!important}
 #tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
 #registerPager button{min-width:36px;padding:7px 10px}
-</style><script src="entry-dialog.js?v=20261123popup1" defer></script>
+</style><script src="entry-dialog.js?v=20261124seven1" defer></script>
 </head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
 <section class="hero"><div><h1>Invoices</h1><p>Invoice register, financial performance, receivables and invoice maintenance</p></div><div class="actions"><button type="button" class="teal" id="openCreate" title="Add Invoice" aria-label="Add Invoice" disabled>＋</button><button class="teal" id="refresh" title="Refresh" aria-label="Refresh">↻</button><button id="export" title="Export to Excel" aria-label="Export to Excel">⇩</button><a class="btn secondary" title="Financial Reports" aria-label="Financial Reports" href="reports.html">▥</a></div></section>
 <div id="errorBox" class="error" role="alert"></div>
-<section class="panel"><div class="panelhead"><div><h2>Invoice Financial Summary</h2><div class="muted">Summary recalculates automatically using the current filters.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading invoices...</div></div></section>
+<section class="panel"><div class="panelhead"><div><h2>Invoice Financial Summary</h2><div class="muted">Totals include open and closed records. Pending Approval ignores the period; Draft includes invoice dates through today.</div></div></div><div class="kpis" id="kpis"><div class="muted">Loading invoices...</div></div></section>
 
 <section class="panel"><div class="panelhead"><div><h2>Find Invoices</h2><div class="muted">Type in the fields to filter instantly. Dates are based on approval/start date and due date.</div></div><button class="secondary" id="clear" title="Clear Filters" aria-label="Clear Filters">⟲</button></div>
 <div class="filters">
@@ -121,10 +123,10 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 <div class="field"><label for="department">Department</label><select id="department" data-filter-source="departmentOptions" aria-label="Department"><option value="">All</option></select><datalist id="departmentOptions"></datalist></div>
 <div class="field"><label for="project">Project</label><select id="project" data-filter-source="projectOptions" aria-label="Project"><option value="">All</option></select><datalist id="projectOptions"></datalist></div>
 <div class="field"><label for="po">Purchase Order</label><select id="po" data-filter-source="poOptions" aria-label="Purchase Order"><option value="">All</option></select><datalist id="poOptions"></datalist></div>
-<div class="field"><label for="dateFrom">Approval / Start From</label><input id="dateFrom" type="date"></div>
-<div class="field"><label for="dateTo">Approval / Start To</label><input id="dateTo" type="date"></div>
-<div class="field"><label for="dueFrom">Due Date From</label><input id="dueFrom" type="date"></div>
-<div class="field"><label for="dueTo">Due Date To</label><input id="dueTo" type="date"></div>
+<div class="field"><label for="dateFrom">Period From</label><input id="dateFrom" type="date"></div>
+<div class="field"><label for="dateTo">Period To</label><input id="dateTo" type="date"></div>
+<div class="field"><label for="dueFrom">Table Due Date From</label><input id="dueFrom" type="date"></div>
+<div class="field"><label for="dueTo">Table Due Date To</label><input id="dueTo" type="date"></div>
 <div class="field"><label for="invoiceState">Invoice Status</label><select id="invoiceState" aria-label="Invoice Status"><option value="">All</option></select></div>
 <div class="field"><label for="status">Payment Status</label><select id="status" data-filter-source="statusOptions" aria-label="Payment Status"><option value="">All</option></select><datalist id="statusOptions"></datalist></div>
 </div></section>
@@ -242,27 +244,20 @@ function relatedFor(x){
  const po=pos.find(p=>String(p.po_no)===String(x.po_no));
  return {pr,po,company:x.company||po?.company||pr?.company||'Unassigned',department:x.department||po?.department||pr?.department||'Unassigned'};
 }
-let peKpiBase=[];
+let peKpiBase=[],peKpiScope={};
 function applyFilters(){
  registerPage=1;
- const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim(),d=$('department').value.trim(),p=$('project').value.trim(),po=$('po').value.trim(),s=$('status').value.trim();
+ const q=$('search').value.trim().toLowerCase(),c=$('company').value.trim(),d=$('department').value.trim(),p=$('project').value.trim(),po=$('po').value.trim(),payment=$('status').value.trim(),state=$('invoiceState').value.trim();
  const from=$('dateFrom').value,to=$('dateTo').value,dueFrom=$('dueFrom').value,dueTo=$('dueTo').value;
- filtered=allInvoices.filter(x=>{
-  if(!PEWorkspace.matches('invoice',x))return false;
-  const r=relatedFor(x),date=dateOnly(x.approval_date||x.start_date),due=dateOnly(x.due_date);
-  if(c&&String(r.company).toLowerCase()!==c.toLowerCase())return false;
-  if(d&&String(r.department).toLowerCase()!==d.toLowerCase())return false;
-  if(p&&String(x.project_name||'').toLowerCase()!==p.toLowerCase())return false;
-  if(po&&String(x.po_no||'').toLowerCase()!==po.toLowerCase())return false;
-  if(s&&invoiceStatus(x).toLowerCase()!==s.toLowerCase())return false;
-  if($('invoiceState').value.trim()&&String(x.status||'').trim().toLowerCase()!==$('invoiceState').value.trim().toLowerCase())return false;
-  if(from&&(!date||date<from))return false;if(to&&(!date||date>to))return false;
-  if(dueFrom&&(!due||due<dueFrom))return false;if(dueTo&&(!due||due>dueTo))return false;
-  if(q&&![x.invoice_no,x.po_no,x.project_name,x.description,x.status,invoiceStatus(x),r.company,r.department].join(' ').toLowerCase().includes(q))return false;
-  return true;
- });
- peKpiBase=filtered;filtered=PEKPIFilter.filter(filtered,'invoice',{invoiceIds:peKpiBase.map(i=>i.id)});
-render();
+ const exact=(a,b)=>!b||String(a||'').toLowerCase()===b.toLowerCase();
+ const dimension=x=>{const r=relatedFor(x);return exact(r.company,c)&&exact(r.department,d)&&exact(x.project_name,p)&&exact(x.po_no,po)&&exact(invoiceStatus(x),payment)&&exact(x.status,state)&&(!q||[x.invoice_no,x.po_no,x.project_name,x.description,x.status,invoiceStatus(x),r.company,r.department].join(' ').toLowerCase().includes(q));};
+ peKpiBase=allInvoices.filter(dimension);
+ const linkedIds=new Set(peKpiBase.map(i=>String(PEAnnual.orderFor(i)?.id)));
+ const advanceOrders=pos.filter(x=>exact(x.company,c)&&exact(x.department,d)&&exact(x.project_name,p)&&exact(x.po_no,po)&&(!(payment||state)||linkedIds.has(String(x.id)))&&(!q||linkedIds.has(String(x.id))||[x.po_no,x.project_name,x.company,x.department,x.notes].join(' ').toLowerCase().includes(q)));
+ peKpiScope={profile:'invoices',periodFrom:from||dueFrom,periodTo:to||dueTo,invoiceIds:peKpiBase.map(i=>i.id),advancePoIds:advanceOrders.map(x=>x.id),advanceScopeIndependent:true};
+ if(PEKPIFilter.active())filtered=PEKPIFilter.filter(peKpiBase,'invoice',peKpiScope);
+ else filtered=peKpiBase.filter(x=>{if(!PEWorkspace.matches('invoice',x))return false;const date=dateOnly(x.approval_date||x.start_date),due=dateOnly(x.due_date);return (!from||date&&date>=from)&&(!to||date&&date<=to)&&(!dueFrom||due&&due>=dueFrom)&&(!dueTo||due&&due<=dueTo);});
+ render();
 }
 function registerRecordLinks(type,row){
  const params=new URLSearchParams({record:type});
@@ -549,9 +544,17 @@ renderChart=function(){};
 const originalRender=render;
 render=function(){
 originalRender.apply(this,arguments);
-PEAnnual.render('kpis',null,{profile:'invoices',invoiceIds:peKpiBase.map(i=>i.id)});
+PEAnnual.render('kpis',null,peKpiScope);
 };
 })();
 </script>
-<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script></body></html>
+<script>document.addEventListener('pe-kpi-filter',()=>applyFilters());</script><script>
+PEAdvancePayments.setClient(db,async()=>{await loadAll();});
+const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
+if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
+</script>
+</body></html>
+
+
+
 

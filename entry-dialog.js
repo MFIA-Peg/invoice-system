@@ -16,8 +16,8 @@ function dismiss(el){const state=states.get(el);if(!state)return;state.button.re
 function minimize(el){
  if(!el||states.has(el)||!visible(el))return;
  if(embedded){parent.postMessage({type:'pe-entry-minimize'},location.origin);return;}
- if(!dock){dock=document.createElement('nav');dock.className='pe-popup-dock';dock.setAttribute('aria-label','Minimized windows / النوافذ المصغرة');document.body.append(dock);}
- const button=document.createElement('button');button.type='button';button.textContent='▣ '+title(el);button.title='Restore / استعادة: '+title(el);button.onclick=()=>restore(el);dock.append(button);
+ if(!dock){dock=document.createElement('nav');dock.className='pe-popup-dock';dock.setAttribute('aria-label','Minimized windows');document.body.append(dock);}
+ const button=document.createElement('button');button.type='button';button.textContent='▣';button.title='Restore: '+title(el);button.onclick=()=>restore(el);dock.append(button);
  states.set(el,{button,focus:document.activeElement,overflow:document.body.style.overflow,openClass:el.classList.contains('open')});
  el.classList.add('pe-popup-minimized');
  // Closing only releases the native modal's top layer. Keep its DOM, iframe,
@@ -45,7 +45,7 @@ function enhance(){
  for(const el of document.querySelectorAll(selector)){
   const panel=el.tagName==='DIALOG'?el:el.querySelector(':scope>.modal,:scope>[role="dialog"],:scope>.cm-dialog-box,:scope>div,:scope>section');
   if(!panel||panel.querySelector(':scope>.pe-popup-minimize'))continue;
-  const b=document.createElement('button');b.type='button';b.className='pe-popup-minimize';b.textContent='−';b.title='Minimize / تصغير';b.setAttribute('aria-label','Minimize / تصغير');b.onclick=e=>{e.stopPropagation();minimize(el);};panel.prepend(b);
+  const b=document.createElement('button');b.type='button';b.className='pe-popup-minimize';b.textContent='−';b.title='Minimize';b.setAttribute('aria-label','Minimize');b.onclick=e=>{e.stopPropagation();minimize(el);};panel.prepend(b);
  }
 }
 function mount(){
