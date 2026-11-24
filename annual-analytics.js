@@ -79,8 +79,12 @@
     const scoped=unique(data.invoices).filter(i=>workflow(i)!=='cancelled'&&(!invoiceIds||invoiceIds.has(String(i.id)))&&dimension(i,orderFor(i)));
     const periodFrom=scope.periodFrom??scope.dueFrom??scope.collectionFrom??'',periodTo=scope.periodTo??scope.dueTo??scope.collectionTo??'';
     const period=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&(!periodFrom&&!periodTo?inYear(d):(!periodFrom||d>=periodFrom)&&(!periodTo||d<=periodTo));
+    const reportDate=scope.reportDate||scope.periodTo||global.document?.getElementById?.('peReportDate')?.value||today;
     const issued=scoped.filter(isIssued),billed=issued.filter(i=>period(date(i.approval_date)));
-    const collectibleInvoices=issued.filter(i=>period(due(i))),retentionInvoices=billed;
+    const collectibleInvoices=issued.filter(i=>period(due(i))),retentionInvoices=scope.profile==='dashboard'?issued.filter(i=>String(i.invoice_no||'').trim()&&date(i.approval_date)&&date(i.approval_date)<=reportDate):billed;
+    const retentionDue=i=>{if(i.retention_due_date)return date(i.retention_due_date);const p=orderFor(i);if(!p?.retention_applicable||p.retention_period_days==null||!i.approval_date)return '';const d=new Date(date(i.approval_date)+'T12:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+number(p.retention_period_days));return d.toISOString().slice(0,10);};
+    const overdueRetentionInvoices=retentionInvoices.filter(i=>retentionDue(i)&&retentionDue(i)<reportDate&&metrics(i).retention>.005);
+    const undatedRetentionCount=retentionInvoices.filter(i=>metrics(i).retention>.005&&!retentionDue(i)).length;
     const undatedDraft=scoped.filter(i=>workflow(i)==='draft'&&!/^\d{4}-\d{2}-\d{2}$/.test(date(i.start_date)));
     const draft=scoped.filter(i=>workflow(i)==='draft'&&/^\d{4}-\d{2}-\d{2}$/.test(date(i.start_date))&&date(i.start_date)<=today),waiting=scoped.filter(i=>workflow(i)==='waiting');
     const scopedIds=new Set(scoped.map(i=>String(i.id)));
@@ -88,13 +92,13 @@
     const orderIdsByInvoices=new Set(scoped.map(i=>String(orderFor(i)?.id)));
     const advancesInScope=unique(data.advances||[]).filter(a=>{const po=data.orders.find(p=>String(p.id)===String(a.po_id));return po&&dimension(po,po)&&(!scope.advancePoIds||scope.advancePoIds.map(String).includes(String(po.id)))&&(!invoiceIds||scope.advanceScopeIndependent||orderIdsByInvoices.has(String(po.id)));});
     const advances=advancesInScope.filter(a=>period(date(a.payment_date))),undatedAdvances=advancesInScope.filter(a=>!a.payment_date);
-    const reportDate=scope.reportDate||scope.periodTo||global.document?.getElementById?.('peReportDate')?.value||today;
     const overdueInvoices=issued.filter(i=>due(i)&&due(i)<reportDate&&(!i.approval_date||date(i.approval_date)<=reportDate));
     const overdueToDate=round(overdueInvoices.reduce((v,i)=>v+metrics(i).balance,0));
     const totals={overdueToDate,billed:0,billedNet:0,billedVat:0,collections:0,advances:0,collectible:0,pending:0,retention:0,draft:0};
     for(const i of billed){const m=metrics(i);totals.billed+=m.total;totals.billedNet+=m.net;totals.billedVat+=m.vat;}
     totals.collectible=collectibleInvoices.reduce((v,i)=>v+metrics(i).balance,0);
     totals.retention=retentionInvoices.reduce((v,i)=>v+metrics(i).retention,0);
+    totals.overdueRetention=overdueRetentionInvoices.reduce((v,i)=>v+metrics(i).retention,0);
     totals.pending=waiting.reduce((v,i)=>v+metrics(i).total,0);
     totals.draft=draft.reduce((v,i)=>v+metrics(i).total,0);
     totals.collections=collections.reduce((v,c)=>v+number(c.amount),0);
@@ -111,7 +115,7 @@
     const remaining=round(orders.reduce((v,p)=>v+Math.max(0,orderGross(p)-(billedByOrder.get(String(p.id))||0)),0));
     const poInvoiced=round(orders.reduce((v,p)=>v+(billedByOrder.get(String(p.id))||0),0));
     const activityIds=new Set([...billed.map(i=>String(i.project_id)),...orders.map(p=>String(p.project_id))]);
-    return {openOrders:orders.filter(p=>orderGross(p)-(billedByOrder.get(String(p.id))||0)>.005),reportDate,overdueInvoices,totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
+    return {overdueRetentionInvoices,undatedRetentionCount,openOrders:orders.filter(p=>orderGross(p)-(billedByOrder.get(String(p.id))||0)>.005),reportDate,overdueInvoices,totals,annual:billed,billed,collectibleInvoices,retentionInvoices,draft,undatedDraft,waiting,collections,advances,undatedAdvances,orders,orderMap,poValue,remaining,poInvoiced,activityIds,scoped,periodFrom,periodTo,asOf:today,advance:totals.advances};
   }
   function style() {
     if (document.getElementById('peAnnualStyle')) return;
@@ -160,7 +164,7 @@
       ['Advances Received',s.totals.advances,'Payment date',s.advances.length,s.undatedAdvances.length?s.undatedAdvances.length+' undated payments excluded':''],
       ['Net Collectible',s.totals.collectible,'Due date · excludes retention and allocated advances',s.collectibleInvoices.filter(i=>metrics(i).balance>.005).length,''],
       ['Pending Approval',s.totals.pending,'Current waiting invoices · all dates',s.waiting.length,''],
-      ['Retention',s.totals.retention,'Approval date · unreleased balance',s.retentionInvoices.filter(i=>metrics(i).retention>.005).length,''],
+      ['Retention',s.totals.retention,scope?.profile==='dashboard'?'All issued and approved invoices through '+s.reportDate:'Approval date · unreleased balance',s.retentionInvoices.filter(i=>metrics(i).retention>.005).length,scope?.profile==='dashboard'?'Overdue Retention '+currency.format(s.totals.overdueRetention)+(s.undatedRetentionCount?' · '+s.undatedRetentionCount+' missing retention due dates':''):''],
       ['Draft',s.totals.draft,'Invoice date through '+s.asOf+' · ignores period',s.draft.length,s.undatedDraft.length?s.undatedDraft.length+' undated draft invoices excluded':'']
     ];
     if(scope?.profile==='invoices')cards.push(['Overdue to Report Date',s.totals.overdueToDate,'Current unpaid balance · due before '+s.reportDate,s.overdueInvoices.filter(i=>metrics(i).balance>.005).length,'Includes previous years; excludes retention']);
