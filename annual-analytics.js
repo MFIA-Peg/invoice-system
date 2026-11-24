@@ -236,8 +236,9 @@ function bindDonuts(host,s){
 }
 function filterOrders(rows,metrics){if(!active?.custom)return rows;return rows.filter(p=>positive(/^PO Value/.test(active.label)?p.po_value_ex_vat:metrics(p)[/Balance|Remaining/.test(active.label)?'remaining':'invoiced']));}
 function bindOrders(host){toolbar(host);host.querySelectorAll('.kpi').forEach(node=>{const label=node.querySelector('.label').textContent.trim();decorate(node,label,()=>{active=active?.label===label?null:{label,custom:true};changed();});});}
-global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,active:()=>active,matches};
+global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,set:(label,profile='reports',notify=true)=>{active=label?{label,profile}:null;if(notify)changed();},active:()=>active,matches};
 document.addEventListener('click',event=>{if(event.target.closest?.('#clear,#clearFilters,#customerClear,[onclick="clearFilters()"],[onclick="resetFilters()"]'))active=null;},true);
 })(window);
+
 
 

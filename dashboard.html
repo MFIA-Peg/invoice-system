@@ -32,7 +32,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124filteraudit1"></script>
+<script src="annual-analytics.js?v=20261124trial1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -49,7 +49,7 @@ button{border-radius:9px;min-height:40px}button:focus-visible,a:focus-visible{ou
 <link rel="stylesheet" href="dashboard-filter-compact.css?v=20261124filteraudit1">
 </head><body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><button type="button" onclick="logoutUser()" title="Sign Out" aria-label="Sign Out">⏻</button></div></div></header><main class="wrap dashboard-content">
-<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><button class="green" type="button" onclick="exportToExcel()" id="dashboardExport" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
+<section class="dashboard-header"><div><h1>Financial Dashboard</h1><div id="signedInUser" class="muted">Checking session...</div></div><div class="actions"><a class="btn" id="trySummaryDashboard" href="dashboard-trial.html" title="Try Summary Dashboard" aria-label="Try Summary Dashboard">⚡</a><button class="green" type="button" onclick="exportToExcel()" id="dashboardExport" title="Export to Excel" aria-label="Export to Excel">⇩</button><button class="secondary" onclick="loadDashboard()" id="refreshButton" title="Refresh" aria-label="Refresh">↻</button></div></section>
 <section class="panel" id="dashboardFilters"><h2>Filter financial activity</h2><div class="filters">
 <div><label for="company">Customer</label><select id="company"><option value="">All customers</option></select></div>
 <div><label for="project">Project</label><select id="project"><option value="">All projects</option></select></div>
@@ -119,7 +119,8 @@ PEAdvancePayments.setClient(supabaseClient,async()=>{await loadDashboard();});
 const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.hero .actions,.heading .actions,.actions'));
 if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
 </script>
-</body></html>
+<script src="dashboard-trial-context.js?v=20261124trial1"></script><script src="dashboard-trial-launch.js?v=20261124trial1"></script></body></html>
+
 
 
 
