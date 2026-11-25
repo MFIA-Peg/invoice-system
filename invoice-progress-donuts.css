@@ -1,18 +1,20 @@
-#invoiceProgress{padding:14px 16px}
-#invoiceProgress>h2{margin:0 0 10px;font-size:18px;color:#14263d}
-#invoiceProgressGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.ip-card{min-width:0;border:1px solid #e2e8f0;border-radius:12px;padding:13px 15px 10px;background:#fff}
-.ip-card h3{font-size:16px;line-height:1.3;text-align:center;color:#14263d;margin:0 0 4px}
-.ip-basis{text-align:center;font-size:10px;color:#64748b;margin:0;min-height:26px}
-.ip-ring{display:block;width:min(100%,230px);height:auto;margin:0 auto;overflow:visible}
+#invoiceProgress{padding:10px 12px}
+#invoiceProgress>h2{margin:0 0 8px;font-size:17px;color:#14263d}
+#invoiceProgressGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ip-card{min-width:0;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff}
+.ip-card h3{font-size:15px;line-height:1.25;text-align:center;color:#14263d;margin:0 0 3px}
+.ip-basis{text-align:center;font-size:10px;line-height:1.2;color:#64748b;margin:0 0 5px}
+.ip-body{display:grid;grid-template-columns:minmax(110px,42%) minmax(0,1fr);align-items:center;gap:8px}
+.ip-ring{display:block;width:min(100%,180px);height:auto;margin:0 auto;overflow:visible}
 .ip-ring a{cursor:pointer}.ip-ring a:hover circle,.ip-ring a:focus-visible circle{filter:brightness(.9) drop-shadow(0 0 3px #14263d40)}
-.ip-percent{text-anchor:middle;dominant-baseline:middle;font:700 30px Inter,Segoe UI,Arial,sans-serif}
-.ip-center-label{text-anchor:middle;font:600 12px Inter,Segoe UI,Arial,sans-serif;fill:#475569}
-.ip-total{text-align:center;font-size:11px;color:#64748b;margin:0 0 8px}.ip-total strong{color:#14263d;font-variant-numeric:tabular-nums}
-.ip-legend{display:grid;gap:4px}.ip-legend-row{display:grid;grid-template-columns:11px minmax(0,1fr) max-content;gap:7px;align-items:center;padding:5px 3px;border-radius:5px;color:#14263d;text-decoration:none;font-size:12px}
+.ip-percent{text-anchor:middle;dominant-baseline:middle;font:700 34px Inter,Segoe UI,Arial,sans-serif}
+.ip-center-label{text-anchor:middle;font:600 14px Inter,Segoe UI,Arial,sans-serif;fill:#475569}
+.ip-indicators{min-width:0}.ip-total{text-align:left;font-size:10px;line-height:1.35;color:#64748b;margin:0 0 6px}.ip-total strong{display:block;color:#14263d;font-size:12px;font-variant-numeric:tabular-nums}
+.ip-legend{display:grid;gap:4px}.ip-legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) max-content;gap:5px;align-items:center;padding:4px 2px;border-radius:5px;color:#14263d;text-decoration:none;font-size:11px}
 a.ip-legend-row:hover,a.ip-legend-row:focus-visible{background:#eff6ff;outline:2px solid #93c5fd;outline-offset:0}
-.ip-swatch{width:10px;height:10px;border-radius:3px}.ip-legend-label{font-weight:600}.ip-legend-label small{display:block;font-weight:400;font-size:10px;color:#64748b;margin-top:2px}.ip-legend-row strong{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ip-note{font-size:10px;line-height:1.4;color:#64748b;margin:8px 0 0}.ip-zero{opacity:.65}
-@media(max-width:1050px){#invoiceProgressGrid{gap:8px}.ip-card{padding:12px 9px}.ip-legend-row{font-size:11px;gap:5px}.ip-legend-row strong{font-size:11px}}
-@media(max-width:800px){#invoiceProgressGrid{grid-template-columns:1fr}.ip-card{padding:14px 16px}.ip-ring{width:220px}.ip-basis{min-height:0;margin-bottom:5px}}
-@media print{.ip-card{break-inside:avoid}.ip-ring a{color:inherit}.ip-card a{text-decoration:none}}
+.ip-swatch{width:9px;height:9px;border-radius:3px}.ip-legend-label{font-weight:600}.ip-legend-label small{display:block;font-weight:400;font-size:10px;color:#64748b;margin-top:2px}.ip-legend-row strong{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ip-note{font-size:10px;line-height:1.3;color:#64748b;margin:6px 0 0}.ip-zero{opacity:.65}
+@media(max-width:1150px){.ip-legend-row{grid-template-columns:10px minmax(0,1fr)}.ip-legend-row strong{grid-column:2}.ip-card{padding:9px}.ip-body{gap:5px}}
+@media(max-width:800px){#invoiceProgressGrid{grid-template-columns:1fr}.ip-card{padding:10px 12px}.ip-body{grid-template-columns:minmax(110px,40%) minmax(0,1fr)}.ip-ring{width:min(100%,160px)}.ip-legend-row{grid-template-columns:10px minmax(0,1fr) max-content}.ip-legend-row strong{grid-column:auto}}
+@media print{.ip-card{break-inside:avoid}.ip-card a{text-decoration:none}}
+

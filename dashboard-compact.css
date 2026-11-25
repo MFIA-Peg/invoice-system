@@ -1,0 +1,20 @@
+#dashboardAlertsPanel,#dashboardSummaryPanel{padding:10px 12px;margin-bottom:10px}
+#dashboardAlertsPanel>h2,#dashboardSummaryPanel>h2{font-size:16px;margin:0 0 5px;line-height:1.25}
+#dashboardAlertsPanel>p{font-size:10px!important;line-height:1.25;margin:3px 0 6px}
+.dashboard-content #invoiceAlerts{gap:8px}
+.dashboard-content #invoiceAlerts .invoice-alert{padding:5px 9px;display:flex;flex-direction:column;gap:3px;min-height:0;border-width:1px;font-family:inherit}
+.dashboard-content #invoiceAlerts .invoice-alert[aria-pressed=true]{outline:2px solid #b45309;outline-offset:-2px;background:#ffedd5}
+.alert-heading{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%}
+.dashboard-content #invoiceAlerts .alert-heading strong{font-size:12px;line-height:1.2}
+.dashboard-content #invoiceAlerts .alert-count{font-size:10px;line-height:1.2;background:#ffedd5;border-radius:4px;padding:1px 4px;white-space:nowrap}
+.dashboard-content #invoiceAlerts .alert-value{font-size:16px;line-height:1.2;font-weight:700}
+.dashboard-content #kpis>.summary-card{display:block;text-align:left;font-family:inherit;padding:6px 8px!important;min-height:0!important;border:1px solid #e2e8f0;background:#fff;color:#14263d;cursor:pointer}
+.dashboard-content #kpis>.summary-card[aria-pressed=true]{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}
+.dashboard-content #kpis>.summary-card .label{display:flex!important;justify-content:space-between;gap:4px;align-items:center;font-size:11px!important;line-height:1.2;margin:0}
+.summary-count{font-size:10px;font-weight:500;background:#f1f5f9;border-radius:4px;padding:1px 3px;white-space:nowrap}
+.dashboard-content #kpis>.summary-card .value{font-size:18px!important;line-height:1.15;margin:3px 0 0!important}
+.summary-detail{display:flex;flex-wrap:wrap;gap:0 5px;font-size:10px;line-height:1.2;color:#64748b;margin-top:3px}
+.summary-detail>span{white-space:nowrap}
+#dashboardSummaryPanel #status{font-size:10px;line-height:1.2;margin-top:5px}
+.summary-card:focus-visible,.invoice-alert:focus-visible{outline:3px solid #60a5fa;outline-offset:1px}
+@media(max-width:700px){.dashboard-content #kpis>.summary-card .value{font-size:16px!important}.dashboard-content #invoiceAlerts{grid-template-columns:1fr}.dashboard-content #kpis>.summary-card .label{font-size:10px!important}}
