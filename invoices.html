@@ -237,7 +237,7 @@ function populateFilters(){
  setOptions('po',[...pos.map(x=>x.po_no),...allInvoices.map(x=>x.po_no)]);
  setOptions('status',allInvoices.map(invoiceStatus));
  const oldState=$('invoiceState').value;
- $('invoiceState').innerHTML='<option value="">All</option>'+[...new Set(allInvoices.map(x=>PEAnnual.isBadDebt(x)?'Bad Debits':String(x.status||'').trim()).filter(Boolean))].sort().map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+ $('invoiceState').innerHTML='<option value="">All</option>'+[...new Set([...allInvoices.map(x=>PEAnnual.isBadDebt(x)?'Bad Debits':String(x.status||'').trim()).filter(Boolean),'Bad Debits'])].sort().map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
  $('invoiceState').value=oldState;
 }
 function relatedFor(x){
@@ -563,8 +563,3 @@ const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.her
 if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
 </script>
 </body></html>
-
-
-
-
-
