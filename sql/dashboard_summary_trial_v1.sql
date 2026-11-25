@@ -14,6 +14,7 @@ declare
   v_status text := lower(btrim(coalesce(p_filters->>'invoiceStatus','')));
   v_payment text := coalesce(p_filters->>'paymentStatus','');
   v_attention text := coalesce(p_filters->>'attention','');
+  v_focus text := coalesce(p_filters->>'focus','');
   v_all_dates boolean;
   v_start date;
   v_end date;
@@ -28,6 +29,8 @@ begin
   if p_group_metric not in ('billed','collections','advances','collectible','pending','retention','draft','overdue','unissued') then
     raise invalid_parameter_value using message='Unsupported grouped total.';
   end if;
+  if v_focus not in ('','billed','collections','advances','collectible','pending','retention','draft') then raise invalid_parameter_value using message='Unsupported chart selection.'; end if;
+  if v_focus<>'' then p_group_metric:=v_focus; end if;
   v_all_dates := v_from is null and v_to is null and (v_due_from is not null or v_due_to is not null);
   v_start := case when v_from is null and v_to is null and not v_all_dates then date_trunc('year',v_today)::date else v_from end;
   v_end := case when v_from is null and v_to is null and not v_all_dates then (date_trunc('year',v_today)+interval '1 year - 1 day')::date else v_to end;
@@ -97,19 +100,40 @@ begin
   operational as materialized (select * from invoices where workflow<>'cancelled' and (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
     and (v_status='' or lower(btrim(coalesce(status,'')))=v_status) and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
     and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)),
-  progress_due as materialized (select * from live where workflow='issued' and due_date<v_today and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
-  progress_approval as materialized (select * from live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
-  progress_issuance as materialized (select * from live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  focus_invoices as materialized (select i.id from live i where
+    (v_focus='billed' and exists(select 1 from billed b where b.id=i.id))
+    or (v_focus='collections' and exists(select 1 from receipts r where r.invoice_id=i.id))
+    or (v_focus='advances' and exists(select 1 from advances a where a.po_id=i.order_id))
+    or (v_focus='collectible' and exists(select 1 from collectible c where c.id=i.id and c.balance>.005))
+    or (v_focus='pending' and i.workflow='waiting')
+    or (v_focus='retention' and i.eligible_retention and i.retention>.005)
+    or (v_focus='draft' and i.draft_due)),
+  chart_live as materialized (select * from live where v_focus='' or id in (select id from focus_invoices)),
+  chart_orders as materialized (select * from order_scope p where v_focus='' or exists(select 1 from chart_live i where i.order_id=p.id) or (v_focus='advances' and exists(select 1 from advances a where a.po_id=p.id))),
+  chart_receipts as materialized (select r.* from receipts r join chart_live i on i.id=r.invoice_id),
+  chart_advances as materialized (select a.* from advances a join chart_orders p on p.id=a.po_id),
+  chart_period_orders as materialized (select p.* from period_orders p join chart_orders c on c.id=p.id),
+  chart_totals as (select jsonb_build_object(
+    'collections',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_receipts),0),
+    'advances',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_advances),0),
+    'collectible',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),0),
+    'retention',coalesce((select (pg_catalog.floor(((coalesce((sum(retention)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where eligible_retention),0),
+    'periodPoValue',coalesce((select (pg_catalog.floor(((coalesce((sum(gross)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders),0),
+    'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),0),
+    'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
+  progress_due as materialized (select * from chart_live where workflow='issued' and due_date<v_today and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
+  progress_approval as materialized (select * from chart_live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  progress_issuance as materialized (select * from chart_live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_json as (select jsonb_build_object(
     'collection',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),
       'positiveCount',(select count(*) from progress_due where collected>.005),'negativeCount',(select count(*) from progress_due where balance>.005),
-      'missingDateCount',(select count(*) from live where workflow='issued' and due_date is null)),
+      'missingDateCount',(select count(*) from chart_live where workflow='issued' and due_date is null)),
     'approval',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='issued'),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='waiting'),0),
       'positiveCount',(select count(*) from progress_approval where workflow='issued' and total>.005),'negativeCount',(select count(*) from progress_approval where workflow='waiting' and total>.005),
-      'missingDateCount',(select count(*) from live where workflow in ('issued','waiting') and invoice_date is null)),
+      'missingDateCount',(select count(*) from chart_live where workflow in ('issued','waiting') and invoice_date is null)),
     'issuance',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow in ('issued','waiting')),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow='draft'),0),
       'positiveCount',(select count(*) from progress_issuance where workflow in ('issued','waiting') and total>.005),'negativeCount',(select count(*) from progress_issuance where workflow='draft' and total>.005),
-      'missingDateCount',(select count(*) from live where invoice_date is null))) as value),
+      'missingDateCount',(select count(*) from chart_live where invoice_date is null))) as value),
   totals as (select jsonb_build_object(
     'billed',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedNet',coalesce((select (pg_catalog.floor(((coalesce((sum(net)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedVat',coalesce((select (pg_catalog.floor(((coalesce((sum(vat)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),
     'collections',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from receipts),0),'advances',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from advances),0),
@@ -136,10 +160,10 @@ begin
   grouped as (select dimension,label,(pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as amount,count(*) as n from group_entries cross join lateral (values ('company',customer),('department',department),('project',project)) dims(dimension,label) group by dimension,label having abs((pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100))>.005),
   group_json as (select coalesce(jsonb_agg(jsonb_build_object('dimension',dimension,'label',label,'amount',amount,'count',n) order by dimension,amount desc,label),'[]'::jsonb) as value from grouped),
   month_events as (
-    select to_char(invoice_date,'YYYY-MM') as month,'invoiced' as series,total as amount from live where workflow='issued' and invoice_date is not null and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)
-    union all select to_char(due_date,'YYYY-MM'),'expected',total from live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)
-    union all select to_char(collection_date,'YYYY-MM'),'actual',amount from receipts
-    union all select case when v_from is null and v_to is null and not v_all_dates and due_date<date_trunc('year',v_today)::date then 'earlier' else to_char(due_date,'YYYY-MM') end,'overdue',balance from live where overdue
+    select to_char(invoice_date,'YYYY-MM') as month,'invoiced' as series,total as amount from chart_live where workflow='issued' and invoice_date is not null and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)
+    union all select to_char(due_date,'YYYY-MM'),'expected',total from chart_live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)
+    union all select to_char(collection_date,'YYYY-MM'),'actual',amount from chart_receipts
+    union all select case when v_from is null and v_to is null and not v_all_dates and due_date<date_trunc('year',v_today)::date then 'earlier' else to_char(due_date,'YYYY-MM') end,'overdue',balance from chart_live where overdue
       and ((v_from is null and v_to is null and not v_all_dates) or ((v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)))),
   month_sums as (select month,series,(pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as amount from month_events group by month,series),
   month_json as (select coalesce(jsonb_agg(jsonb_build_object('month',month,'series',series,'amount',amount) order by month,series),'[]'::jsonb) as value from month_sums),
@@ -147,12 +171,13 @@ begin
   choice_json as (select coalesce(jsonb_agg(to_jsonb(c) order by customer,department,project),'[]'::jsonb) as value from choices c),
   status_json as (select coalesce(jsonb_agg(s order by s),'[]'::jsonb) as value from (select distinct btrim(status) as s from invoices where nullif(btrim(status),'') is not null) st)
   select jsonb_build_object('version',1,'asOf',v_today,'reportDate',v_report_date,'year',extract(year from v_today)::integer,'allPeriods',v_all_dates,'groupMetric',p_group_metric,
-    'progress',progress_json.value,'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
-    into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json;
+    'chartFocus',v_focus,'chartTotals',chart_totals.value,'progress',progress_json.value,'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
+    into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json,chart_totals;
   return v_result;
 end;
 $fn$;
 revoke all on function public.dashboard_summary_trial_v1(jsonb,text) from public,anon;
 grant execute on function public.dashboard_summary_trial_v1(jsonb,text) to authenticated;
 comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Optional read-only summary dashboard trial. Security invoker; returns aggregates and filter labels only. Classic dashboard remains available.';
+
 
