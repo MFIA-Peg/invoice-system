@@ -17,9 +17,15 @@
     }
     return '<a class="report-record-link" data-report-record="'+kind+'" href="'+href+'" title="'+esc((edit?'Edit ':'View ')+label)+'">'+esc(label)+'</a>';
   }
+  function payments(invoice){
+    if(invoice?.id==null||!global.PEAccess?.can('collections','view'))return '';
+    return '<button type="button" class="report-payment-button" data-report-payments="'+esc(invoice.id)+'" title="Received Payments" aria-label="'+esc('Received Payments — '+(invoice.invoice_no||''))+'"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 16 12-12 4 4L8 20H4zM14 6l4 4"/></svg></button>';
+  }
   document.addEventListener('click',event=>{
+    const payment=event.target.closest('button[data-report-payments]');
+    if(payment){const invoice=global.PEAnnual.records().invoices.find(i=>String(i.id)===payment.dataset.reportPayments);if(invoice&&global.PEAccess.can('collections','view'))global.PEEntry?.payments(invoice);return;}
     const a=event.target.closest('a.report-record-link');if(!a||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||!global.PEEntry?.edit)return;
     event.preventDefault();global.PEEntry.edit(new URL(a.href,location.href));
   });
-  global.PEReportRecord={link};
+  global.PEReportRecord={link,payments};
 })(window);
