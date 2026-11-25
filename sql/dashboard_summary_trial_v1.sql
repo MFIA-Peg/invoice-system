@@ -125,11 +125,12 @@ begin
     'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),0),
     'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
   progress_due as materialized (select * from chart_live where workflow='issued' and lower(btrim(coalesce(status,''))) not in ('bad debit','bad debits') and due_date<v_today and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
+  progress_receipts as materialized (select c.* from public.invoice_collections c join operational i on i.id=c.invoice_id where (select public.can_read_module('collections')) and i.workflow='issued' and lower(btrim(coalesce(i.status,''))) not in ('bad debit','bad debits') and i.due_date<v_today and (v_focus='' or i.id in (select id from focus_invoices)) and c.collection_date>=coalesce(v_from,case when v_to is null then date_trunc('year',v_today)::date end,'-infinity'::date) and c.collection_date<=coalesce(v_to,case when v_from is null then (date_trunc('year',v_today)+interval '1 year - 1 day')::date end,'infinity'::date)),
   progress_approval as materialized (select * from chart_live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_issuance as materialized (select * from chart_live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_json as (select jsonb_build_object(
-    'collection',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),
-      'positiveCount',(select count(*) from progress_due where collected>.005),'negativeCount',(select count(*) from progress_due where balance>.005),
+    'collection',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_receipts),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),
+      'positiveCount',(select count(distinct invoice_id) from progress_receipts where amount>.005),'negativeCount',(select count(*) from progress_due where balance>.005),
       'missingDateCount',(select count(*) from chart_live where workflow='issued' and due_date is null)),
     'approval',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='issued'),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='waiting'),0),
       'positiveCount',(select count(*) from progress_approval where workflow='issued' and total>.005),'negativeCount',(select count(*) from progress_approval where workflow='waiting' and total>.005),
@@ -178,12 +179,4 @@ begin
     into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json,chart_totals;
   return v_result;
 end;
-$function$
-;
-revoke all on function public.dashboard_summary_trial_v1(jsonb,text) from public,anon;
-grant execute on function public.dashboard_summary_trial_v1(jsonb,text) to authenticated;
-comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Financial dashboard aggregates. Bad Debits are excluded from open, collectible and overdue receivables; billing and actual receipts are preserved.';
-
-
-
-
+$function$;
