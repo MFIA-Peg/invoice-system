@@ -1,7 +1,7 @@
 /* Existing invoice follow-ups and a compact linked-invoice summary for POs. */
 (function(global){
   'use strict';
-  let client,dialog,host,heading,form,input,status,saveButton,backButton,closeButton,paymentsButton,request=0,currentInvoice=null,originPO=null,saving=false;
+  let client,dialog,host,heading,form,input,status,saveButton,backButton,closeButton,request=0,currentInvoice=null,originPO=null,saving=false;
   const drafts=new Map();
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function timestamp(value){
@@ -15,7 +15,6 @@
     dialog.innerHTML='<header class="report-comments-heading"><h2 id="reportCommentsTitle"></h2><button type="button" class="report-icon-button" title="Close comments" aria-label="Close comments"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header><div id="reportCommentsContent" aria-live="polite"></div>';
     document.body.append(dialog);host=dialog.querySelector('#reportCommentsContent');heading=dialog.querySelector('h2');closeButton=dialog.querySelector('button');closeButton.onclick=()=>{if(!saving)dialog.close();};dialog.addEventListener('close',()=>{remember();request++;});
     backButton=document.createElement('button');backButton.type='button';backButton.className='report-icon-button';backButton.title='Back to purchase order';backButton.setAttribute('aria-label',backButton.title);backButton.textContent='←';backButton.hidden=true;backButton.onclick=()=>{remember();open('po',originPO.id,originPO.label);};heading.before(backButton);
-    paymentsButton=document.createElement('button');paymentsButton.type='button';paymentsButton.className='report-icon-button';paymentsButton.title='Received Payments';paymentsButton.setAttribute('aria-label',paymentsButton.title);paymentsButton.hidden=true;paymentsButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>';paymentsButton.onclick=()=>{if(currentInvoice&&!saving)global.PEEntry.payments(currentInvoice);};closeButton.before(paymentsButton);
     form=document.createElement('form');form.id='reportCommentForm';form.hidden=true;form.innerHTML='<label for="reportNewComment">New comment</label><textarea id="reportNewComment" rows="3" placeholder="Write a new comment…" required></textarea><div class="report-comment-tools"><span id="reportCommentStatus" role="status" aria-live="polite"></span><button type="submit" class="report-icon-button" title="Save comment" aria-label="Save comment"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 3h14l3 3v15H3V3zM7 3v6h10V3M7 21v-8h10v8"/></svg></button></div>';
     host.before(form);input=form.querySelector('textarea');status=form.querySelector('[role=status]');saveButton=form.querySelector('button');input.oninput=remember;form.onsubmit=save;
   }
@@ -38,12 +37,12 @@
     const A=global.PEAnnual,order=records.orders.find(p=>String(p.id)===id);if(!order)throw Error('The purchase order is not available.');
     const invoices=records.invoices.filter(i=>String(A.orderFor(i)?.id)===id);
     const money=v=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v||0)),date=v=>{const s=String(v||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s.slice(5,7)+'/'+s.slice(8,10)+'/'+s.slice(0,4):'—';};
-    const rows=invoices.map(i=>{const m=A.metrics(i,order);return '<tr><td><button type="button" class="report-history-link" data-report-comments="invoice" data-record-id="'+esc(i.id)+'" data-record-label="'+esc(i.invoice_no)+'" data-related-po="'+esc(id)+'">'+esc(i.invoice_no||'—')+'</button></td><td>'+esc(date(i.start_date))+'</td><td>'+esc(date(A.due(i)))+'</td><td class="num">'+money(m.total)+'</td><td class="num">'+money(m.collected)+'</td><td class="num">'+money(m.balance)+'</td><td>'+esc(i.status||'—')+'</td><td>'+esc(m.paymentStatus|| (m.balance<=.005?'Paid':m.collected>.005?'Partially Paid':'Unpaid'))+'</td></tr>';});
+    const rows=invoices.map(i=>{const m=A.metrics(i,order);return '<tr><td><button type="button" class="report-history-link" data-report-comments="invoice" data-record-id="'+esc(i.id)+'" data-record-label="'+esc(i.invoice_no)+'" data-related-po="'+esc(id)+'">'+esc(i.invoice_no||'—')+'</button></td><td>'+esc(date(i.start_date))+'</td><td>'+esc(date(A.due(i)))+'</td><td class="num">'+money(m.total)+'</td><td class="num">'+money(m.collected)+'</td><td class="num">'+money(m.balance)+'</td><td>'+esc(i.status||'—')+'</td><td><span class="report-payment-status">'+esc(m.paymentStatus|| (m.balance<=.005?'Paid':m.collected>.005?'Partially Paid':'Unpaid'))+global.PEReportRecord.payments(i)+'</span></td></tr>';});
     const table=global.PEReportTotals.render(['Invoice No.','Invoice Date','Due Date','Invoice Total Incl VAT','Collected Incl VAT','Open Balance','Invoice Status','Payment Status'],rows);
     heading.textContent='Purchase Order — '+label;host.innerHTML='<div class="report-po-meta"><span><strong>Department</strong>'+esc(order.department||'—')+'</span><span><strong>ERP Code</strong>'+esc(order.erp_code||'—')+'</span><span><strong>Invoices</strong>'+invoices.length+'</span></div><p class="report-comments-note">All linked invoices accessible to your account. Select an invoice number for its historical comments.</p><div class="report-po-table">'+table+'</div>';
   }
   async function open(kind,id,label,fromPO=null){
-    if(saving)return;mount();remember();originPO=fromPO;currentInvoice=null;form.hidden=paymentsButton.hidden=true;backButton.hidden=!originPO;dialog.classList.toggle('report-po-summary',kind==='po');const token=++request;heading.textContent=(kind==='invoice'?'Invoice comments — ':'Purchase Order — ')+label;host.textContent='Loading…';
+    if(saving)return;mount();remember();originPO=fromPO;currentInvoice=null;form.hidden=true;backButton.hidden=!originPO;dialog.classList.toggle('report-po-summary',kind==='po');const token=++request;heading.textContent=(kind==='invoice'?'Invoice comments — ':'Purchase Order — ')+label;host.textContent='Loading…';
     if(global.PEPopups?.isMinimized(dialog))global.PEPopups.restore(dialog);else if(!dialog.open)dialog.showModal();
     try{
       if(!client)throw Error('The report connection is not ready.');
@@ -55,7 +54,6 @@
       const numbers=[...new Set(invoices.map(i=>String(i.invoice_no||'')).filter(value=>value.trim()))];
       if(!numbers.length){host.textContent='No numbered invoices are linked to this item.';return;}
       currentInvoice=invoices[0];const department=A.orderFor(currentInvoice)?.department||currentInvoice.department;
-      paymentsButton.hidden=!global.PEAccess.can('collections','view');
       form.hidden=!global.PEAccess.can('invoices','add',department);input.value=drafts.get(String(currentInvoice.id))||'';input.disabled=saveButton.disabled=true;status.textContent='The date and time are recorded when the comment is saved.';
       const comments=[];
       for(let at=0;at<numbers.length;at+=100){

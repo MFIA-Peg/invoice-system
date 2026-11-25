@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <script>
-(function(){const p=new URLSearchParams(location.search);if(['po','invoice','customer'].includes(p.get('record'))||['open','edit'].includes(p.get('project_action'))||['project','purchase-order','invoice'].includes(p.get('create')))document.documentElement.classList.add('record-loading');})();
+(function(){const p=new URLSearchParams(location.search),form=['po','invoice','customer'].includes(p.get('record'))||p.get('project_action')==='edit'||['project','purchase-order','invoice'].includes(p.get('create'));if(form)document.documentElement.classList.add('record-form-route');if(form||p.get('project_action')==='open')document.documentElement.classList.add('record-loading');})();
 </script>
-<style>html.record-loading body{visibility:hidden}html.record-loading:after{content:'Loading requested record…';position:fixed;inset:0;display:grid;place-items:center;background:#f3f6fa;color:#14263d;font:18px Arial}html.record-route #customerOverview,html.record-route #companiesCard{display:none!important}</style>
+<style>html.record-loading body{visibility:hidden}html.record-loading:after{content:'Loading requested record…';position:fixed;inset:0;display:grid;place-items:center;background:#f3f6fa;color:#14263d;font:18px Arial}html.record-route #customerOverview,html.record-route #companiesCard{display:none!important}html.record-form-route #projectDetailsCard,html.record-form-route.pe-entry-embedded body>main{display:none!important}</style>
 <style>html{font-size:18px}</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
