@@ -93,7 +93,7 @@
     const orderIdsByInvoices=new Set(scoped.map(i=>String(orderFor(i)?.id)));
     const advancesInScope=unique(data.advances||[]).filter(a=>{const po=data.orders.find(p=>String(p.id)===String(a.po_id));return po&&(!orderScopeIds||orderScopeIds.has(String(po.id)))&&dimension(po,po)&&(!scope.advancePoIds||scope.advancePoIds.map(String).includes(String(po.id)))&&(!invoiceIds||scope.advanceScopeIndependent||orderIdsByInvoices.has(String(po.id)));});
     const advances=advancesInScope.filter(a=>period(date(a.payment_date))),undatedAdvances=advancesInScope.filter(a=>!a.payment_date);
-    const overdueInvoices=issued.filter(i=>due(i)&&due(i)<reportDate&&(!i.approval_date||date(i.approval_date)<=reportDate));
+    const overdueInvoices=issued.filter(i=>due(i)&&due(i)<reportDate&&(!periodFrom||due(i)>=periodFrom)&&(!periodTo||due(i)<=periodTo)&&(!i.approval_date||date(i.approval_date)<=reportDate));
     const overdueToDate=round(overdueInvoices.reduce((v,i)=>v+metrics(i).balance,0));
     const totals={overdueToDate,billed:0,billedNet:0,billedVat:0,collections:0,advances:0,collectible:0,pending:0,retention:0,draft:0};
     for(const i of billed){const m=metrics(i);totals.billed+=m.total;totals.billedNet+=m.net;totals.billedVat+=m.vat;}
@@ -108,7 +108,7 @@
     // Compatibility aliases for operational charts and detailed registers.
     Object.assign(totals,{total:totals.billed,net:totals.billedNet,vat:totals.billedVat,collected:totals.collections,balance:totals.collectible,
       settled:round(billed.reduce((v,i)=>v+metrics(i).collected,0)),advanceApplied:round(billed.reduce((v,i)=>v+metrics(i).advance,0)),
-      notDue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).notDue,0)),overdue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).overdue,0))});
+      notDue:round(collectibleInvoices.reduce((v,i)=>v+metrics(i).notDue,0)),overdue:overdueToDate});
     const orders=unique(data.orders).filter(p=>(!orderScopeIds||orderScopeIds.has(String(p.id)))&&dimension(p,p)&&(!p.po_date||date(p.po_date)<=reportDate));
     const billedByOrder=new Map();
     for(const i of unique(data.invoices)){if(!isIssued(i)||!i.approval_date||date(i.approval_date)>reportDate)continue;const po=orderFor(i);if(!po)continue;const key=String(po.id);billedByOrder.set(key,(billedByOrder.get(key)||0)+metrics(i,po).total);}

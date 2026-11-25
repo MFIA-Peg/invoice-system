@@ -37,7 +37,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124report1"></script>
+<script src="annual-analytics.js?v=20261125dates1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -107,8 +107,8 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #tableWrap col{width:auto!important}#tableWrap col:last-child{width:120px!important}
 #tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
 #registerPager button{min-width:36px;padding:7px 10px}
-</style><script src="entry-dialog.js?v=20261124seven1" defer></script>
-<style>@media screen{#tableWrap table th,#tableWrap table td,#tableWrap table td.num{width:auto!important}#tableWrap tr>:nth-child(5){white-space:normal!important}#tableWrap tr>:nth-child(6),#tableWrap tr>:nth-child(7){white-space:nowrap;font-size:10px}#tableWrap td.num{font-size:clamp(8px,.65vw,11px)}#tableWrap tr>:nth-child(17){white-space:normal!important}#tableWrap tr>:nth-child(18){white-space:nowrap}}</style></head>
+</style><script src="entry-dialog.js?v=20261125records1" defer></script>
+<style>@media screen{#tableWrap table th,#tableWrap table td,#tableWrap table td.num{width:auto!important}#tableWrap tr>:nth-child(5){white-space:normal!important}#tableWrap tr>:nth-child(6),#tableWrap tr>:nth-child(7){white-space:nowrap;font-size:10px}#tableWrap td.num{font-size:clamp(8px,.65vw,11px)}#tableWrap tr>:nth-child(17){white-space:normal!important}#tableWrap tr>:nth-child(18){white-space:nowrap}}</style><link rel="stylesheet" href="access-date-filters.css?v=20261125dates1"><script src="access-date-filters.js?v=20261125dates1" defer></script><script>if(new URLSearchParams(location.search).has("payments_invoice"))document.documentElement.classList.add("pe-payments-route");</script><style>.pe-payments-route body>main,.pe-payments-route #pe-global-nav,.pe-payments-route body>.nav{display:none!important}.pe-payments-route #receivedPayments{width:min(1000px,96vw);max-height:88vh}</style></head>
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html" aria-current="page">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="usersLink" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span class="user" id="signedInUser">Checking session...</span><button class="secondary" id="signOut">Sign Out</button></div></div></header>
 <main class="page">
@@ -365,7 +365,7 @@ async function openInvoiceHistory(invoice){
 
 let receivedInvoice=null,receivedRows=[],paymentPermissions={add:false,edit:false,delete:false},editingPayment=null,paymentBusy=false,paymentRequest=0;
 const paymentMessage=(text,error=false)=>{$('paymentStatusMessage').textContent=text;$('paymentStatusMessage').style.color=error?'#b91c1c':'#0f766e';};
-$('closeReceivedPayments').addEventListener('click',()=>{if(!paymentBusy){paymentRequest++;$('receivedPayments').close();}});
+$('closeReceivedPayments').addEventListener('click',()=>{if(!paymentBusy){if(PEEntry.cancel())return;if(new URLSearchParams(location.search).has('payments_invoice')){location.href='invoices.html';return;}paymentRequest++;$('receivedPayments').close();}});
 $('receivedPayments').addEventListener('cancel',event=>{if(paymentBusy)event.preventDefault();else paymentRequest++;});
 async function readPaymentPermissions(){
  const names=['can_add_data','can_edit_data','can_delete_data'];
@@ -421,6 +421,7 @@ $('addReceivedPayment').addEventListener('click',()=>showPaymentForm());
 $('cancelReceivedPayment').addEventListener('click',()=>{if(!paymentBusy)$('receivedPaymentForm').hidden=true;});
 async function refreshAfterPayment(message){
  const invoice=receivedInvoice;
+ if(new URLSearchParams(location.search).has('payments_invoice')){await loadRequestedPayments(invoice.id,false);PEEntry.updated();paymentMessage(message);return;}
  await loadAll();
  await openReceivedPayments(allInvoices.find(i=>String(i.id)===String(invoice.id))||invoice,false);
  paymentMessage(message);
@@ -535,7 +536,14 @@ $('editForm').addEventListener('submit',saveEdit);$('closeModal').addEventListen
 $('editBackdrop').addEventListener('click',e=>{if(e.target===$('editBackdrop'))closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('editBackdrop').classList.contains('open'))closeModal()});
 $('signOut').addEventListener('click',async()=>{await db.auth.signOut();sessionStorage.clear();location.replace('login.html')});
-(async()=>{try{if((await Promise.all([checkSession(),prepareRegisterData()]))[0])await loadAll()}catch(e){preparedRegisterData=null;showError('Session verification failed: '+(e.message||e))}})();
+async function loadRequestedPayments(id,reopen=true){
+ if(!/^\d+$/.test(String(id)))throw Error('Invalid invoice.');
+ const {data,error}=await db.from('invoice_details_with_retention').select('*').eq('id',id).single();
+ if(error)throw error;if(!data)throw Error('The invoice is not available.');
+ if(!PEAccess.can('collections','view'))throw Error('You do not have View permission for collections.');
+ allInvoices=[data];await openReceivedPayments(data,reopen);
+}
+(async()=>{try{const paymentId=new URLSearchParams(location.search).get('payments_invoice');if(paymentId!==null){if(await checkSession())await loadRequestedPayments(paymentId);return;}if((await Promise.all([checkSession(),prepareRegisterData()]))[0])await loadAll()}catch(e){preparedRegisterData=null;if(new URLSearchParams(location.search).has('payments_invoice')){$('receivedPaymentsContent').textContent='Unable to load payments: '+(e.message||e);if(!$('receivedPayments').open)$('receivedPayments').showModal();}else showError('Session verification failed: '+(e.message||e))}})();
 </script>
 
 <script>
