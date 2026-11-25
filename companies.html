@@ -182,11 +182,11 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261125dates1"></script>
+<script src="annual-analytics.js?v=20261125r56"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124report1"></script>
+<script src="workspace-ui.js?v=20261125r56"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <style>#projectModal{z-index:2200!important;overflow:auto;padding:4vh 16px;box-sizing:border-box}#projectModal>div{width:620px!important;max-width:100%!important;max-height:90vh;overflow:auto;margin:0 auto!important;padding:20px!important;box-sizing:border-box}#projectModal label{display:block;font-size:12px;color:#475569;margin-bottom:4px}#projectModal input:not(.pe-combobox-input),#projectModal select{width:100%;box-sizing:border-box;padding:8px}#projectLookupNote{font-size:12px;line-height:1.4}</style>
 <script src="project-lookups.js?v=20261123e"></script>
@@ -199,7 +199,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261124headers1" defer></script>
-<script src="entry-dialog.js?v=20261125records1" defer></script>
+<script src="entry-dialog.js?v=20261125r56" defer></script>
 <link rel="stylesheet" href="access-date-filters.css?v=20261125dates1"><script src="access-date-filters.js?v=20261125dates1" defer></script></head>
 
 <body>
@@ -883,7 +883,7 @@ async function addInvoice(poNo, projectId){
       <div class="invoice-field"><label>Project Name</label><input value="${escapeHtml(project.project_name || "")}" readonly></div>
       <div class="invoice-field"><label>PO Number</label><input value="${escapeHtml(poNo)}" readonly></div>
       <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no" type="text" required></div>
-      <div class="invoice-field"><label>Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option><option>Bad Debit</option></select></div>
+      <div class="invoice-field"><label>Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option><option>Bad Debits</option></select></div>
       <div class="invoice-field"><label>Invoice Amount (Excl. VAT) *</label><input id="new_inv_amount" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>Paid Amount (Incl. VAT)</label><input id="new_inv_paid" type="number" min="0" step="0.01" value="0" oninput="updateNewInvoiceTotals()"></div>
       <div class="invoice-field"><label>VAT Applicable</label><input value="${currentInvoiceVat ? "Yes - 15%" : "No"}" readonly></div>
@@ -903,6 +903,7 @@ async function addInvoice(poNo, projectId){
       <button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button>
       <button onclick="closeInvoiceModal()" style="background:#64748b">Cancel</button>
     </div>`;
+  document.getElementById("invoiceModalContent").dataset.accessDepartment=invoicePO?.department||data.department||'';
   document.getElementById("invoiceModalContent").innerHTML = formHtml;
   document.getElementById("invoiceModal").style.display = "block";
   updateNewInvoiceTotals();
@@ -1037,7 +1038,7 @@ function toDateInput(value){
   return value ? String(value).slice(0,10) : "";
 }
 
-function invoiceFormStatus(value){const s=String(value||'Draft').trim().toLowerCase();if(s==='draft')return 'Draft';if(/^(approved|3-approved|partially paid)$/.test(s))return 'Approved';if(/^(paid|complete|completed|competed|fully paid)$/.test(s))return 'Completed';if(/^(canceled|cancelled|void)$/.test(s))return 'Cancelled';if(s==='retention')return 'Retention';if(s==='bad debit')return 'Bad Debit';return 'Waiting For Approval';}
+function invoiceFormStatus(value){const s=String(value||'Draft').trim().toLowerCase();if(s==='draft')return 'Draft';if(/^(approved|3-approved|partially paid)$/.test(s))return 'Approved';if(/^(paid|complete|completed|competed|fully paid)$/.test(s))return 'Completed';if(/^(canceled|cancelled|void)$/.test(s))return 'Cancelled';if(s==='retention')return 'Retention';if(/^bad debits?$/.test(s))return 'Bad Debits';return 'Waiting For Approval';}
 async function showInvoiceDetails(invoiceId){
   const { data, error } = await supabaseClient
     .from("invoice_details_with_retention").select("*").eq("id", invoiceId).single();
@@ -1083,7 +1084,7 @@ async function showInvoiceDetails(invoiceId){
     ["description", "Description", data.description || "", "textarea"]
   ];
 
-  const fieldHtml=(key,label,value,type)=>{let h=`<div class="invoice-field"><label for="inv_${key}">${label}</label>`;if(type==='select'){const statuses=[["Draft","Draft"],["Waiting For Approval","Waiting For approval"],["Approved","Approved"],["Cancelled","Canceled"],["Retention","Retention"],["Completed","Completed"],["Bad Debit","Bad Debit"]];h+=`<select id="inv_${key}" disabled>${statuses.map(([st,label])=>`<option value="${st}" ${st===invoiceFormStatus(value)?'selected':''}>${label}</option>`).join('')}</select>`;}else if(type==='textarea'){h+=`<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;}else if(type==='checkbox'){h+=`<input id="inv_${key}" type="checkbox" ${value==='true'?'checked':''} disabled>`;}else{h+=`<input id="inv_${key}" type="${type==='readonly'||type==='calculated'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'||type==='calculated'?'readonly':''} disabled>`;}return h+'</div>';};
+  const fieldHtml=(key,label,value,type)=>{let h=`<div class="invoice-field"><label for="inv_${key}">${label}</label>`;if(type==='select'){const statuses=[["Draft","Draft"],["Waiting For Approval","Waiting For approval"],["Approved","Approved"],["Cancelled","Canceled"],["Retention","Retention"],["Completed","Completed"],["Bad Debits","Bad Debits"]];h+=`<select id="inv_${key}" disabled>${statuses.map(([st,label])=>`<option value="${st}" ${st===invoiceFormStatus(value)?'selected':''}>${label}</option>`).join('')}</select>`;}else if(type==='textarea'){h+=`<textarea id="inv_${key}" rows="3" disabled>${escapeHtml(value)}</textarea>`;}else if(type==='checkbox'){h+=`<input id="inv_${key}" type="checkbox" ${value==='true'?'checked':''} disabled>`;}else{h+=`<input id="inv_${key}" type="${type==='readonly'||type==='calculated'?'text':type}" value="${escapeHtml(value)}" ${type==='readonly'||type==='calculated'?'readonly':''} disabled>`;}return h+'</div>';};
   const groups=[
    {title:'1. General Identification Data',keys:['invoice_no','status','po_no','project_id','project_name','start_date','approval_date','payment_terms','due_date','completed_date','description']},
    {title:'2. Financial Item Data',keys:['invoice_amount','vat_amount','invoice_total','net_invoice_amount']},
@@ -1100,7 +1101,7 @@ async function showInvoiceDetails(invoiceId){
   if(registerRecord?.type==='invoice') recordDetailActions();
   else {const attachBtn=document.createElement("button"); attachBtn.textContent="Attachments"; attachBtn.onclick=()=>manageAttachments('invoice',invoiceId); document.querySelector("#invoiceModalContent .modal-actions")?.appendChild(attachBtn);}
   updateExistingInvoiceTotals();
-  ["inv_approval_date", "inv_payment_terms", "inv_invoice_amount", "inv_paid_amount"].forEach(id => {
+  ["inv_status","inv_approval_date", "inv_payment_terms", "inv_invoice_amount", "inv_paid_amount"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", updateExistingInvoiceTotals);
     document.getElementById(id)?.addEventListener("change", updateExistingInvoiceTotals);
   });
@@ -1120,7 +1121,8 @@ function updateExistingInvoiceTotals(){
   const retentionDue = approval && po.retention_applicable
     ? calculateDueDate(approval, Number(po.retention_period_days || 0)) : "";
   const dueDate = calculateDueDate(approval, document.getElementById("inv_payment_terms")?.value);
-  const balance = Math.max(0, total - paid);
+  const badDebt=/^bad debits?$/i.test(document.getElementById("inv_status")?.value||"");
+  const balance = badDebt?0:Math.max(0, total - paid);
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value;};
   set("inv_advance_amortisation", advanceAmortisation.toFixed(2));
   set("inv_net_invoice_amount", netInvoiceAmount.toFixed(2));
@@ -1130,9 +1132,9 @@ function updateExistingInvoiceTotals(){
   set("inv_invoice_total", total.toFixed(2));
   set("inv_open_balance", balance.toFixed(2));
   set("inv_net_payable_after_advance", Math.max(0,total-retentionBase-retentionVat).toFixed(2));
-  set("inv_payment_status", paid <= 0 ? "Unpaid" : balance <= 0.005 ? "Paid" : "Partially Paid");
+  set("inv_payment_status", badDebt ? "Bad Debits" : paid <= 0 ? "Unpaid" : balance <= 0.005 ? "Paid" : "Partially Paid");
   set("inv_due_date", dueDate);
-  set("inv_overdue_status", getOverdueStatus(dueDate, balance));
+  set("inv_overdue_status", badDebt?"Bad Debits":getOverdueStatus(dueDate, balance));
   set("inv_retention_amount", retentionBase.toFixed(2));
   set("inv_retention_vat", retentionVat.toFixed(2));
   set("inv_retention_total", (retentionBase+retentionVat).toFixed(2));
@@ -1284,8 +1286,8 @@ saveProject=async function(){
 async function editPO(id,viewOnly=false){
  if(!viewOnly&&!PEAccess.can('orders','edit'))viewOnly=true;
  const {data,error}=await supabaseClient.from('pos').select('*').eq('id',id).single();if(error){alert(error.message);return;}if(!PEAccess.can('orders','edit',data.department))viewOnly=true;currentPOEditId=id;
- const {data:projects}=await supabaseClient.from('projects').select('id,project_name').order('project_name');
- const {data:advRows,error:advErr}=await supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no);if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
+ const selectedProject=data.project_id==null?Promise.resolve({data:null}):data.project_name?Promise.resolve({data:{id:data.project_id,project_name:data.project_name}}):supabaseClient.from('projects').select('id,project_name').eq('id',data.project_id).maybeSingle();
+ const [projectResult,{data:advRows,error:advErr}]=await Promise.all([selectedProject,supabaseClient.from('invoices').select('advance_amortisation').eq('po_no',data.po_no)]);const projects=projectResult.data?[projectResult.data]:[];if(advErr){alert(advErr.message);return;}const advanceAmount=Number(data.po_value_ex_vat||0)*Number(data.advance_payment_percentage||0)/100;const advanceUsed=(advRows||[]).reduce((a,x)=>a+Number(x.advance_amortisation||0),0);
  renderPOForm(data,projects,advanceAmount,advanceUsed,false,id,viewOnly);
 }
 function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOnly=false){
@@ -1305,11 +1307,11 @@ function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOn
  <div class="invoice-field"><label>Advance Amount (Contract)</label><input id="poe_advance_amount" readonly value="${advanceAmount.toFixed(2)}"></div><div class="invoice-field"><label>Advance Received (Actual SAR)</label><input id="poe_advance_received" readonly title="Managed through dated advance payments" type="number" min="0" step="0.01" value="${Number(data.advance_received_amount||0)}"></div><div class="invoice-field"><label>Advance Amortised</label><input readonly value="${advanceUsed.toFixed(2)}"></div><div class="invoice-field"><label>Advance Balance</label><input readonly value="${Math.max(0,advanceAmount-advanceUsed).toFixed(2)}"></div>
  </div></section><div class="modal-actions"><button id="savePOButton" class="btn-po" onclick="savePOChanges(${creating})">${creating?'Save Purchase Order':'Save Changes'}</button>${creating?'':`<button onclick="manageAttachments('po',${id})">Attachments</button>`}<button onclick="closeInvoiceModal()">Cancel</button></div>`;
  document.getElementById('invoiceModal').style.display='block';
- PEOrderLookups.prepare(data,creating?'add':'edit',viewOnly).catch(error=>{document.getElementById('savePOButton')?.setAttribute('disabled','');alert('Could not load purchase order lists: '+error.message);});
+ if(viewOnly){for(const [id,value]of [['poe_department',data.department],['poe_company',data.company]])document.getElementById(id).replaceChildren(new Option(value||'—',value||''));globalThis.PESearchableSelects?.refresh();}else PEOrderLookups.prepare(data,creating?'add':'edit',false).catch(error=>{document.getElementById('savePOButton')?.setAttribute('disabled','');alert('Could not load purchase order lists: '+error.message);});
  if(viewOnly){
   box.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=true);
   box.querySelector('.modal-actions').replaceChildren();
-  addRecordAction('Edit',()=>editPO(id));
+  if(PEAccess.can('orders','edit',data.department))addRecordAction('Edit',()=>editPO(id));
   recordDetailActions();
  }else if(registerRecord?.type==='po'&&!creating){
   const actions=box.querySelector('.modal-actions');
@@ -1384,7 +1386,7 @@ async function addInvoice(poNo,projectId){
  currentInvoiceId=null;currentInvoicePoNo=po.po_no||null;currentProjectId=po.project_id||null;currentInvoiceVat=po.vat===true;window.currentPOForInvoice=po;window.currentAdvanceAvailable=0;
  document.getElementById('invoiceModalContent').innerHTML=`<h2>Add Invoice</h2>
  <section class="form-section"><h3>1. General Identification Data</h3><div class="invoice-fields">
- <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option><option>Bad Debit</option></select></div>
+ <div class="invoice-field"><label>Invoice Number *</label><input id="new_inv_invoice_no"></div><div class="invoice-field"><label>Approval / Workflow Status</label><select id="new_inv_status"><option>Draft</option><option value="Waiting For Approval">Waiting For approval</option><option>Approved</option><option value="Cancelled">Canceled</option><option>Retention</option><option>Completed</option><option>Bad Debits</option></select></div>
  <div class="invoice-field"><label>Invoice Date</label><input id="new_inv_start_date" type="date" value="${localToday()}"></div><div class="invoice-field"><label>Approval Date</label><input id="new_inv_approval_date" type="date" value="${localToday()}" oninput="updateNewInvoiceTotals()" onchange="updateNewInvoiceTotals()"></div>
  <div class="invoice-field"><label>Payment Terms (Days)</label><input id="new_inv_terms" type="number" min="0" value="60" oninput="updateNewInvoiceTotals()"></div><div class="invoice-field"><label>Due Date</label><input id="new_inv_due_date" readonly></div>
  <div class="invoice-field"><label>Completed Date</label><input id="new_inv_completed_date" type="date"></div><div class="invoice-field"><label>Description</label><textarea id="new_inv_description"></textarea></div>
@@ -1585,7 +1587,8 @@ function addRecordAction(label,handler,style=''){
 function recordDetailActions(){
  const {type,id}=registerRecord;
  addRecordAction('Delete',()=>type==='po'?deletePO(id):deleteInvoice(id),'btn-danger');
- addRecordAction('Add Attachment',()=>manageAttachments(type,id));
+ const module=type==='po'?'orders':'invoices',department=document.getElementById('invoiceModalContent').dataset.accessDepartment;
+ addRecordAction(PEAccess.can(module,'edit',department)?'Add Attachment':'Attachments',()=>manageAttachments(type,id));
  addRecordAction('Back',returnToRecordRegister);
  document.getElementById('invoiceModalContent').querySelectorAll('button[onclick="closeInvoiceModal()"]').forEach(button=>button.remove());
 }
@@ -2032,6 +2035,7 @@ if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hid
 </script>
 </body>
 </html>
+
 
 
 

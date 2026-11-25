@@ -18,12 +18,14 @@
     const recordedRetention=Math.max(0,round2(i.retention_balance ?? (retentionTotal-retentionReleased)));
     const remaining=Math.max(0,round2(payableTotal-collected));
     const retentionBalance=shared?.retention??(String(i.status||'').trim().toUpperCase()==='RETENTION'?remaining:Math.min(recordedRetention,remaining));
-    const outstanding=shared?.balance??Math.max(0,round2(remaining-retentionBalance));
+    const badDebt=/^bad debits?$/i.test(String(i.status||'').trim()),writtenOff=badDebt?Math.max(0,round2(remaining-retentionBalance)):0;
+    const outstanding=badDebt?0:shared?.balance??Math.max(0,round2(remaining-retentionBalance));
     const netPayable=Math.max(0,round2(payableTotal-retentionTotal));
     const dueDate=global.PEAnnual?.due(i)||(i.due_date?String(i.due_date).slice(0,10):null);
-    const paymentStatus=outstanding<=0.005?(retentionBalance>0.005?'Retention Only':'Paid'):(collected>0.005?'Partially Paid':'Unpaid');
-    return {invoiceBase,advance,vat,invoiceTotal,total:invoiceTotal,payableTotal,collected,outstanding,balance:outstanding,retentionAmount,retentionVat,retentionTotal,retentionReleased,retentionBalance,netPayable,dueDate,paymentStatus};
+    const paymentStatus=badDebt?'Bad Debits':outstanding<=0.005?(retentionBalance>0.005?'Retention Only':'Paid'):(collected>0.005?'Partially Paid':'Unpaid');
+    return {invoiceBase,advance,vat,invoiceTotal,total:invoiceTotal,payableTotal,collected,outstanding,balance:outstanding,retentionAmount,retentionVat,retentionTotal,retentionReleased,retentionBalance,netPayable,dueDate,paymentStatus,badDebt,writtenOff};
   }
   global.PEFinancialMetrics={metrics,number:num,round2};
 })(window);
+
 

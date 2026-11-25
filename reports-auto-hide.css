@@ -4,6 +4,9 @@
   .reports-page .report-control-dock .report-title h1 {font-size:19px}
   .reports-page .report-control-dock #lastUpdated {font-size:10px;margin:3px 0 0;line-height:1.3}
   .reports-page .report-control-dock .tabs {margin:0 0 5px;align-items:center;gap:5px}
+  .reports-page .report-record-state {display:inline-flex;gap:2px;margin-left:6px;padding:2px;border:1px solid #cbd5e1;border-radius:6px;background:white}
+  .reports-page .report-record-state button {height:24px;padding:3px 9px;font-size:11px;border-radius:4px;background:#f1f5f9;color:#475569}
+  .reports-page .report-record-state button.active {background:#14263d;color:white}
   .reports-page .report-filter-toggle {margin-left:auto}
   .reports-page .report-filter-toggle[aria-expanded=false] {background:#dbeafe!important;color:#1e40af!important}
   .reports-page .report-control-dock>.report-filter-panel {padding:6px 8px;margin:0}
@@ -17,9 +20,10 @@
   .reports-page .report-record-link:focus-visible {outline:2px solid #60a5fa;outline-offset:2px}
   .reports-page .report-record-actions {display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%}
   .reports-page .report-history-link {font:inherit!important;font-weight:600!important;background:transparent!important;color:#1d4ed8!important;padding:0!important;border:0!important;min-height:0!important;text-decoration:underline;text-underline-offset:2px;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
-  .reports-page .report-edit-link {display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px;width:18px;height:20px;color:#64748b}
-  .reports-page .report-edit-link svg {width:14px;height:14px;pointer-events:none}
+  .reports-page .report-edit-link,.reports-page .report-detail-link {display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px;width:18px;height:20px;color:#64748b}
+  .reports-page .report-edit-link svg,.reports-page .report-detail-link svg {width:14px;height:14px;pointer-events:none}
   .reports-page .report-payment-status {display:inline-flex;align-items:center;justify-content:center;gap:3px;max-width:100%}
+  .reports-page .report-payment-status .status {font-size:10px;line-height:1.25;padding:3px 4px;overflow-wrap:normal;word-break:normal}
   .reports-page .report-payment-button {display:inline-flex!important;align-items:center;justify-content:center;flex:0 0 18px;width:18px!important;height:22px!important;min-height:22px!important;padding:2px!important;background:transparent!important;color:#2563eb!important;border:0!important;border-radius:4px;cursor:pointer}
   .report-payment-button svg {width:14px;height:14px;pointer-events:none}
   .report-payment-button:focus-visible {outline:2px solid #60a5fa;outline-offset:1px}
@@ -47,7 +51,7 @@
   @media(max-width:600px){.reports-page .report-control-dock .report-title h1{font-size:17px}.reports-page #dashboardContextSummary{max-width:55vw}.reports-page .report-control-dock .report-top{gap:5px}}
 }
 @media print {
-  .report-payment-button,.report-edit-link {display:none!important}
+  .report-payment-button,.report-edit-link,.report-detail-link {display:none!important}
   .reports-page .report-control-dock {display:block!important;position:static;overflow:visible;max-height:none;box-shadow:none;border:0;padding:0}
   .reports-page .report-control-dock .report-top {display:block!important}
   .reports-page .report-control-dock .tabs,.reports-page .report-control-dock .report-filter-panel {display:none!important}

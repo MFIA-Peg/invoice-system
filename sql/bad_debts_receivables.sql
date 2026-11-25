@@ -1,0 +1,337 @@
+CREATE OR REPLACE FUNCTION public.canonical_invoice_status(p_status text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+ SELECT CASE lower(btrim(p_status)) WHEN '3-approved' THEN 'Approved' WHEN 'partially paid' THEN 'Approved' WHEN 'paid' THEN 'Completed' WHEN 'approved' THEN 'Approved' WHEN 'completed' THEN 'Completed' WHEN 'retention' THEN 'Retention' WHEN 'bad debit' THEN 'Bad Debits' WHEN 'bad debits' THEN 'Bad Debits' ELSE p_status END
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.normalize_invoice_workflow_status()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE v_status text; v_vat boolean; v_net numeric; v_gross numeric; v_paid numeric; v_retention numeric; v_released numeric; v_cash_balance numeric; v_held numeric; v_total_remaining numeric; v_payment_changed boolean;
+BEGIN
+ v_status:=public.canonical_invoice_status(NEW.status);
+ SELECT p.vat INTO v_vat FROM public.pos p WHERE p.id=NEW.pos_id;
+ IF NOT FOUND THEN SELECT p.vat INTO v_vat FROM public.pos p WHERE p.po_no=NEW.po_no;END IF;
+ v_net:=greatest(coalesce(NEW.invoice_amount,0)-coalesce(NEW.advance_amortisation,0),0);
+ v_gross:=v_net+CASE WHEN coalesce(v_vat,false) THEN round(v_net*.15,2) ELSE 0 END;
+ v_paid:=coalesce(NEW.paid_amount,0);v_retention:=coalesce(NEW.retention_amount,0)+coalesce(NEW.retention_vat,0);v_released:=coalesce(NEW.retention_released_amount,0);
+ v_cash_balance:=greatest(v_gross-v_retention-v_paid,0);
+ v_total_remaining:=greatest(v_gross-v_paid-v_released,0);
+ v_held:=least(greatest(v_retention-v_released,0),v_total_remaining);
+ IF TG_OP='INSERT' THEN v_payment_changed:=v_paid<>0 OR v_released<>0;
+ ELSE v_payment_changed:=NEW.paid_amount IS DISTINCT FROM OLD.paid_amount OR NEW.retention_released_amount IS DISTINCT FROM OLD.retention_released_amount;END IF;
+ IF lower(coalesce(v_status,'')) NOT IN('cancelled','canceled','void','bad debit','bad debits') AND (v_status IN('Approved','Completed','Retention') OR v_paid>.005 OR v_released>.005) THEN
+  IF v_gross>0 AND v_cash_balance<=.005 AND v_held>.005 THEN v_status:='Retention';
+  ELSIF v_status='Retention' THEN v_status:=CASE WHEN v_gross>0 AND v_total_remaining<=.005 THEN 'Completed' ELSE 'Approved' END;
+  ELSIF v_payment_changed AND v_gross>0 THEN
+   IF v_total_remaining<=.005 AND v_held<=.005 THEN v_status:='Completed';
+   ELSIF v_status='Completed' THEN v_status:='Approved';END IF;
+  END IF;
+ END IF;
+ NEW.status:=v_status;
+ RETURN NEW;
+END $function$
+;
+
+create or replace view public.invoice_details_with_retention with (security_invoker=true) as
+ SELECT id,
+    invoice_no,
+    status,
+    po_no,
+    description,
+    start_date,
+    completed_date,
+    invoice_amount,
+    erp,
+    paid_amount,
+    approval_date,
+    payment_terms,
+    company,
+    department,
+    due_date,
+        CASE
+            WHEN (upper(TRIM(BOTH FROM status)) IN ('RETENTION'::text,'BAD DEBIT'::text,'BAD DEBITS'::text)) THEN (0)::numeric
+            ELSE open_balance
+        END AS open_balance,
+    project_id,
+    project_name,
+    vat_applicable,
+    vat_amount,
+    invoice_total,
+    CASE WHEN lower(btrim(status)) IN ('bad debit','bad debits') THEN 'Bad Debits'::text ELSE payment_status END AS payment_status,
+    retention_amount,
+    retention_vat,
+    retention_due_date,
+    retention_released_amount,
+    retention_total,
+    net_payable,
+    (LEAST(retention_balance, GREATEST(((COALESCE(invoice_total_after_advance, (0)::numeric) - COALESCE(paid_amount, (0)::numeric)) - COALESCE(retention_released_amount, (0)::numeric)), (0)::numeric)))::numeric(18,2) AS retention_balance,
+    advance_payment_percentage,
+    advance_amount,
+    advance_amortisation,
+    net_invoice_amount,
+    vat_after_advance,
+    invoice_total_after_advance,
+    (
+        CASE
+            WHEN (upper(TRIM(BOTH FROM status)) IN ('RETENTION'::text,'BAD DEBIT'::text,'BAD DEBITS'::text)) THEN (0)::numeric
+            ELSE collection_balance_after_advance
+        END)::numeric(18,2) AS collection_balance_after_advance,
+    net_payable_after_advance,
+    CASE WHEN lower(btrim(status)) IN ('bad debit','bad debits') THEN 'Bad Debits'::text ELSE payment_status_after_advance END AS payment_status_after_advance
+   FROM ( SELECT d.id,
+            d.invoice_no,
+            d.status,
+            d.po_no,
+            d.description,
+            d.start_date,
+            d.completed_date,
+            d.invoice_amount,
+            d.erp,
+            d.paid_amount,
+            d.approval_date,
+            d.payment_terms,
+            d.company,
+            d.department,
+            d.due_date,
+            d.open_balance,
+            d.project_id,
+            d.project_name,
+            d.vat_applicable,
+            d.vat_amount,
+            d.invoice_total,
+            d.payment_status,
+            (COALESCE(i.retention_amount, (0)::numeric))::numeric(18,2) AS retention_amount,
+            (COALESCE(i.retention_vat, (0)::numeric))::numeric(18,2) AS retention_vat,
+            i.retention_due_date,
+            (COALESCE(i.retention_released_amount, (0)::numeric))::numeric(18,2) AS retention_released_amount,
+            ((COALESCE(i.retention_amount, (0)::numeric) + COALESCE(i.retention_vat, (0)::numeric)))::numeric(18,2) AS retention_total,
+            (GREATEST(((COALESCE(d.invoice_total, (0)::numeric) - COALESCE(i.retention_amount, (0)::numeric)) - COALESCE(i.retention_vat, (0)::numeric)), (0)::numeric))::numeric(18,2) AS net_payable,
+            (GREATEST(((COALESCE(i.retention_amount, (0)::numeric) + COALESCE(i.retention_vat, (0)::numeric)) - COALESCE(i.retention_released_amount, (0)::numeric)), (0)::numeric))::numeric(18,2) AS retention_balance,
+            (COALESCE(p.advance_payment_percentage, (0)::numeric))::numeric(7,4) AS advance_payment_percentage,
+            (((COALESCE(p.po_value_ex_vat, (0)::numeric) * COALESCE(p.advance_payment_percentage, (0)::numeric)) / (100)::numeric))::numeric(18,2) AS advance_amount,
+            (COALESCE(i.advance_amortisation, (0)::numeric))::numeric(18,2) AS advance_amortisation,
+            (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric))::numeric(18,2) AS net_invoice_amount,
+            (
+                CASE
+                    WHEN COALESCE(p.vat, false) THEN (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) * 0.15)
+                    ELSE (0)::numeric
+                END)::numeric(18,2) AS vat_after_advance,
+            ((GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) +
+                CASE
+                    WHEN COALESCE(p.vat, false) THEN (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) * 0.15)
+                    ELSE (0)::numeric
+                END))::numeric(18,2) AS invoice_total_after_advance,
+            (GREATEST(((GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) +
+                CASE
+                    WHEN COALESCE(p.vat, false) THEN (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) * 0.15)
+                    ELSE (0)::numeric
+                END) - COALESCE(i.paid_amount, (0)::numeric)), (0)::numeric))::numeric(18,2) AS collection_balance_after_advance,
+            (GREATEST((((GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) +
+                CASE
+                    WHEN COALESCE(p.vat, false) THEN (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) * 0.15)
+                    ELSE (0)::numeric
+                END) - COALESCE(i.retention_amount, (0)::numeric)) - COALESCE(i.retention_vat, (0)::numeric)), (0)::numeric))::numeric(18,2) AS net_payable_after_advance,
+                CASE
+                    WHEN (COALESCE(i.paid_amount, (0)::numeric) >= ((GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) +
+                    CASE
+                        WHEN COALESCE(p.vat, false) THEN (GREATEST((COALESCE(d.invoice_amount, (0)::numeric) - COALESCE(i.advance_amortisation, (0)::numeric)), (0)::numeric) * 0.15)
+                        ELSE (0)::numeric
+                    END) - 0.005)) THEN 'Paid'::text
+                    WHEN (COALESCE(i.paid_amount, (0)::numeric) > (0)::numeric) THEN 'Partially Paid'::text
+                    ELSE 'Unpaid'::text
+                END AS payment_status_after_advance
+           FROM ((public.invoice_details d
+             JOIN public.invoices i ON ((i.id = d.id)))
+             LEFT JOIN public.pos p ON ((p.po_no = d.po_no)))) v;;
+
+CREATE OR REPLACE FUNCTION public.dashboard_summary_trial_v1(p_filters jsonb DEFAULT '{}'::jsonb, p_group_metric text DEFAULT 'billed'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+declare
+  v_today date := (current_timestamp at time zone 'Asia/Riyadh')::date;
+  v_from date := nullif(p_filters->>'from','')::date;
+  v_to date := nullif(p_filters->>'to','')::date;
+  v_due_from date := nullif(p_filters->>'dueFrom','')::date;
+  v_due_to date := nullif(p_filters->>'dueTo','')::date;
+  v_company text := coalesce(p_filters->>'company','');
+  v_department text := coalesce(p_filters->>'department','');
+  v_project text := coalesce(p_filters->>'project','');
+  v_status text := lower(btrim(coalesce(p_filters->>'invoiceStatus','')));
+  v_payment text := coalesce(p_filters->>'paymentStatus','');
+  v_attention text := coalesce(p_filters->>'attention','');
+  v_focus text := coalesce(p_filters->>'focus','');
+  v_all_dates boolean;
+  v_start date;
+  v_end date;
+  v_report_date date;
+  v_invoice_criteria boolean;
+  v_result jsonb;
+begin
+  if auth.uid() is null or public.current_user_role() is null or public.current_user_must_change_password() then
+    raise insufficient_privilege using message='An active signed-in account with a completed password change is required.';
+  end if;
+  if v_from > v_to or v_due_from > v_due_to then raise invalid_parameter_value using message='The start date must be on or before the end date.'; end if;
+  if p_group_metric not in ('billed','collections','advances','collectible','pending','retention','draft','overdue','unissued') then
+    raise invalid_parameter_value using message='Unsupported grouped total.';
+  end if;
+  if v_focus not in ('','billed','collections','advances','collectible','pending','retention','draft') then raise invalid_parameter_value using message='Unsupported chart selection.'; end if;
+  if v_focus<>'' then p_group_metric:=v_focus; end if;
+  v_all_dates := v_from is null and v_to is null and (v_due_from is not null or v_due_to is not null or v_payment='Overdue' or v_attention='overdue');
+  v_start := case when v_from is null and v_to is null and not v_all_dates then date_trunc('year',v_today)::date else v_from end;
+  v_end := case when v_from is null and v_to is null and not v_all_dates then (date_trunc('year',v_today)+interval '1 year - 1 day')::date else v_to end;
+  v_report_date := coalesce(v_to,v_today);
+  v_invoice_criteria := v_status<>'' or v_payment<>'' or v_attention<>'' or v_due_from is not null or v_due_to is not null;
+  with
+  pr as materialized (select id,project_name,company,department from public.projects where (select public.can_read_module('projects'))),
+  po as materialized (select p.*,coalesce(nullif(btrim(p.company),''),nullif(btrim(pr.company),''),'Unassigned') as customer_label,
+    coalesce(nullif(btrim(p.department),''),nullif(btrim(pr.department),''),'Unassigned') as department_label,
+    coalesce(nullif(btrim(pr.project_name),''),nullif(btrim(p.project_name),''),'Unassigned') as project_label
+    from public.pos p left join pr on pr.id=p.project_id where (select public.can_read_module('orders'))),
+  po_no as materialized (select distinct on (po_no) po_no,id from po order by po_no,id desc),
+  invoice_raw as materialized (
+    select i.id,i.invoice_no,i.po_no,i.status,i.project_id,i.start_date::date as invoice_date,i.approval_date::date as approval_date,
+      case when i.approval_date is not null and i.payment_terms is not null then i.approval_date::date+i.payment_terms end as due_date,
+      coalesce(i.retention_due_date,case when p.retention_applicable and p.retention_period_days is not null and i.approval_date is not null then i.approval_date::date+p.retention_period_days end) as retention_due,
+      p.id as order_id,coalesce(p.project_id,i.project_id) as related_project_id,
+      coalesce(nullif(btrim(p.company),''),nullif(btrim(pr.company),''),'Unassigned') as customer,
+      coalesce(nullif(btrim(p.department),''),nullif(btrim(pr.department),''),'Unassigned') as department,
+      coalesce(nullif(btrim(pr.project_name),''),nullif(btrim(p.project_name),''),nullif(btrim(i.project_name),''),'Unassigned') as project,
+      case when lower(btrim(coalesce(i.status,''))) in ('canceled','cancelled','void') then 'cancelled'
+        when lower(btrim(coalesce(i.status,'')))='draft' then 'draft'
+        when lower(btrim(coalesce(i.status,''))) ~ '^(?:[12]-)?(?:submitted|pending|pending approval|awaiting approval|waiting approval|waiting for approval)$' then 'waiting' else 'issued' end as workflow,
+      (pg_catalog.floor(((coalesce((greatest(0,coalesce(i.invoice_amount,0))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as net,
+      coalesce(p.vat,false) as taxable,
+      greatest(0,coalesce(i.advance_amortisation,0)::double precision) as advance_ex_raw,
+      greatest(0,coalesce(i.paid_amount,0)::double precision) as paid,
+      greatest(0,coalesce(i.retention_released_amount,0)::double precision) as released,
+      coalesce(i.retention_amount,0)::double precision+coalesce(i.retention_vat,0)::double precision as held_raw
+    from public.invoices i left join po pi on pi.id=i.pos_id left join po_no pn on pi.id is null and pn.po_no=i.po_no
+    left join po p on p.id=coalesce(pi.id,pn.id) left join pr on pr.id=coalesce(p.project_id,i.project_id)
+    where (select public.can_read_module('invoices'))
+  ),
+  metric_a as (select r.*,(pg_catalog.floor(((coalesce((case when taxable then net*.15::double precision else 0 end),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as vat,least(net,advance_ex_raw) as advance_ex from invoice_raw r),
+  metric_b as (select a.*,(pg_catalog.floor(((coalesce((net+vat),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as total,(pg_catalog.floor(((coalesce((net-advance_ex+case when taxable then (pg_catalog.floor(((coalesce(((net-advance_ex)*.15::double precision),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) else 0 end),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as payable_total from metric_a a),
+  metric_c as (select b.*,(pg_catalog.floor(((coalesce((least(payable_total,paid+released)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as collected from metric_b b),
+  metric_d as (select c.*,(pg_catalog.floor(((coalesce((greatest(0,payable_total-collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as remaining from metric_c c),
+  metric_e as (select d.*,case when upper(btrim(coalesce(status,'')))='RETENTION' then remaining else least((pg_catalog.floor(((coalesce((greatest(0,held_raw-released)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),remaining) end as retention from metric_d d),
+  metric_f as (select e.*,(pg_catalog.floor(((coalesce((case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 0 else remaining-retention end),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as balance,(pg_catalog.floor(((coalesce((total-payable_total),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as advance_applied from metric_e e),
+  invoices as materialized (select f.*,
+    case when workflow='cancelled' then 'Cancelled' when workflow<>'issued' then 'Not Issued' when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'Bad Debits' when balance<=.005 then case when retention>.005 then 'Retention Only' else 'Paid' end when collected>0 then 'Partially Paid' else 'Unpaid' end as payment,
+    (workflow='issued' and due_date<v_today and balance>.005) as overdue,
+    (workflow='draft' and invoice_date<=v_today) as draft_due,
+    (workflow='issued' and nullif(btrim(invoice_no),'') is not null and lower(btrim(coalesce(status,''))) in ('approved','3-approved','partially paid','completed','paid','retention','bad debit','bad debits')) as eligible_retention
+    from metric_f f),
+  scoped as materialized (select * from invoices where
+    (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
+    and (v_status='' or (case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'bad debits' else lower(btrim(coalesce(status,''))) end)=(case when v_status in ('bad debit','bad debits') then 'bad debits' else v_status end))
+    and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
+    and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)
+    and (v_attention='' or case v_attention when 'overdue' then overdue when 'draftDue' then draft_due when 'draft' then workflow='draft' when 'waiting' then workflow='waiting' else false end)
+    and (not (v_payment='Overdue' or v_attention='overdue') or ((v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)))),
+  live as materialized (select * from scoped where workflow<>'cancelled'),
+  billed as materialized (select * from live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),
+  collectible as materialized (select * from live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
+  retained as materialized (select * from live where eligible_retention),
+  drafts as materialized (select * from live where draft_due),
+  waiting as materialized (select * from live where workflow='waiting'),
+  order_scope as materialized (select p.* from po p where (v_company='' or p.customer_label=v_company) and (v_department='' or p.department_label=v_department) and (v_project='' or p.project_label=v_project)
+    and (not v_invoice_criteria or exists(select 1 from live i where i.order_id=p.id))),
+  orders as materialized (select p.*,(pg_catalog.floor(((coalesce((coalesce(po_value_ex_vat,0)::double precision*case when vat then 1.15::double precision else 1::double precision end),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as gross from order_scope p where po_date is null or po_date::date<=v_report_date),
+  period_orders as materialized (select * from orders where po_date is not null and (v_start is null or po_date::date>=v_start) and (v_end is null or po_date::date<=v_end)),
+  order_billing as materialized (select order_id,sum(total) as billed from invoices where workflow='issued' and approval_date<=v_report_date group by order_id),
+  receipts as materialized (select c.id,c.invoice_id,c.collection_date,c.amount,i.customer,i.department,i.project,i.order_id from public.invoice_collections c join live i on i.id=c.invoice_id
+    where (select public.can_read_module('collections')) and (v_start is null or c.collection_date>=v_start) and (v_end is null or c.collection_date<=v_end)),
+  advances as materialized (select a.id,a.po_id,a.payment_date,a.amount,p.customer_label as customer,p.department_label as department,p.project_label as project from public.po_advance_payments a join order_scope p on p.id=a.po_id
+    where (select public.can_read_module('collections')) and a.payment_date is not null and (v_start is null or a.payment_date>=v_start) and (v_end is null or a.payment_date<=v_end)),
+  operational as materialized (select * from invoices where workflow<>'cancelled' and (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
+    and (v_status='' or (case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'bad debits' else lower(btrim(coalesce(status,''))) end)=(case when v_status in ('bad debit','bad debits') then 'bad debits' else v_status end)) and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
+    and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)),
+  focus_invoices as materialized (select i.id from live i where
+    (v_focus='billed' and exists(select 1 from billed b where b.id=i.id))
+    or (v_focus='collections' and exists(select 1 from receipts r where r.invoice_id=i.id))
+    or (v_focus='advances' and exists(select 1 from advances a where a.po_id=i.order_id))
+    or (v_focus='collectible' and exists(select 1 from collectible c where c.id=i.id and c.balance>.005))
+    or (v_focus='pending' and i.workflow='waiting')
+    or (v_focus='retention' and i.eligible_retention and i.retention>.005)
+    or (v_focus='draft' and i.draft_due)),
+  chart_live as materialized (select * from live where v_focus='' or id in (select id from focus_invoices)),
+  chart_orders as materialized (select * from order_scope p where v_focus='' or exists(select 1 from chart_live i where i.order_id=p.id) or (v_focus='advances' and exists(select 1 from advances a where a.po_id=p.id))),
+  chart_receipts as materialized (select r.* from receipts r join chart_live i on i.id=r.invoice_id),
+  chart_advances as materialized (select a.* from advances a join chart_orders p on p.id=a.po_id),
+  chart_period_orders as materialized (select p.* from period_orders p join chart_orders c on c.id=p.id),
+  chart_totals as (select jsonb_build_object(
+    'collections',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_receipts),0),
+    'advances',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_advances),0),
+    'collectible',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),0),
+    'retention',coalesce((select (pg_catalog.floor(((coalesce((sum(retention)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where eligible_retention),0),
+    'periodPoValue',coalesce((select (pg_catalog.floor(((coalesce((sum(gross)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders),0),
+    'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),0),
+    'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
+  progress_due as materialized (select * from chart_live where workflow='issued' and lower(btrim(coalesce(status,''))) not in ('bad debit','bad debits') and due_date<v_today and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
+  progress_approval as materialized (select * from chart_live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  progress_issuance as materialized (select * from chart_live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
+  progress_json as (select jsonb_build_object(
+    'collection',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_due),0),
+      'positiveCount',(select count(*) from progress_due where collected>.005),'negativeCount',(select count(*) from progress_due where balance>.005),
+      'missingDateCount',(select count(*) from chart_live where workflow='issued' and due_date is null)),
+    'approval',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='issued'),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_approval where workflow='waiting'),0),
+      'positiveCount',(select count(*) from progress_approval where workflow='issued' and total>.005),'negativeCount',(select count(*) from progress_approval where workflow='waiting' and total>.005),
+      'missingDateCount',(select count(*) from chart_live where workflow in ('issued','waiting') and invoice_date is null)),
+    'issuance',jsonb_build_object('positive',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow in ('issued','waiting')),0),'negative',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from progress_issuance where workflow='draft'),0),
+      'positiveCount',(select count(*) from progress_issuance where workflow in ('issued','waiting') and total>.005),'negativeCount',(select count(*) from progress_issuance where workflow='draft' and total>.005),
+      'missingDateCount',(select count(*) from chart_live where invoice_date is null))) as value),
+  totals as (select jsonb_build_object(
+    'billed',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedNet',coalesce((select (pg_catalog.floor(((coalesce((sum(net)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),'billedVat',coalesce((select (pg_catalog.floor(((coalesce((sum(vat)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),
+    'collections',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from receipts),0),'advances',coalesce((select (pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from advances),0),
+    'collectible',coalesce((select (pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from collectible),0),'pending',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from waiting),0),'draft',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from drafts),0),
+    'retention',coalesce((select (pg_catalog.floor(((coalesce((sum(retention)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from retained),0),'overdueRetention',coalesce((select (pg_catalog.floor(((coalesce((sum(retention)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from retained where retention_due<v_report_date and retention>.005),0),
+    'periodPoValue',coalesce((select (pg_catalog.floor(((coalesce((sum(gross)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from period_orders),0),'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from billed),0),
+    'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
+  counts as (select jsonb_build_object('billed',(select count(*) from billed),'collections',(select count(distinct invoice_id) from receipts),'advances',(select count(*) from advances),
+    'collectible',(select count(*) from collectible where balance>.005),'pending',(select count(*) from waiting),'draft',(select count(*) from drafts),'retention',(select count(*) from retained where retention>.005),
+    'undatedDraft',(select count(*) from live where workflow='draft' and invoice_date is null),'undatedRetention',(select count(*) from retained where retention>.005 and retention_due is null)) as value),
+  alerts as (select jsonb_agg(jsonb_build_object('key',key,'count',n,'amount',amount) order by key) as value from (
+    select 'draftDue' as key,count(*) as n,coalesce((pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) as amount from operational where draft_due
+    union all select 'waiting',count(*),coalesce((pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) from operational where workflow='waiting'
+    union all select 'overdue',count(*),coalesce((pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) from operational where overdue and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)) a),
+  group_entries as (
+    select customer,department,project,total as amount from billed where p_group_metric='billed'
+    union all select customer,department,project,amount from receipts where p_group_metric='collections'
+    union all select customer,department,project,amount from advances where p_group_metric='advances'
+    union all select customer,department,project,balance from collectible where p_group_metric='collectible'
+    union all select customer,department,project,total from waiting where p_group_metric in ('pending','unissued')
+    union all select customer,department,project,total from drafts where p_group_metric in ('draft','unissued')
+    union all select customer,department,project,retention from retained where p_group_metric='retention'
+    union all select customer,department,project,balance from live where p_group_metric='overdue' and overdue and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
+  grouped as (select dimension,label,(pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as amount,count(*) as n from group_entries cross join lateral (values ('company',customer),('department',department),('project',project)) dims(dimension,label) group by dimension,label having abs((pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100))>.005),
+  group_json as (select coalesce(jsonb_agg(jsonb_build_object('dimension',dimension,'label',label,'amount',amount,'count',n) order by dimension,amount desc,label),'[]'::jsonb) as value from grouped),
+  month_events as (
+    select to_char(invoice_date,'YYYY-MM') as month,'invoiced' as series,total as amount from chart_live where workflow='issued' and invoice_date is not null and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)
+    union all select to_char(due_date,'YYYY-MM'),'expected',total from chart_live where workflow='issued' and lower(btrim(coalesce(status,''))) not in ('bad debit','bad debits') and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)
+    union all select to_char(collection_date,'YYYY-MM'),'actual',amount from chart_receipts
+    union all select case when v_from is null and v_to is null and not v_all_dates and due_date<date_trunc('year',v_today)::date then 'earlier' else to_char(due_date,'YYYY-MM') end,'overdue',balance from chart_live where overdue
+      and ((v_from is null and v_to is null and not v_all_dates) or ((v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)))),
+  month_sums as (select month,series,(pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as amount from month_events group by month,series),
+  month_json as (select coalesce(jsonb_agg(jsonb_build_object('month',month,'series',series,'amount',amount) order by month,series),'[]'::jsonb) as value from month_sums),
+  choices as (select distinct customer,department,project from invoices union select customer_label,department_label,project_label from po union select coalesce(nullif(btrim(company),''),'Unassigned'),coalesce(nullif(btrim(department),''),'Unassigned'),coalesce(nullif(btrim(project_name),''),'Unassigned') from pr where not exists(select 1 from po where po.project_id=pr.id)),
+  choice_json as (select coalesce(jsonb_agg(to_jsonb(c) order by customer,department,project),'[]'::jsonb) as value from choices c),
+  status_json as (select coalesce(jsonb_agg(s order by s),'[]'::jsonb) as value from (select distinct case when lower(btrim(status)) in ('bad debit','bad debits') then 'Bad Debits' else btrim(status) end as s from invoices where nullif(btrim(status),'') is not null) st)
+  select jsonb_build_object('version',1,'asOf',v_today,'reportDate',v_report_date,'year',extract(year from v_today)::integer,'allPeriods',v_all_dates,'groupMetric',p_group_metric,
+    'chartFocus',v_focus,'chartTotals',chart_totals.value,'progress',progress_json.value,'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
+    into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json,chart_totals;
+  return v_result;
+end;
+$function$
+;
+
