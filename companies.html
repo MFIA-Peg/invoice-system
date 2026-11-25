@@ -903,6 +903,7 @@ async function addInvoice(poNo, projectId){
       <button class="btn-po" onclick="saveNewInvoice()">Save Invoice</button>
       <button onclick="closeInvoiceModal()" style="background:#64748b">Cancel</button>
     </div>`;
+  document.getElementById("invoiceModalContent").dataset.accessDepartment=invoicePO?.department||data.department||'';
   document.getElementById("invoiceModalContent").innerHTML = formHtml;
   document.getElementById("invoiceModal").style.display = "block";
   updateNewInvoiceTotals();
@@ -1309,7 +1310,7 @@ function renderPOForm(data,projects,advanceAmount,advanceUsed,creating,id,viewOn
  if(viewOnly){
   box.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=true);
   box.querySelector('.modal-actions').replaceChildren();
-  addRecordAction('Edit',()=>editPO(id));
+  if(PEAccess.can('orders','edit',data.department))addRecordAction('Edit',()=>editPO(id));
   recordDetailActions();
  }else if(registerRecord?.type==='po'&&!creating){
   const actions=box.querySelector('.modal-actions');
@@ -1585,7 +1586,8 @@ function addRecordAction(label,handler,style=''){
 function recordDetailActions(){
  const {type,id}=registerRecord;
  addRecordAction('Delete',()=>type==='po'?deletePO(id):deleteInvoice(id),'btn-danger');
- addRecordAction('Add Attachment',()=>manageAttachments(type,id));
+ const module=type==='po'?'orders':'invoices',department=document.getElementById('invoiceModalContent').dataset.accessDepartment;
+ addRecordAction(PEAccess.can(module,'edit',department)?'Add Attachment':'Attachments',()=>manageAttachments(type,id));
  addRecordAction('Back',returnToRecordRegister);
  document.getElementById('invoiceModalContent').querySelectorAll('button[onclick="closeInvoiceModal()"]').forEach(button=>button.remove());
 }
