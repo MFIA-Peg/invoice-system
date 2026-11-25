@@ -31,7 +31,7 @@ begin
   end if;
   if v_focus not in ('','billed','collections','advances','collectible','pending','retention','draft') then raise invalid_parameter_value using message='Unsupported chart selection.'; end if;
   if v_focus<>'' then p_group_metric:=v_focus; end if;
-  v_all_dates := v_from is null and v_to is null and (v_due_from is not null or v_due_to is not null);
+  v_all_dates := v_from is null and v_to is null and (v_due_from is not null or v_due_to is not null or v_payment='Overdue' or v_attention='overdue');
   v_start := case when v_from is null and v_to is null and not v_all_dates then date_trunc('year',v_today)::date else v_from end;
   v_end := case when v_from is null and v_to is null and not v_all_dates then (date_trunc('year',v_today)+interval '1 year - 1 day')::date else v_to end;
   v_report_date := coalesce(v_to,v_today);
@@ -81,7 +81,8 @@ begin
     and (v_status='' or lower(btrim(coalesce(status,'')))=v_status)
     and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
     and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)
-    and (v_attention='' or case v_attention when 'overdue' then overdue when 'draftDue' then draft_due when 'draft' then workflow='draft' when 'waiting' then workflow='waiting' else false end)),
+    and (v_attention='' or case v_attention when 'overdue' then overdue when 'draftDue' then draft_due when 'draft' then workflow='draft' when 'waiting' then workflow='waiting' else false end)
+    and (not (v_payment='Overdue' or v_attention='overdue') or ((v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)))),
   live as materialized (select * from scoped where workflow<>'cancelled'),
   billed as materialized (select * from live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),
   collectible as materialized (select * from live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
@@ -121,7 +122,7 @@ begin
     'periodPoValue',coalesce((select (pg_catalog.floor(((coalesce((sum(gross)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders),0),
     'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),0),
     'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
-  progress_due as materialized (select * from chart_live where workflow='issued' and due_date<v_today and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)),
+  progress_due as materialized (select * from chart_live where workflow='issued' and due_date<v_today and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
   progress_approval as materialized (select * from chart_live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_issuance as materialized (select * from chart_live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_json as (select jsonb_build_object(
@@ -147,7 +148,7 @@ begin
   alerts as (select jsonb_agg(jsonb_build_object('key',key,'count',n,'amount',amount) order by key) as value from (
     select 'draftDue' as key,count(*) as n,coalesce((pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) as amount from operational where draft_due
     union all select 'waiting',count(*),coalesce((pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) from operational where workflow='waiting'
-    union all select 'overdue',count(*),coalesce((pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) from operational where overdue) a),
+    union all select 'overdue',count(*),coalesce((pg_catalog.floor(((coalesce((sum(balance)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),0) from operational where overdue and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)) a),
   group_entries as (
     select customer,department,project,total as amount from billed where p_group_metric='billed'
     union all select customer,department,project,amount from receipts where p_group_metric='collections'
@@ -156,7 +157,7 @@ begin
     union all select customer,department,project,total from waiting where p_group_metric in ('pending','unissued')
     union all select customer,department,project,total from drafts where p_group_metric in ('draft','unissued')
     union all select customer,department,project,retention from retained where p_group_metric='retention'
-    union all select customer,department,project,balance from live where p_group_metric='overdue' and overdue),
+    union all select customer,department,project,balance from live where p_group_metric='overdue' and overdue and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
   grouped as (select dimension,label,(pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as amount,count(*) as n from group_entries cross join lateral (values ('company',customer),('department',department),('project',project)) dims(dimension,label) group by dimension,label having abs((pg_catalog.floor(((coalesce((sum(amount)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100))>.005),
   group_json as (select coalesce(jsonb_agg(jsonb_build_object('dimension',dimension,'label',label,'amount',amount,'count',n) order by dimension,amount desc,label),'[]'::jsonb) as value from grouped),
   month_events as (
@@ -178,6 +179,7 @@ end;
 $fn$;
 revoke all on function public.dashboard_summary_trial_v1(jsonb,text) from public,anon;
 grant execute on function public.dashboard_summary_trial_v1(jsonb,text) to authenticated;
-comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Optional read-only summary dashboard trial. Security invoker; returns aggregates and filter labels only. Classic dashboard remains available.';
+comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Financial dashboard summary. Security invoker; returns aggregates and filter labels only. Overdue is all-history unless dates are explicitly selected.';
+
 
 

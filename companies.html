@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-(function(){const p=new URLSearchParams(location.search);if(['po','invoice'].includes(p.get('record'))||['open','edit'].includes(p.get('project_action'))||['project','purchase-order','invoice'].includes(p.get('create')))document.documentElement.classList.add('record-loading');})();
+(function(){const p=new URLSearchParams(location.search);if(['po','invoice','customer'].includes(p.get('record'))||['open','edit'].includes(p.get('project_action'))||['project','purchase-order','invoice'].includes(p.get('create')))document.documentElement.classList.add('record-loading');})();
 </script>
 <style>html.record-loading body{visibility:hidden}html.record-loading:after{content:'Loading requested record…';position:fixed;inset:0;display:grid;place-items:center;background:#f3f6fa;color:#14263d;font:18px Arial}html.record-route #customerOverview,html.record-route #companiesCard{display:none!important}</style>
 <style>html{font-size:18px}</style>
@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261124report1"></script>
+<script src="annual-analytics.js?v=20261125dates1"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
@@ -199,8 +199,8 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Inter,Segoe UI,Arial,sa
 <link rel="stylesheet" href="unified-ui.css?v=20261123g">
 <script src="access-control.js?v=20261123c"></script>
 <script src="unified-ui.js?v=20261124headers1" defer></script>
-<script src="entry-dialog.js?v=20261124seven1" defer></script>
-</head>
+<script src="entry-dialog.js?v=20261125records1" defer></script>
+<link rel="stylesheet" href="access-date-filters.css?v=20261125dates1"><script src="access-date-filters.js?v=20261125dates1" defer></script></head>
 
 <body>
 <header id="pe-global-nav"><div class="pe-nav-inner"><nav class="pe-nav-links" aria-label="Main navigation"><a href="dashboard.html">Dashboard</a><a href="companies.html" aria-current="page">Customers</a><a href="departments.html">Departments</a><a href="projects.html">Projects</a><a href="purchase-orders.html">Purchase Orders</a><a href="invoices.html">Invoices</a><a href="collections.html">Collections</a><a href="reports.html">Reports</a><a id="userManagementButton" href="system-management.html" hidden>System Administration</a></nav><div class="pe-nav-account"><span id="signedInUser"></span><button type="button" onclick="logoutUser()">Sign Out</button></div></div></header>
@@ -757,6 +757,7 @@ document.getElementById(
 }
 
 function closeProjectModal(){
+ if(PEEntry.cancel())return;
 
 document.getElementById(
 "projectModal"
@@ -1148,6 +1149,7 @@ function getOverdueStatus(dueDate, balance){
 }
 
 function enableInvoiceEdit(){
+  if(!PEAccess.can('invoices','edit',window.currentPOForInvoice?.department))return;
   document.querySelectorAll("#invoiceModalContent input:not([readonly]), #invoiceModalContent select, #invoiceModalContent textarea")
     .forEach(el => el.disabled = false);
   document.getElementById("invoiceEditButton").style.display = "none";
@@ -1215,6 +1217,7 @@ async function saveInvoiceChanges(){
 
   try{await rfcCCMt9jxJsDqTBXGeaCrr616tdvW3emh(po.po_no,po.po_value_ex_vat,Number(po.advance_payment_percentage||0));}
   catch(e){document.getElementById("invoiceEditMessage").textContent = "Invoice saved, but advance schedule recalculation failed: " + e.message;document.getElementById("invoiceEditMessage").style.color = "red";return;}
+  if(PEEntry.saved())return;
   document.getElementById("invoiceEditMessage").textContent = "Invoice updated successfully.";
   document.getElementById("invoiceEditMessage").style.color = "green";
   if(registerRecord?.type==='invoice'){await showRegisterRecord();return;}
@@ -1266,7 +1269,7 @@ async function editProject(id){
  document.querySelector('#projectModal h2').textContent='Edit Project';
  document.getElementById('new_project_name').value=data.project_name||'';document.getElementById('new_company').value=data.company||'';document.getElementById('new_department').value=data.department||'';document.getElementById('new_project_manager').value=data.project_manager||'';document.getElementById('new_project_start_date').value=toDateInput(data.start_date);document.getElementById('new_project_end_date').value=toDateInput(data.end_date);document.getElementById('new_status').innerHTML=['Active','Pending','Completed','Closed'].map(x=>`<option ${data.status===x?'selected':''}>${x}</option>`).join('');
  const b=document.querySelector('#projectModal button[onclick="saveProject()"]');b.textContent='Save Changes';
- let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent=returnToCompletedProjects?'Back to Completed Projects':'Back to Projects';back.style.background='#64748b';back.onclick=()=>{if(new URLSearchParams(location.search).has('project_action'))location.href='projects.html';else{closeProjectModal();if(returnToCompletedProjects)showCompletedProjects();}};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
+ let back=document.getElementById('backFromProjectEdit');if(!back){back=document.createElement('button');back.id='backFromProjectEdit';back.type='button';back.textContent=returnToCompletedProjects?'Back to Completed Projects':'Back to Projects';back.style.background='#64748b';back.onclick=()=>{if(PEEntry.cancel())return;if(new URLSearchParams(location.search).has('project_action'))location.href='projects.html';else{closeProjectModal();if(returnToCompletedProjects)showCompletedProjects();}};document.querySelector('#projectModal button[onclick="saveProject()"]')?.parentElement?.appendChild(back);}
 }
 const originalSaveProject=saveProject;
 saveProject=async function(){
@@ -1275,7 +1278,7 @@ saveProject=async function(){
  const payload={project_name:document.getElementById('new_project_name').value.trim(),company:document.getElementById('new_company').value.trim(),department:document.getElementById('new_department').value.trim(),project_manager:document.getElementById('new_project_manager').value.trim(),start_date:document.getElementById('new_project_start_date').value||null,end_date:document.getElementById('new_project_end_date').value||null,status:document.getElementById('new_status').value};
  if(!payload.project_name){alert('Project Name Required');return;}
  const q=currentProjectEditId?supabaseClient.from('projects').update(payload).eq('id',currentProjectEditId).select('id').single():supabaseClient.rpc('create_scoped_project',{p_project:payload});
- const {error}=await q;if(error){alert(error.message);return;}currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
+ const {error}=await q;if(error){alert(error.message);return;}if(PEEntry.saved())return;currentProjectEditId=null;document.querySelector('#projectModal h2').textContent='Add Project';document.querySelector('#projectModal button[onclick="saveProject()"]')?.replaceChildren('Save');document.getElementById('backFromProjectEdit')?.remove();closeProjectModal();await refreshDashboard();if(returnToCompletedProjects){returnToCompletedProjects=false;await showCompletedProjects();}
 };
 
 async function editPO(id,viewOnly=false){
@@ -1371,6 +1374,7 @@ async function savePOChanges(creating=false){
   }
  }catch(error){alert('Save failed: '+error.message);return;}finally{if(button)button.disabled=false;}
 
+ if(PEEntry.saved())return;
  if(registerRecord?.type==='po'){await showRegisterRecord();return;}
  closeInvoiceModal();if(returnToClosedPOs){returnToClosedPOs=false;await showClosedPurchaseOrders();}else{await openProject(projectId);}
 }
@@ -1569,6 +1573,7 @@ async function logoutUser(){
 
 let registerRecord=null;
 function returnToRecordRegister(){
+ if(PEEntry.cancel())return;
  location.href=registerRecord.type==='po'?'purchase-orders.html':'invoices.html';
 }
 function addRecordAction(label,handler,style=''){
@@ -1589,6 +1594,15 @@ async function openRegisterRecord(){
  const type=params.get('record');
  const projectAction=params.get('project_action');
  if(['open','edit'].includes(projectAction)){const id=params.get('project_id');if(!/^\d+$/.test(String(id))){alert('Invalid project.');return true;}if(projectAction==='edit')await editProject(id);else await openProject(id);return true;}
+ if(type==='customer'){
+  await cmLoad();if(!cmState.loaded)return true;
+  const name=String(params.get('customer_name')||'').trim().toLowerCase(),matches=cmState.customers.filter(c=>params.get('id')?String(c.id)===params.get('id'):c.name.trim().toLowerCase()===name);
+  if(matches.length!==1){alert('A unique registered customer could not be found for this report item.');return true;}
+  const customer=matches[0];
+  if(params.get('edit')==='1'&&cmCanEdit(customer.id))cmOpenRename(customer.id);
+  else{cmDialog('Customer','view',customer.id);cmField('Customer name','text',customer.name).readOnly=true;cmById('cmSaveButton').hidden=true;}
+  return true;
+ }
  if(!['po','invoice'].includes(type))return false;
  let id=params.get('id');
  if(!id&&type==='invoice'&&params.get('invoice_no')){
@@ -1602,8 +1616,12 @@ async function openRegisterRecord(){
  await showRegisterRecord();
  return true;
 }
-function showRegisterRecord(){
- return registerRecord.type==='po'?editPO(registerRecord.id,true):showInvoiceDetails(registerRecord.id);
+async function showRegisterRecord(){
+ const editing=new URLSearchParams(location.search).get('edit')==='1';
+ if(registerRecord.type==='po')return editPO(registerRecord.id,!editing);
+ await showInvoiceDetails(registerRecord.id);
+ const department=window.currentPOForInvoice?.department;
+ if(editing&&document.getElementById('invoiceEditButton')&&PEAccess.can('invoices','edit',department))await enableInvoiceEdit();
 }
 
 async function openRequestedCreation(){
@@ -1656,10 +1674,10 @@ async function initializeDashboard(){
   if(document.documentElement.classList.contains('record-loading')){
     document.documentElement.classList.add('record-route');
     const params=new URLSearchParams(location.search),kind=params.get('record')||(params.has('project_action')?'project':params.get('create'));
-    const label=kind==='project'?'Projects':kind==='po'||kind==='purchase-order'?'Purchase Orders':'Invoices';
+    const label=kind==='customer'?'Customers':kind==='project'?'Projects':kind==='po'||kind==='purchase-order'?'Purchase Orders':'Invoices';
     document.title='Power Energy — '+label;
     const heading=document.querySelector('#dashboardHeaderCard h1');if(heading)heading.textContent=label;
-    const back=document.createElement('a');back.href=label==='Projects'?'projects.html':label==='Purchase Orders'?'purchase-orders.html':'invoices.html';back.textContent='Back to '+label;document.querySelector('#dashboardHeaderCard .actions').prepend(back);
+    const back=document.createElement('a');back.href=label==='Customers'?'companies.html':label==='Projects'?'projects.html':label==='Purchase Orders'?'purchase-orders.html':'invoices.html';back.textContent='Back to '+label;document.querySelector('#dashboardHeaderCard .actions').prepend(back);
     document.querySelector('#customerExport').hidden=true;
     document.querySelectorAll('#pe-global-nav a').forEach(a=>{a.removeAttribute('aria-current');if(a.textContent===label)a.setAttribute('aria-current','page');});
     try{
@@ -1820,8 +1838,8 @@ function cmRender(rows,financialByName,assignments){
  }
  table.append(body);wrap.append(table);if(!rows.length){const p=document.createElement('p');p.textContent='No matching customers.';wrap.append(p);}
 }
-function cmClose(){cmById('cmDialog').style.display='none';cmState.mode=null;cmState.id=null;}
-function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;cmById('cmDialog').setAttribute('role','dialog');cmById('cmDialog').setAttribute('aria-modal','true');}
+function cmClose(){if(PEEntry.cancel())return;cmById('cmDialog').style.display='none';cmState.mode=null;cmState.id=null;}
+function cmDialog(title,mode,id){cmState.mode=mode;cmState.id=id;cmById('cmDialogTitle').textContent=title;cmById('cmDialogBody').replaceChildren();cmById('cmDialog').style.display='block';cmById('cmSaveButton').disabled=false;cmById('cmSaveButton').hidden=false;cmById('cmDialog').setAttribute('role','dialog');cmById('cmDialog').setAttribute('aria-modal','true');}
 function cmField(label,type,value='',options=[]){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent=label;body.append(l);let input;if(type==='select'){input=document.createElement('select');for(const opt of options){const o=document.createElement('option');o.value=String(opt.id);o.textContent=opt.name;input.append(o);}}else{input=document.createElement('input');input.type='text';input.value=value;}input.id='cmField';body.append(input);return input;}
 function cmOpenCreate(){if(!cmState.loaded){cmLoad().then(()=>{if(cmState.loaded)cmOpenCreate();});return;}if(!cmCanCreate()){alert('Your account needs customer creation permission.');return;}cmDialog('Add Customer','create',null);cmField('Customer name','text').focus();cmFieldDepartment();}
 function cmFieldDepartment(){const body=cmById('cmDialogBody');const l=document.createElement('label');l.textContent='Department';body.append(l);const select=document.createElement('select');select.id='cmDepartment';for(const d of cmState.departments.filter(d=>PEAccess.can('customers','add',d.name))){const o=document.createElement('option');o.value=d.id;o.textContent=d.name;select.append(o);}body.append(select);if(!cmState.departments.length){const p=document.createElement('p');p.textContent='Create a department first on the Departments page.';body.append(p);}}
@@ -1833,7 +1851,7 @@ async function cmSave(){if(cmState.busy)return;const mode=cmState.mode,id=cmStat
  else if(mode==='link'){fn='link_existing_customer_to_department';args={p_customer_company_id:id,p_department_id:Number(field.value)};if(!args.p_department_id){alert('Select a department');return;}}
  else return;
  cmState.busy=true;cmById('cmSaveButton').disabled=true;
- try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
+ try{const r=await supabaseClient.rpc(fn,args);if(r.error)throw r.error;if(PEEntry.saved())return;cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();PEWorkspace.openFromQuery();}catch(e){alert('Could not save: '+e.message);}finally{cmState.busy=false;cmById('cmSaveButton').disabled=false;}
 }
 async function cmUnlink(id,dep){if(!cmCanLink()||cmState.busy)return;if(!confirm('Remove this customer department assignment?'))return;cmState.busy=true;try{const result=await PERelationships.unlink(supabaseClient,id,dep);cmClose();await cmLoad();await loadExecutiveDashboard();await loadCompanies();if(result.alreadyAbsent)alert('This relationship was already removed. The customer list has been refreshed.');}catch(e){alert('Unlink failed: '+e.message);}finally{cmState.busy=false;}}
 async function cmDelete(id){if(!cmCanDelete(id))return;const c=cmState.customers.find(x=>Number(x.id)===Number(id));if(!c||!confirm(`Permanently delete customer "${c.name}"? Linked customers cannot be deleted.`))return;const r=await supabaseClient.rpc('delete_customer_company_safe',{p_customer_company_id:id});if(r.error){alert('Delete blocked: '+r.error.message);return;}await cmLoad();}

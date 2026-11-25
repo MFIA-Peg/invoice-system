@@ -60,16 +60,30 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 const embedded=new URLSearchParams(location.search).get('embedded')==='1'&&parent!==global;
 function open(kind,context={}){
  if(!['invoice','purchase-order'].includes(kind))return;
+ const params=new URLSearchParams({create:kind,embedded:'1'});for(const key of ['project_id','po_id','po_no'])if(context[key]!=null&&context[key]!=='')params.set(key,context[key]);
+ show(kind==='invoice'?'Add Invoice':'Add Purchase Order','companies.html?'+params);
+}
+function edit(url){
+ url=new URL(url,location.href);
+ if(url.origin!==location.origin||!url.pathname.endsWith('/companies.html'))return;
+ const p=url.searchParams,kind=p.get('record')||(p.has('project_action')?'project':'');
+ if(!['invoice','po','project','customer'].includes(kind))return;
+ const editable=p.get('edit')==='1'||p.get('project_action')==='edit';
+ p.set('embedded','1');show((editable?'Edit ':'View ')+{invoice:'Invoice',po:'Purchase Order',project:'Project',customer:'Customer'}[kind],url.href);
+}
+function show(title,url){
  if(dialog&&global.PEPopups?.isMinimized(dialog)){global.PEPopups.restore(dialog);return;}
  if(!dialog){dialog=document.createElement('dialog');dialog.id='peEntryDialog';dialog.setAttribute('aria-label','Add record');dialog.innerHTML='<div class="pe-entry-heading"><strong id="peEntryTitle"></strong><button type="button" aria-label="Close entry form">×</button></div><iframe title="Entry form"></iframe>';document.body.append(dialog);frame=dialog.querySelector('iframe');dialog.querySelector('button').onclick=()=>dialog.close();dialog.addEventListener('close',()=>frame.src='about:blank');}
- document.getElementById('peEntryTitle').textContent=kind==='invoice'?'Add Invoice':'Add Purchase Order';
- const params=new URLSearchParams({create:kind,embedded:'1'});for(const key of ['project_id','po_id','po_no'])if(context[key]!=null&&context[key]!=='')params.set(key,context[key]);
- frame.src='companies.html?'+params;dialog.showModal();
+ dialog.setAttribute('aria-label',title);document.getElementById('peEntryTitle').textContent=title;frame.title=title;
+ frame.src=url;if(!dialog.open)dialog.showModal();
 }
 function saved(){if(!embedded)return false;parent.postMessage({type:'pe-entry-saved'},location.origin);return true;}
+function updated(){if(!embedded)return false;parent.postMessage({type:'pe-entry-updated'},location.origin);return true;}
+function payments(invoice){if(invoice?.id==null)return;show('Received Payments — '+(invoice.invoice_no||''),'invoices.html?'+new URLSearchParams({payments_invoice:invoice.id,embedded:'1'}));}
 function cancel(){if(!embedded)return false;parent.postMessage({type:'pe-entry-cancel'},location.origin);return true;}
 document.addEventListener('click',event=>{const a=event.target.closest('a[href]');if(!a||embedded)return;const url=new URL(a.href,location.href),kind=url.searchParams.get('create');if(url.origin!==location.origin||!['invoice','purchase-order'].includes(kind))return;event.preventDefault();open(kind,Object.fromEntries(url.searchParams));});
-global.addEventListener('message',async event=>{if(event.origin!==location.origin||event.source!==frame?.contentWindow||!['pe-entry-saved','pe-entry-cancel','pe-entry-minimize'].includes(event.data?.type))return;if(event.data.type==='pe-entry-minimize'){global.PEPopups?.minimize(dialog);return;}global.PEPopups?.dismiss(dialog);dialog.close();frame.src='about:blank';if(event.data.type==='pe-entry-saved'){if(typeof global.loadAll==='function')await global.loadAll();else if(typeof global.refreshDashboard==='function')await global.refreshDashboard();else location.reload();}});
+global.addEventListener('message',async event=>{if(event.origin!==location.origin||event.source!==frame?.contentWindow||!['pe-entry-saved','pe-entry-updated','pe-entry-cancel','pe-entry-minimize'].includes(event.data?.type))return;if(event.data.type==='pe-entry-minimize'){global.PEPopups?.minimize(dialog);return;}if(event.data.type!=='pe-entry-updated'){global.PEPopups?.dismiss(dialog);dialog.close();frame.src='about:blank';}if(['pe-entry-saved','pe-entry-updated'].includes(event.data.type)){if(typeof global.loadAll==='function')await global.loadAll();else if(typeof global.refreshDashboard==='function')await global.refreshDashboard();else location.reload();}});
 if(embedded)document.documentElement.classList.add('pe-entry-embedded');
-global.PEEntry={open,saved,cancel,embedded};
+global.PEEntry={open,edit,payments,saved,updated,cancel,embedded};
 })(window);
+
