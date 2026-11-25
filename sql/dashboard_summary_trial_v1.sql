@@ -1,7 +1,9 @@
-create or replace function public.dashboard_summary_trial_v1(p_filters jsonb default '{}'::jsonb, p_group_metric text default 'billed')
-returns jsonb
-language plpgsql stable security invoker set search_path = ''
-as $fn$
+CREATE OR REPLACE FUNCTION public.dashboard_summary_trial_v1(p_filters jsonb DEFAULT '{}'::jsonb, p_group_metric text DEFAULT 'billed'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
 declare
   v_today date := (current_timestamp at time zone 'Asia/Riyadh')::date;
   v_from date := nullif(p_filters->>'from','')::date;
@@ -69,16 +71,16 @@ begin
   metric_c as (select b.*,(pg_catalog.floor(((coalesce((least(payable_total,paid+released)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as collected from metric_b b),
   metric_d as (select c.*,(pg_catalog.floor(((coalesce((greatest(0,payable_total-collected)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as remaining from metric_c c),
   metric_e as (select d.*,case when upper(btrim(coalesce(status,'')))='RETENTION' then remaining else least((pg_catalog.floor(((coalesce((greatest(0,held_raw-released)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100),remaining) end as retention from metric_d d),
-  metric_f as (select e.*,(pg_catalog.floor(((coalesce((remaining-retention),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as balance,(pg_catalog.floor(((coalesce((total-payable_total),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as advance_applied from metric_e e),
+  metric_f as (select e.*,(pg_catalog.floor(((coalesce((case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 0 else remaining-retention end),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as balance,(pg_catalog.floor(((coalesce((total-payable_total),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) as advance_applied from metric_e e),
   invoices as materialized (select f.*,
-    case when workflow='cancelled' then 'Cancelled' when workflow<>'issued' then 'Not Issued' when balance<=.005 then case when retention>.005 then 'Retention Only' else 'Paid' end when collected>0 then 'Partially Paid' else 'Unpaid' end as payment,
+    case when workflow='cancelled' then 'Cancelled' when workflow<>'issued' then 'Not Issued' when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'Bad Debits' when balance<=.005 then case when retention>.005 then 'Retention Only' else 'Paid' end when collected>0 then 'Partially Paid' else 'Unpaid' end as payment,
     (workflow='issued' and due_date<v_today and balance>.005) as overdue,
     (workflow='draft' and invoice_date<=v_today) as draft_due,
-    (workflow='issued' and nullif(btrim(invoice_no),'') is not null and lower(btrim(coalesce(status,''))) in ('approved','3-approved','partially paid','completed','paid','retention','bad debit')) as eligible_retention
+    (workflow='issued' and nullif(btrim(invoice_no),'') is not null and lower(btrim(coalesce(status,''))) in ('approved','3-approved','partially paid','completed','paid','retention','bad debit','bad debits')) as eligible_retention
     from metric_f f),
   scoped as materialized (select * from invoices where
     (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
-    and (v_status='' or lower(btrim(coalesce(status,'')))=v_status)
+    and (v_status='' or (case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'bad debits' else lower(btrim(coalesce(status,''))) end)=(case when v_status in ('bad debit','bad debits') then 'bad debits' else v_status end))
     and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
     and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)
     and (v_attention='' or case v_attention when 'overdue' then overdue when 'draftDue' then draft_due when 'draft' then workflow='draft' when 'waiting' then workflow='waiting' else false end)
@@ -99,7 +101,7 @@ begin
   advances as materialized (select a.id,a.po_id,a.payment_date,a.amount,p.customer_label as customer,p.department_label as department,p.project_label as project from public.po_advance_payments a join order_scope p on p.id=a.po_id
     where (select public.can_read_module('collections')) and a.payment_date is not null and (v_start is null or a.payment_date>=v_start) and (v_end is null or a.payment_date<=v_end)),
   operational as materialized (select * from invoices where workflow<>'cancelled' and (v_company='' or customer=v_company) and (v_department='' or department=v_department) and (v_project='' or project=v_project)
-    and (v_status='' or lower(btrim(coalesce(status,'')))=v_status) and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
+    and (v_status='' or (case when lower(btrim(coalesce(status,''))) in ('bad debit','bad debits') then 'bad debits' else lower(btrim(coalesce(status,''))) end)=(case when v_status in ('bad debit','bad debits') then 'bad debits' else v_status end)) and (v_payment='' or case when v_payment='Overdue' then overdue else payment=v_payment end)
     and (v_due_from is null or due_date>=v_due_from) and (v_due_to is null or due_date<=v_due_to)),
   focus_invoices as materialized (select i.id from live i where
     (v_focus='billed' and exists(select 1 from billed b where b.id=i.id))
@@ -122,7 +124,7 @@ begin
     'periodPoValue',coalesce((select (pg_catalog.floor(((coalesce((sum(gross)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders),0),
     'periodPoInvoiced',coalesce((select (pg_catalog.floor(((coalesce((sum(total)),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_live where workflow='issued' and approval_date is not null and (v_start is null or approval_date>=v_start) and (v_end is null or approval_date<=v_end)),0),
     'periodPoRemaining',coalesce((select (pg_catalog.floor(((coalesce((sum(greatest(0,p.gross-coalesce(b.billed,0)))),0)::double precision+2.220446049250313e-16::double precision)*100)+0.5)/100) from chart_period_orders p left join order_billing b on b.order_id=p.id),0)) as value),
-  progress_due as materialized (select * from chart_live where workflow='issued' and due_date<v_today and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
+  progress_due as materialized (select * from chart_live where workflow='issued' and lower(btrim(coalesce(status,''))) not in ('bad debit','bad debits') and due_date<v_today and (v_from is null or due_date>=v_from) and (v_to is null or due_date<=v_to)),
   progress_approval as materialized (select * from chart_live where workflow in ('issued','waiting') and invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_issuance as materialized (select * from chart_live where invoice_date<=v_today and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)),
   progress_json as (select jsonb_build_object(
@@ -162,7 +164,7 @@ begin
   group_json as (select coalesce(jsonb_agg(jsonb_build_object('dimension',dimension,'label',label,'amount',amount,'count',n) order by dimension,amount desc,label),'[]'::jsonb) as value from grouped),
   month_events as (
     select to_char(invoice_date,'YYYY-MM') as month,'invoiced' as series,total as amount from chart_live where workflow='issued' and invoice_date is not null and (v_start is null or invoice_date>=v_start) and (v_end is null or invoice_date<=v_end)
-    union all select to_char(due_date,'YYYY-MM'),'expected',total from chart_live where workflow='issued' and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)
+    union all select to_char(due_date,'YYYY-MM'),'expected',total from chart_live where workflow='issued' and lower(btrim(coalesce(status,''))) not in ('bad debit','bad debits') and due_date is not null and (v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)
     union all select to_char(collection_date,'YYYY-MM'),'actual',amount from chart_receipts
     union all select case when v_from is null and v_to is null and not v_all_dates and due_date<date_trunc('year',v_today)::date then 'earlier' else to_char(due_date,'YYYY-MM') end,'overdue',balance from chart_live where overdue
       and ((v_from is null and v_to is null and not v_all_dates) or ((v_start is null or due_date>=v_start) and (v_end is null or due_date<=v_end)))),
@@ -170,16 +172,18 @@ begin
   month_json as (select coalesce(jsonb_agg(jsonb_build_object('month',month,'series',series,'amount',amount) order by month,series),'[]'::jsonb) as value from month_sums),
   choices as (select distinct customer,department,project from invoices union select customer_label,department_label,project_label from po union select coalesce(nullif(btrim(company),''),'Unassigned'),coalesce(nullif(btrim(department),''),'Unassigned'),coalesce(nullif(btrim(project_name),''),'Unassigned') from pr where not exists(select 1 from po where po.project_id=pr.id)),
   choice_json as (select coalesce(jsonb_agg(to_jsonb(c) order by customer,department,project),'[]'::jsonb) as value from choices c),
-  status_json as (select coalesce(jsonb_agg(s order by s),'[]'::jsonb) as value from (select distinct btrim(status) as s from invoices where nullif(btrim(status),'') is not null) st)
+  status_json as (select coalesce(jsonb_agg(s order by s),'[]'::jsonb) as value from (select distinct case when lower(btrim(status)) in ('bad debit','bad debits') then 'Bad Debits' else btrim(status) end as s from invoices where nullif(btrim(status),'') is not null) st)
   select jsonb_build_object('version',1,'asOf',v_today,'reportDate',v_report_date,'year',extract(year from v_today)::integer,'allPeriods',v_all_dates,'groupMetric',p_group_metric,
     'chartFocus',v_focus,'chartTotals',chart_totals.value,'progress',progress_json.value,'totals',totals.value,'counts',counts.value,'alerts',alerts.value,'groups',group_json.value,'monthly',month_json.value,'choices',choice_json.value,'invoiceStatuses',status_json.value)
     into v_result from totals,counts,alerts,group_json,month_json,choice_json,status_json,progress_json,chart_totals;
   return v_result;
 end;
-$fn$;
+$function$
+;
 revoke all on function public.dashboard_summary_trial_v1(jsonb,text) from public,anon;
 grant execute on function public.dashboard_summary_trial_v1(jsonb,text) to authenticated;
-comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Financial dashboard summary. Security invoker; returns aggregates and filter labels only. Overdue is all-history unless dates are explicitly selected.';
+comment on function public.dashboard_summary_trial_v1(jsonb,text) is 'Financial dashboard aggregates. Bad Debits are excluded from open, collectible and overdue receivables; billing and actual receipts are preserved.';
+
 
 
 

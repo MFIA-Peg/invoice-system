@@ -27,7 +27,7 @@
     return {...m,invoiced,remaining,grossValue,grossInvoiced,grossRemaining,completed,status,closed:explicit(row)||completed};
   }
   function invoiceClosed(row){
-    if(/^(cancelled|canceled|void)$/i.test(text(row?.status).trim()))return true;
+    if(/^(cancelled|canceled|void|bad debits?)$/i.test(text(row?.status).trim()))return true;
     const records=PEAnnual.records();
     const po=records.orders.find(p=>String(p.id)===String(row.pos_id))||records.orders.find(p=>text(p.po_no)===text(row.po_no));
     const m=PEAnnual.metrics(row,po);
@@ -39,7 +39,7 @@
     if(!customerSources||key.some((v,i)=>v!==customerSources[i])){customerSources=key;customerBalanceMap=new Map();
       const get=n=>{if(!customerBalanceMap.has(n))customerBalanceMap.set(n,{openBalance:0,poBalance:0});return customerBalanceMap.get(n);};
       for(const p of d.orders)get(text(p.company)).poBalance+=Math.max(0,orderState(p).grossRemaining);
-      for(const i of d.invoices){if(!PEAnnual.isIssued(i))continue;const po=PEAnnual.orderFor(i),pr=d.projects.find(p=>text(p.id)===text(i.project_id));get(text(po?.company??pr?.company??i.company)).openBalance+=PEAnnual.metrics(i,po).remaining;}
+      for(const i of d.invoices){if(!PEAnnual.isIssued(i)||PEAnnual.isBadDebt(i))continue;const po=PEAnnual.orderFor(i),pr=d.projects.find(p=>text(p.id)===text(i.project_id));get(text(po?.company??pr?.company??i.company)).openBalance+=PEAnnual.metrics(i,po).remaining;}
     }
     return customerBalanceMap.get(text(name))||{openBalance:0,poBalance:0};
   }
@@ -188,6 +188,7 @@
   global.PEWorkspace={customerBalances,orderState,matches,invoiceClosed,explicit,customerClosed,monthly,openCustomer,renderDrill,refreshDrill,closedView,mount,openFromQuery};
   document.addEventListener('DOMContentLoaded',mount);
 })(window);
+
 
 
 

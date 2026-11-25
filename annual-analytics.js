@@ -45,7 +45,8 @@
     return 'issued';
   }
   const isIssued=invoice=>workflow(invoice)==='issued';
-  const isRetainedInvoice=invoice=>isIssued(invoice)&&String(invoice.invoice_no||'').trim()&&/^(approved|3-approved|partially paid|completed|paid|retention|bad debit)$/i.test(String(invoice.status||'').trim());
+  const isBadDebt=invoice=>/^bad debits?$/i.test(String(invoice?.status||'').trim());
+  const isRetainedInvoice=invoice=>isIssued(invoice)&&String(invoice.invoice_no||'').trim()&&/^(approved|3-approved|partially paid|completed|paid|retention|bad debits?)$/i.test(String(invoice.status||'').trim());
   let indexedOrders,byOrderId,byOrderNo;
   function orderFor(invoice) {
     if(indexedOrders!==data.orders){indexedOrders=data.orders;byOrderId=new Map(data.orders.map(p=>[String(p.id),p]));byOrderNo=new Map(data.orders.map(p=>[String(p.po_no),p]));}
@@ -64,8 +65,8 @@
     const remaining=round(Math.max(0,payableTotal-collected));
     const recordedRetention=round(Math.max(0,number(invoice.retention_amount)+number(invoice.retention_vat)-released));
     const retention=String(invoice.status||'').trim().toUpperCase()==='RETENTION'?remaining:Math.min(recordedRetention,remaining);
-    const balance=round(remaining-retention),d=due(invoice),overdue=d&&d<today?balance:0,notDue=round(balance-overdue);
-    return {net,vat,total,payableTotal,advance,advanceEx,collected,remaining,retention,balance,overdue,notDue};
+    const badDebt=isBadDebt(invoice),writtenOff=badDebt?round(remaining-retention):0,balance=badDebt?0:round(remaining-retention),d=due(invoice),overdue=d&&d<today?balance:0,notDue=round(balance-overdue);
+    return {net,vat,total,payableTotal,advance,advanceEx,collected,remaining,retention,balance,overdue,notDue,badDebt,writtenOff};
   }
   function unique(rows) {const seen=new Set();return rows.filter(row=>row.id==null||!seen.has(String(row.id))&&seen.add(String(row.id)));}
   function snapshot(scope = {}) {
@@ -162,7 +163,7 @@
     if(['orders','projects'].includes(scope?.profile)&&!document.getElementById('peReportDate')){const label=document.createElement('label');label.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px';label.textContent='Report Date';const input=document.createElement('input');input.id='peReportDate';input.type='date';input.value=today;input.setAttribute('aria-label','Report date');input.onchange=()=>document.dispatchEvent(new CustomEvent('pe-kpi-filter'));label.append(input);host.parentElement.insertBefore(label,host);}
     const s = snapshot(scope);
     const period=s.periodFrom||s.periodTo?(s.periodFrom||'Beginning')+' to '+(s.periodTo||'No end date'):scope?.allPeriods?'All activity dates':String(year);
-    const note='Totals include open and closed records within the selected dimensions. Pending Approval ignores the period. Draft includes invoice dates through '+s.asOf+'.';
+    const note=(scope?.recordState?'Totals follow the '+scope.recordState+' invoice state within the selected dimensions. ':'Totals include open and closed records within the selected dimensions. ')+'Pending Approval ignores the period. Draft includes invoice dates through '+s.asOf+'.';
     let cards=[
       ['Billing Incl VAT',s.totals.billed,'Approval date',s.billed.length,'Ex VAT '+currency.format(s.totals.billedNet)+' · VAT '+currency.format(s.totals.billedVat)],
       ['Collections',s.totals.collections,'Collection date · excludes advances',new Set(s.collections.map(c=>String(c.invoice_id))).size,''],
@@ -187,7 +188,7 @@
     global.PEKPIFilter?.bind(host,s,scope);
     return s;
   }
-  global.PEAnnual = {load, render, chart, snapshot, get year(){return year;}, inYear, due, metrics,workflow,isIssued,isRetainedInvoice,orderGross,orderFor,round,records: () => data};
+  global.PEAnnual = {load, render, chart, snapshot, get year(){return year;}, inYear, due, metrics,workflow,isIssued,isBadDebt,isRetainedInvoice,orderGross,orderFor,round,records: () => data};
 })(window);
 
 (function(global){
@@ -239,6 +240,7 @@ function bindOrders(host){toolbar(host);host.querySelectorAll('.kpi').forEach(no
 global.PEKPIFilter={selection,filter,filterOrders,bind,bindOrders,bindDonuts,clear,set:(label,profile='reports',notify=true)=>{active=label?{label,profile}:null;if(notify)changed();},active:()=>active,matches};
 document.addEventListener('click',event=>{if(event.target.closest?.('#clear,#clearFilters,#customerClear,[onclick="clearFilters()"],[onclick="resetFilters()"]'))active=null;},true);
 })(window);
+
 
 
 

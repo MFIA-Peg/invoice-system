@@ -35,11 +35,11 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 :where(button,input,select,textarea){font-size:15px}
 }
 </style>
-<script src="annual-analytics.js?v=20261125dates1"></script>
+<script src="annual-analytics.js?v=20261125r56"></script>
 <script src="advance-payments.js?v=20261124seven1"></script>
 
 <link rel="stylesheet" href="workspace-layout.css?v=20261117b">
-<script src="workspace-ui.js?v=20261124report1"></script>
+<script src="workspace-ui.js?v=20261125r56"></script>
 <link rel="stylesheet" href="compact-layout.css?v=20261118c">
 <script src="searchable-selects.js?v=20261118b" defer></script>
 <link rel="stylesheet" href="register-table.css?v=20261118a">
@@ -59,7 +59,7 @@ button,.btn{border:0;border-radius:8px;padding:9px 13px;background:var(--blue);c
 #tableWrap col{width:auto!important}#tableWrap col:last-child{width:120px!important}
 #tableWrap th{font-size:10px!important}#registerPager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}
 #registerPager button{min-width:36px;padding:7px 10px}
-</style><script src="entry-dialog.js?v=20261125records1" defer></script>
+</style><script src="entry-dialog.js?v=20261125r56" defer></script>
 <script src="excel-export.js?v=20261123h" defer></script>
 <style>.pill.expired{background:#fee2e2;color:#991b1b}#tableWrap table{min-width:1000px!important}</style><link rel="stylesheet" href="access-date-filters.css?v=20261125dates1"><script src="access-date-filters.js?v=20261125dates1" defer></script></head>
 <body>
@@ -265,6 +265,7 @@ const advancePaymentsButton=PEAdvancePayments.mount(document.querySelector('.her
 if(advancePaymentsButton){const syncAdvanceButton=()=>{advancePaymentsButton.hidden=!PEAccess.can('collections','view');};document.addEventListener('pe-access-ready',syncAdvanceButton);syncAdvanceButton();}
 </script>
 </body></html>
+
 
 
 
